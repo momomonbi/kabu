@@ -1316,7 +1316,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.3.0</span>
+      <span class="app-version-tag">v1.3.1</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1508,7 +1508,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v1.3.1';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -3222,7 +3222,7 @@ ${learningsBlock}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502|Load failed|Failed to fetch|NetworkError|network error/i.test(errStr) && retryCount < MAX_RETRIES) {
+    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
@@ -3234,7 +3234,13 @@ ${learningsBlock}
     setPhase('❌', 'ハイブリッドモードでエラー', errStr);
     addActivity(`❌ ${errStr}`);
     let msg = '❌ ハイブリッドモードでエラー: ' + errStr;
-    if (errStr.includes('Failed to fetch')) msg += '\n\n💡 ネットワーク接続を確認してください。';
+    if (/Load failed|Failed to fetch|NetworkError|network error/i.test(errStr)) {
+      // iOS Safari は長時間アイドルなストリーミング fetch を強制切断する。
+      // 自動リトライすると Phase A #1 から全検索が再実行されて料金が二重になるため
+      // 自動リトライは行わない。ユーザーに手動再実行を促す。
+      msg += '\n\n💡 通信が切断されました(iOS Safari の既知の挙動・約2分のアイドルで自動切断)。';
+      msg += '\n💡 自動リトライはコストが高いため行いません。手動で再実行してください。';
+    }
     else if (errStr.includes('401')) msg += '\n\n💡 APIキーが正しいか確認してください。';
     else if (errStr.includes('429')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
     else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。`;
@@ -4443,7 +4449,7 @@ ${stylePeriodsListItems}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502|Load failed|Failed to fetch|NetworkError|network error/i.test(errStr) && retryCount < MAX_RETRIES) {
+    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
@@ -4455,7 +4461,10 @@ ${stylePeriodsListItems}
     setPhase('❌', 'エラーが発生しました', errStr);
     addActivity(`❌ ${errStr}`);
     let msg = '❌ エラー: ' + errStr;
-    if (errStr.includes('Failed to fetch') || errStr.includes('NetworkError')) msg += '\n\n💡 ネットワーク接続を確認してください。';
+    if (/Load failed|Failed to fetch|NetworkError|network error/i.test(errStr)) {
+      msg += '\n\n💡 通信が切断されました(iOS Safari の既知の挙動・約2分のアイドルで自動切断)。';
+      msg += '\n💡 自動リトライはコストが高いため行いません。手動で再実行してください。';
+    }
     else if (errStr.includes('401') || errStr.includes('authentication')) msg += '\n\n💡 APIキーが正しいか確認してください。';
     else if (errStr.includes('429') || errStr.includes('rate')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
     else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。数分後に再度お試しください。`;
