@@ -402,10 +402,31 @@ label {
   font-family: 'SF Mono', Consolas, monospace;
   color: #6d28d9;
   display: none;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
 }
-.current-query.active { display: block; }
+.current-query.active { display: flex; }
+.current-query::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #8b5cf6, #3b82f6);
+  border-radius: 2px;
+  animation: live-ticker-pulse 1.1s ease-in-out infinite;
+}
+@keyframes live-ticker-pulse {
+  0%, 100% { opacity: 0.35; transform: scaleY(0.7); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
 .current-query-label {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
   font-size: 10.5px;
   font-weight: 700;
   color: var(--text-muted);
@@ -413,6 +434,14 @@ label {
   margin-right: 6px;
   text-transform: uppercase;
   font-family: inherit;
+  padding-left: 8px;
+}
+#currentQueryText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 0.08s ease;
 }
 .current-phase {
   display: flex; align-items: center; gap: 14px; padding: 16px;
@@ -1243,7 +1272,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.1.1</span>
+      <span class="app-version-tag">v1.2.0</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1439,7 +1468,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.1.1';
+const APP_VERSION = 'v1.2.0';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -1657,6 +1686,38 @@ function showCurrentQuery(query) {
   currentQueryEl.classList.add('active');
 }
 function hideCurrentQuery() { currentQueryEl.classList.remove('active'); }
+
+// ★ Live ticker — rapidly updating single-line status during analysis
+// label: 短いラベル (例: "検索 #3"), text: 本文(クエリや生成中テキストの末尾)
+function updateLiveTicker(icon, label, text) {
+  const labelEl = currentQueryEl.querySelector('.current-query-label');
+  if (labelEl) labelEl.textContent = `${icon} ${label}`;
+  currentQueryText.textContent = text || '';
+  currentQueryEl.classList.add('active');
+}
+
+// ★ Token estimation — rough char→token conversion for live cost preview
+// Japanese-heavy text: ~2.5 chars/token. JSON/structured: ~3 chars/token.
+function estimateTokens(text) {
+  if (!text) return 0;
+  return Math.ceil(text.length / 2.5);
+}
+
+// ★ Extract partial query from streaming tool input JSON (partial JSON safe)
+function extractPartialQuery(partialJson) {
+  if (!partialJson) return '';
+  const m = partialJson.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if (!m) return '';
+  try { return JSON.parse(`"${m[1]}"`); } catch { return m[1]; }
+}
+
+// ★ Truncate text for ticker (keep tail for "currently being generated" feel)
+function tickerTail(text, n = 80) {
+  if (!text) return '';
+  const stripped = text.replace(/\s+/g, ' ').trim();
+  if (stripped.length <= n) return stripped;
+  return '…' + stripped.slice(-n);
+}
 
 const historyList = document.getElementById('historyList');
 const historyCount = document.getElementById('historyCount');
@@ -2720,13 +2781,28 @@ ${stylePeriodsListItems}
             setProgressPercent(Math.min(45, 10 + phase1Search * 3));
             setPhase('🔍', `${phaseLabel} - 検索 ${phase1Search}/15`, `${researchModelLabel} が情報収集中...`);
             addActivity(`🔍 ${phaseLabel} #${phase1Search}`);
+            updateLiveTicker('🔎', `検索 #${phase1Search}`, 'クエリを生成中…');
+          } else if (block && block.type === 'web_search_tool_result') {
+            updateLiveTicker('📥', `検索 #${phase1Search}`, '検索結果を受信、解析開始…');
           }
         }
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
-          if (delta && delta.type === 'text_delta') researchText += delta.text;
+          if (delta && delta.type === 'text_delta') {
+            researchText += delta.text;
+            updateLiveTicker('📝', `リサーチ生成中 (${researchText.length.toLocaleString()}字)`, tickerTail(researchText, 90));
+            // ★ Live cost estimate: actual input_tokens × rate + estimated output_tokens × rate
+            const _r = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+            const estOut = Math.max(phase1Out, estimateTokens(researchText));
+            updateRunningCost((phase1In * (_r.inputCost || 5) + estOut * (_r.outputCost || 25)) / 1000000);
+            updateStats({ inputTokens: phase1In, outputTokens: estOut, chars: researchText.length });
+          }
           if (delta && delta.type === 'input_json_delta' && parsed.index === phase1ToolIndex) {
             phase1ToolInput += delta.partial_json || '';
+            const partialQuery = extractPartialQuery(phase1ToolInput);
+            if (partialQuery) {
+              updateLiveTicker('🔎', `検索 #${phase1Search} クエリ生成中`, `"${partialQuery}"`);
+            }
           }
         }
         if (parsed.type === 'content_block_stop' && parsed.index === phase1ToolIndex && phase1ToolInput) {
@@ -2734,7 +2810,8 @@ ${stylePeriodsListItems}
             const inp = JSON.parse(phase1ToolInput);
             if (inp.query) {
               addActivity(`🔎 クエリ: "${inp.query}"`);
-              showCurrentQuery(inp.query);
+              const phaseLabel = phase1Search <= 5 ? 'Phase A' : phase1Search <= 12 ? 'Phase B 深掘り' : 'Phase C';
+              updateLiveTicker('🔍', `${phaseLabel} 検索中 #${phase1Search}`, `"${inp.query}"`);
             }
           } catch {}
           phase1ToolIndex = null; phase1ToolInput = '';
@@ -2925,6 +3002,16 @@ ${learningsBlock}
               setProgressPercent(50 + Math.floor(sec.pct / 2));
               addActivity(`📝 ${sec.name}`);
             }
+            // ★ Live ticker — show tail of generated text + live cost estimate
+            const sectionLabel = currentSectionName || '本文生成中';
+            updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
+            const _r1Live = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+            const _r2Live = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
+            const estPhase2Out = Math.max(phase2Out, estimateTokens(accumulatedText));
+            const liveCost = (phase1In * (_r1Live.inputCost || 5) + phase1Out * (_r1Live.outputCost || 25) +
+                              phase2In * (_r2Live.inputCost || 1) + estPhase2Out * (_r2Live.outputCost || 5)) / 1000000;
+            updateRunningCost(liveCost);
+            updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + estPhase2Out, chars: accumulatedText.length });
             const stockCount = countStocks(accumulatedText);
             if (stockCount !== lastStockCount && currentSectionName && currentSectionName.includes('銘柄')) {
               lastStockCount = stockCount;
@@ -2935,7 +3022,7 @@ ${learningsBlock}
         if (parsed.type === 'message_delta') {
           if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
           if (parsed.usage) phase2Out = parsed.usage.output_tokens || phase2Out;
-          // Update running cost (Phase1 + Phase2 combined)
+          // Update running cost (Phase1 + Phase2 combined) with actual tokens
           const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
           const totalCost = (phase1In * (_r1.inputCost || 5) + phase1Out * (_r1.outputCost || 25) +
@@ -4058,18 +4145,22 @@ ${stylePeriodsListItems}
               stepSearchCount.textContent = `${searchCount}回`;
               setPhase('🔍', `Web検索中 (${searchCount}回目)`, '最新の市場情報を取得しています...');
               addActivity(`🔍 Web検索 #${searchCount} を実行中`);
+              updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリを生成中…');
             } else if (block && block.type === 'web_search_tool_result') {
               setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
               addActivity(`📥 検索結果 #${searchCount} を取得`);
+              updateLiveTicker('📥', `検索結果 #${searchCount}`, '受信完了、解析開始…');
             } else if (block && block.type === 'text') {
               setStep('search', 'done'); setStep('generate', 'active');
               setProgressPercent(30);
               setPhase('✍️', '分析テキストを生成中', 'AIが結果を文書化しています');
               addActivity('✍️ 分析の本文生成を開始');
               if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+              updateLiveTicker('✍️', '本文生成中', '出力を開始…');
             } else if (block && block.type === 'thinking') {
               setPhase('🧠', 'AI が思考中', '入力情報を整理し、分析方針を組み立てています');
               addActivity('🧠 思考ブロック開始');
+              updateLiveTicker('🧠', '思考中', '分析方針を組み立て中…');
             }
           }
           else if (parsed.type === 'content_block_delta') {
@@ -4087,6 +4178,13 @@ ${stylePeriodsListItems}
               } else if (currentSectionName) {
                 phaseDetailEl.textContent = `${accumulatedText.length.toLocaleString()}文字生成済み`;
               }
+              // ★ Live ticker + cost estimate
+              const sectionLabel = currentSectionName || '本文生成中';
+              updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
+              const _rLive = MODELS[model] || { inputCost: 5, outputCost: 25 };
+              const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
+              updateRunningCost((inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000);
+              updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
               const stockCount = countStocks(accumulatedText);
               if (stockCount !== lastStockCount && currentSectionName === '推奨銘柄を分析中') {
                 lastStockCount = stockCount;
@@ -4095,6 +4193,10 @@ ${stylePeriodsListItems}
               }
             } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
               pendingToolInput += delta.partial_json || '';
+              const partialQuery = extractPartialQuery(pendingToolInput);
+              if (partialQuery) {
+                updateLiveTicker('🔎', `検索 #${searchCount} クエリ生成中`, `"${partialQuery}"`);
+              }
             }
           }
           else if (parsed.type === 'content_block_stop') {
@@ -4104,6 +4206,7 @@ ${stylePeriodsListItems}
                 if (inp.query) {
                   phaseDetailEl.textContent = `クエリ: "${inp.query}"`;
                   addActivity(`🔎 クエリ: "${inp.query}"`);
+                  updateLiveTicker('🔍', `検索中 #${searchCount}`, `"${inp.query}"`);
                 }
               } catch {}
               pendingToolIndex = null; pendingToolInput = '';
@@ -4115,6 +4218,10 @@ ${stylePeriodsListItems}
               if (parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
               if (parsed.usage.input_tokens !== undefined) inputTokens = parsed.usage.input_tokens;
             }
+            // ★ Real-time cost with actual tokens
+            const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
+            updateRunningCost((inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000);
+            updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
           }
           else if (parsed.type === 'message_stop') {
             addActivity('🏁 ストリーム完了');
