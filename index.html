@@ -72,6 +72,24 @@ header { text-align: center; padding: 24px 0 20px; }
   color: var(--text-primary);
   margin: 0;
 }
+.app-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary, #6b7280);
+  background: rgba(127, 127, 127, 0.08);
+  border: 1px solid var(--border-glass, rgba(127, 127, 127, 0.18));
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.app-version-tag { font-weight: 700; color: var(--text-primary, #111); }
+.app-version-date { opacity: 0.75; }
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-glass);
@@ -1224,6 +1242,10 @@ label {
 <div class="app">
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
+    <div class="app-version" id="appVersion" title="プログラムのバージョン">
+      <span class="app-version-tag">v1.1.0</span>
+      <span class="app-version-date">2026-05-12</span>
+    </div>
   </header>
 
   <button type="button" id="apiIndicator" class="api-indicator" title="クリックして API 設定を開く">
@@ -1414,11 +1436,27 @@ label {
 </div>
 
 <script>
+// ★★★ プログラムのバージョン ★★★
+// プログラムを更新したら必ずここを更新してください。
+// 上部のヘッダーに表示されます。
+const APP_VERSION = 'v1.1.0';
+const APP_VERSION_DATE = '2026-05-12';
+
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
 const DB_NAME = 'stock_analyzer_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'analyses';
+
+// ヘッダーのバージョン表示を APP_VERSION / APP_VERSION_DATE と同期
+(function syncAppVersionBadge() {
+  const el = document.getElementById('appVersion');
+  if (!el) return;
+  const tag = el.querySelector('.app-version-tag');
+  const date = el.querySelector('.app-version-date');
+  if (tag) tag.textContent = APP_VERSION;
+  if (date) date.textContent = APP_VERSION_DATE;
+})();
 
 const MODELS = {
   'claude-haiku-4-5': {
