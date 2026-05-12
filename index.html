@@ -1,0 +1,4604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fb">
+<title>銘柄分析推奨アプリ | Powered by Claude</title>
+<style>
+:root {
+  --bg-base: #f5f7fb;
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-input: rgba(255, 255, 255, 0.85);
+  --border-glass: rgba(15, 23, 42, 0.08);
+  --border-active: rgba(59, 130, 246, 0.5);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-purple: #8b5cf6;
+  --accent-pink: #ec4899;
+  --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.06);
+  --shadow-glow: 0 8px 30px rgba(59, 130, 246, 0.25);
+  --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  --gradient-paypay: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.65;
+  overflow-x: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.bg-mesh {
+  position: fixed; inset: 0; z-index: -2;
+  background:
+    radial-gradient(at 15% 20%, rgba(59, 130, 246, 0.28) 0px, transparent 50%),
+    radial-gradient(at 85% 10%, rgba(139, 92, 246, 0.25) 0px, transparent 50%),
+    radial-gradient(at 5% 90%, rgba(16, 185, 129, 0.22) 0px, transparent 50%),
+    radial-gradient(at 95% 95%, rgba(236, 72, 153, 0.24) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(6, 182, 212, 0.18) 0px, transparent 60%),
+    var(--bg-base);
+  animation: meshFloat 20s ease-in-out infinite alternate;
+}
+@keyframes meshFloat { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.1) translate(-2%, 2%); } }
+.bg-grid {
+  position: fixed; inset: 0; z-index: -1;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  opacity: 0.6;
+}
+.app { max-width: 920px; margin: 0 auto; padding: 20px 16px 100px; }
+header { text-align: center; padding: 24px 0 20px; }
+.app-title {
+  font-size: clamp(1.5rem, 4.5vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 0;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-card);
+}
+.card-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.95rem; font-weight: 700; margin-bottom: 18px;
+  color: var(--text-primary);
+}
+.card-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 12px;
+  background: var(--gradient-primary); font-size: 18px;
+  box-shadow: var(--shadow-glow); color: white;
+}
+.card-icon.green { background: var(--gradient-success); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
+.card-icon.paypay { background: var(--gradient-paypay); box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3); }
+.card-icon.warm { background: var(--gradient-warm); box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3); }
+.count-badge {
+  margin-left: auto;
+  padding: 3px 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.api-key-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.api-key-row input { flex: 1; min-width: 200px; }
+.icon-btn {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-input); border: 1px solid var(--border-glass);
+  border-radius: 12px; color: var(--text-secondary);
+  cursor: pointer; font-size: 16px;
+  transition: all 0.2s;
+}
+.icon-btn:hover { background: rgba(255, 255, 255, 1); color: var(--text-primary); border-color: var(--border-active); box-shadow: var(--shadow-card); }
+.icon-btn:active { transform: scale(0.95); }
+input, select, textarea {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  transition: all 0.2s;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent-blue);
+  background: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%23475569' d='M6 8L0 0h12z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+  cursor: pointer;
+}
+textarea { min-height: 80px; resize: vertical; }
+.field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+label {
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  letter-spacing: 0.02em; text-transform: uppercase;
+}
+.model-info {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 12px;
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+.model-info-row { display: flex; justify-content: space-between; gap: 10px; }
+.model-info-label { color: var(--text-secondary); font-weight: 600; }
+.model-info-value { color: var(--text-primary); font-weight: 700; }
+.model-rating { color: #f59e0b; letter-spacing: 1px; }
+.segmented {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px;
+  background: rgba(15, 23, 42, 0.04); border: 1.5px solid var(--border-glass);
+  border-radius: 14px;
+}
+.segmented input { display: none; }
+.segmented label {
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px 8px; font-size: 13px; font-weight: 600;
+  border-radius: 10px; cursor: pointer; transition: all 0.2s;
+  text-transform: none; letter-spacing: 0; text-align: center;
+  color: var(--text-secondary); user-select: none;
+}
+.segmented input:checked + label {
+  background: var(--gradient-primary); color: white;
+  box-shadow: var(--shadow-glow);
+}
+.segmented label:hover { color: var(--text-primary); }
+.segmented input:checked + label:hover { color: white; }
+.grid-2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.notice {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 12px 16px; border-radius: 12px;
+  font-size: 12.5px; color: #92400e; margin-top: 14px; line-height: 1.6;
+}
+.notice a { color: #b45309; text-decoration: underline; }
+.analyze-wrap { position: sticky; bottom: 16px; z-index: 10; margin: 20px 0; }
+.analyze-btn {
+  width: 100%;
+  background: var(--gradient-primary);
+  background-size: 200% 200%;
+  color: white; border: none;
+  padding: 18px; border-radius: 16px;
+  font-size: 17px; font-weight: 700;
+  cursor: pointer; transition: all 0.3s;
+  letter-spacing: 0.02em; position: relative; overflow: hidden;
+  animation: gradientShift 6s ease infinite;
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.3);
+}
+@keyframes gradientShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.analyze-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-100%); transition: transform 0.6s;
+}
+.analyze-btn:hover::before { transform: translateX(100%); }
+.analyze-btn:active { transform: scale(0.98); }
+.analyze-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.progress-panel {
+  display: none;
+  background: var(--bg-card); border: 1px solid var(--border-glass);
+  border-radius: 24px; padding: 20px; margin-bottom: 16px;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-card);
+  animation: slideIn 0.3s ease;
+}
+.progress-panel.active { display: block; }
+.progress-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px; gap: 10px; flex-wrap: wrap;
+}
+.live-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 100px;
+  font-size: 12px; font-weight: 700; color: #047857; letter-spacing: 0.1em;
+}
+.live-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.4); } }
+
+/* ===== API Indicator (shown when key is registered) ===== */
+.api-indicator {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(16, 185, 129, 0.4);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #047857;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.12);
+  font-family: inherit;
+  letter-spacing: 0.04em;
+}
+.api-indicator.active { display: inline-flex; }
+.api-indicator:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.2);
+  transform: translateY(-1px);
+}
+.api-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 12px var(--accent-green), 0 0 24px rgba(16, 185, 129, 0.4);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.api-indicator-cog {
+  margin-left: 4px;
+  opacity: 0.5;
+  font-size: 11px;
+  transition: transform 0.3s;
+}
+.api-indicator:hover .api-indicator-cog {
+  opacity: 0.8;
+  transform: rotate(60deg);
+}
+.card-close-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.card-close-btn.active { display: inline-flex; }
+.card-close-btn:hover { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3); }
+
+.elapsed-time {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 100px;
+  font-size: 13px; font-weight: 700; color: #1d4ed8;
+  font-variant-numeric: tabular-nums;
+}
+.running-cost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 100px;
+  font-size: 13px; font-weight: 700; color: #047857;
+  font-variant-numeric: tabular-nums;
+}
+.search-counter {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 100px;
+  font-size: 13px; font-weight: 700; color: #7c3aed;
+  font-variant-numeric: tabular-nums;
+}
+.stop-btn {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+  border: none;
+  border-radius: 100px;
+  font-size: 12.5px; font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+.stop-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+}
+.stop-btn:active { transform: scale(0.96); }
+.stop-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.detail-stats {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.detail-stat {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.detail-stat strong { color: var(--text-primary); }
+.current-query {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(59, 130, 246, 0.06));
+  border: 1px dashed rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 10px 0;
+  font-size: 12px;
+  font-family: 'SF Mono', Consolas, monospace;
+  color: #6d28d9;
+  display: none;
+}
+.current-query.active { display: block; }
+.current-query-label {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-right: 6px;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+.current-phase {
+  display: flex; align-items: center; gap: 14px; padding: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 16px; margin-bottom: 16px;
+}
+.phase-icon {
+  font-size: 28px; width: 52px; height: 52px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 14px; background: white;
+  box-shadow: var(--shadow-card); flex-shrink: 0;
+  animation: phaseIconBob 2s ease-in-out infinite;
+}
+@keyframes phaseIconBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.phase-text { flex: 1; min-width: 0; }
+.phase-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.phase-detail { font-size: 13px; color: var(--text-secondary); word-break: break-word; }
+.progress-bar {
+  height: 6px; background: rgba(15, 23, 42, 0.06);
+  border-radius: 100px; overflow: hidden; margin-bottom: 16px;
+}
+.progress-fill {
+  height: 100%; background: var(--gradient-primary); background-size: 200% 100%;
+  border-radius: 100px; width: 0%; transition: width 0.5s ease;
+  animation: gradientShift 3s linear infinite;
+}
+.step-list { display: grid; gap: 8px; margin-bottom: 16px; }
+.step {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border-glass); border-radius: 12px;
+  font-size: 13px; color: var(--text-secondary); transition: all 0.3s;
+}
+.step.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.08));
+  border-color: var(--border-active); color: var(--text-primary); font-weight: 600;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+.step.done { background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.25); color: #047857; }
+.step-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; font-size: 14px; flex-shrink: 0;
+}
+.step.active .step-icon { animation: spin 1.5s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.step-count { margin-left: auto; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.step.active .step-count { color: var(--accent-blue); }
+.step.done .step-count { color: #047857; }
+.activity-log {
+  background: rgba(255, 255, 255, 0.5); border: 1px solid var(--border-glass);
+  border-radius: 12px; padding: 12px;
+}
+.log-header {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;
+}
+.log-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; }
+.log-item {
+  font-size: 12px; color: var(--text-secondary);
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 4px 0; border-bottom: 1px dashed rgba(15, 23, 42, 0.06);
+  word-break: break-word; animation: logSlide 0.3s ease;
+}
+.log-item:last-child { border-bottom: none; }
+@keyframes logSlide { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+.log-time { flex-shrink: 0; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; width: 56px; }
+.log-text { flex: 1; }
+.status {
+  display: none;
+  background: var(--bg-card); border: 1px solid var(--border-glass);
+  border-radius: 16px; padding: 16px 20px; margin-bottom: 16px;
+  font-size: 14px;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: slideIn 0.3s ease;
+  color: var(--text-primary); box-shadow: var(--shadow-card);
+}
+@keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.status.active { display: block; }
+.status.error { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.3); color: #b91c1c; white-space: pre-wrap; }
+.status.success { background: rgba(16, 185, 129, 0.06); border-color: rgba(16, 185, 129, 0.3); color: #047857; }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(59, 130, 246, 0.15); border-top-color: var(--accent-blue);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  vertical-align: -2px; margin-right: 8px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border-glass); border-radius: 100px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.chip-value { color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+.result {
+  display: none;
+  background: var(--bg-card); border: 1px solid var(--border-glass);
+  border-radius: 24px; padding: 28px 24px;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-card);
+  animation: slideIn 0.4s ease;
+  word-wrap: break-word; overflow-wrap: break-word;
+}
+.result.active { display: block; }
+.result-actions {
+  display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  padding-bottom: 16px; border-bottom: 1px solid var(--border-glass);
+}
+.result-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px; font-size: 13px; font-weight: 600;
+  color: var(--text-secondary); cursor: pointer;
+  transition: all 0.2s;
+}
+.result-btn:hover { background: white; color: var(--text-primary); box-shadow: var(--shadow-card); }
+.result-btn:active { transform: scale(0.97); }
+.result-btn.primary {
+  background: var(--gradient-primary); color: white; border-color: transparent;
+}
+.result-btn.primary:hover { color: white; box-shadow: var(--shadow-glow); }
+.result h1, .result h2, .result h3, .result h4 { margin: 24px 0 12px; line-height: 1.3; font-weight: 700; }
+.result h1 {
+  font-size: 1.6rem;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.result h2 {
+  font-size: 1.35rem;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  padding-bottom: 10px; border-bottom: 1px solid var(--border-glass);
+  margin-top: 32px;
+}
+.result h2:first-child { margin-top: 0; }
+.result h3 { font-size: 1.1rem; color: #047857; padding-left: 12px; border-left: 3px solid var(--accent-green); }
+.result h4 { font-size: 1rem; color: #0e7490; }
+.result p { margin-bottom: 12px; color: var(--text-primary); }
+.result ul, .result ol { margin: 12px 0; padding-left: 24px; }
+.result li { margin-bottom: 8px; padding-left: 4px; }
+.result li::marker { color: var(--accent-blue); }
+.result strong { color: #b45309; font-weight: 700; }
+.result em { color: #7c3aed; }
+.result code {
+  background: rgba(15, 23, 42, 0.05); border: 1px solid var(--border-glass);
+  padding: 2px 8px; border-radius: 6px;
+  font-family: 'SF Mono', 'Consolas', monospace; color: #047857; font-size: 0.9em;
+}
+.result pre {
+  background: rgba(15, 23, 42, 0.05); border: 1px solid var(--border-glass);
+  padding: 16px; border-radius: 12px; overflow-x: auto; margin: 12px 0;
+}
+.result pre code { background: none; border: none; padding: 0; }
+.result a { color: var(--accent-blue); text-decoration: none; border-bottom: 1px dotted var(--accent-blue); }
+.result a:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+.result hr { border: none; border-top: 1px solid var(--border-glass); margin: 20px 0; }
+.result blockquote {
+  border-left: 3px solid var(--accent-blue); padding-left: 16px;
+  margin: 12px 0; color: var(--text-secondary); font-style: italic;
+}
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+.history-empty { color: var(--text-muted); text-align: center; padding: 20px; font-size: 13px; }
+.history-item {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 14px;
+  transition: all 0.2s;
+}
+.history-item:hover { background: white; border-color: var(--border-active); box-shadow: var(--shadow-card); }
+.history-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.history-title-icon { flex-shrink: 0; font-size: 16px; opacity: 0.8; }
+.history-title-text {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.history-title-fallback {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.history-meta {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.history-meta-item {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; background: rgba(15, 23, 42, 0.04);
+  border-radius: 100px;
+}
+.history-meta-item.model {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+  color: #1d4ed8; font-weight: 600;
+}
+.history-preview {
+  font-size: 12.5px; color: var(--text-secondary);
+  line-height: 1.6; margin-bottom: 10px;
+  display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4;
+  -webkit-box-orient: vertical; overflow: hidden;
+  white-space: pre-wrap;
+  background: rgba(15, 23, 42, 0.03);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid rgba(139, 92, 246, 0.4);
+}
+.history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.history-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; background: white;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px; font-size: 12px; font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.history-btn:hover { color: var(--text-primary); border-color: var(--border-active); }
+.history-btn.danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
+.history-btn.primary {
+  background: var(--gradient-primary); color: white; border-color: transparent;
+}
+.history-btn.primary:hover { color: white; box-shadow: var(--shadow-glow); }
+.history-clear-all {
+  margin-top: 12px; text-align: right;
+}
+.mode-toggle {
+  display: flex; gap: 6px; padding: 4px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+.mode-option {
+  flex: 1;
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.mode-option:hover { color: var(--text-primary); }
+.mode-option.active {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+.mode-option.active:hover { color: white; }
+.review-notice {
+  display: none;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #1d4ed8;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.review-notice.active { display: block; }
+.learning-banner {
+  display: none;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #047857;
+  margin-bottom: 16px;
+  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.learning-banner.active { display: flex; }
+.learning-banner-count {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  color: white;
+  border-radius: 100px;
+  font-weight: 700;
+  font-size: 12px;
+}
+/* ===== Prediction Chart ===== */
+.prediction-chart {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.prediction-chart h3.chart-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  padding: 0;
+  border: none;
+  background: none;
+  -webkit-text-fill-color: var(--text-primary);
+  display: block;
+}
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.chart-svg-wrap {
+  background: white;
+  border-radius: 12px;
+  padding: 8px;
+  border: 1px solid var(--border-glass);
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.chart-svg-wrap svg {
+  width: 100%;
+  min-width: 480px;
+  height: auto;
+  display: block;
+}
+.chart-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-glass);
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.chart-legend-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+}
+.chart-legend-line {
+  display: inline-block;
+  width: 24px; height: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chart-legend-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+.chart-legend-pct {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.chart-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+.chart-summary-item {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+}
+.chart-summary-name { font-weight: 700; color: var(--text-primary); }
+.chart-summary-ticker { font-size: 11px; color: var(--text-muted); }
+.chart-summary-prices {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.chart-loading {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px dashed rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 16px 0;
+}
+
+/* ===== Chip Guide (Haiku-powered request builder) ===== */
+.chip-guide-actions {
+  display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+}
+.chip-guide-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(236, 72, 153, 0.12));
+  border: 1.5px solid rgba(139, 92, 246, 0.35);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6d28d9;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.chip-guide-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2));
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+  transform: translateY(-1px);
+}
+.chip-guide-btn:active { transform: scale(0.97); }
+.chip-guide-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.chip-reset-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.chip-reset-btn:hover { background: rgba(239, 68, 68, 0.08); color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3); }
+.chip-panel {
+  display: none;
+  margin-top: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(236, 72, 153, 0.05));
+  border: 1.5px solid rgba(139, 92, 246, 0.25);
+  border-radius: 14px;
+  animation: slideIn 0.3s ease;
+}
+.chip-panel.active { display: block; }
+.chip-panel-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(139, 92, 246, 0.2);
+  flex-wrap: wrap;
+}
+.chip-step {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: white;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.chip-step-title {
+  flex: 1; min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.chip-close-btn {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.chip-close-btn:hover { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); }
+.chip-breadcrumb {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  min-height: 0;
+}
+.chip-breadcrumb:empty { display: none; }
+.chip-bc-item {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px;
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+  border-radius: 100px;
+  font-weight: 600;
+}
+.chip-bc-sep { color: var(--text-muted); }
+.chip-list {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  min-height: 44px;
+}
+.chip-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  background: white;
+  border: 1.5px solid rgba(139, 92, 246, 0.3);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.03);
+  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+}
+.chip-button:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(236, 72, 153, 0.12));
+  border-color: rgba(139, 92, 246, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(139, 92, 246, 0.2);
+}
+.chip-button:active { transform: scale(0.97); }
+.chip-button .chip-label-text {
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+.chip-button .chip-desc {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-top: 1px;
+  white-space: normal;
+  word-break: break-word;
+}
+.chip-button:hover .chip-desc { color: var(--text-primary); }
+.chip-button.done {
+  flex-direction: row;
+  align-items: center;
+  background: linear-gradient(135deg, #10b981, #06b6d4);
+  color: white;
+  border-color: transparent;
+  font-weight: 700;
+  border-radius: 100px;
+  padding: 12px 20px;
+}
+.chip-button.done:hover {
+  background: linear-gradient(135deg, #059669, #0891b2);
+  color: white;
+}
+.chip-button.done .chip-label-text { color: white; font-size: 13.5px; }
+.chip-button.done .chip-desc { color: rgba(255,255,255,0.9); }
+.chip-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+.chip-loading {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -1px;
+}
+
+/* ===== Event Calendar ===== */
+.event-calendar {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(236, 72, 153, 0.06));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.calendar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.calendar-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.calendar-events {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cal-event {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 14px;
+  align-items: stretch;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+.cal-event:hover { background: white; box-shadow: var(--shadow-card); transform: translateX(2px); }
+.cal-event.imp-5 { border-left: 4px solid var(--accent-red); }
+.cal-event.imp-4 { border-left: 4px solid var(--accent-yellow); }
+.cal-event.imp-3 { border-left: 4px solid var(--accent-blue); }
+.cal-event.imp-2 { border-left: 4px solid var(--accent-cyan); }
+.cal-event.imp-1 { border-left: 4px solid var(--text-muted); }
+.cal-date-col {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 8px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+  border-radius: 10px;
+  text-align: center;
+}
+.cal-date-month {
+  font-size: 11px; font-weight: 700;
+  color: var(--accent-purple);
+  letter-spacing: 0.05em;
+}
+.cal-date-day {
+  font-size: 24px; font-weight: 800; line-height: 1;
+  color: var(--text-primary);
+  margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+.cal-date-weekday {
+  font-size: 10px; color: var(--text-muted); margin-top: 2px;
+}
+.cal-date-time {
+  font-size: 11px; color: var(--accent-blue); font-weight: 700; margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.cal-content { display: flex; flex-direction: column; gap: 6px; }
+.cal-title-row {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.cal-type-icon { font-size: 20px; }
+.cal-title-text {
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+  flex: 1; min-width: 0; word-break: break-word;
+}
+.cal-importance {
+  display: inline-flex; align-items: center; gap: 2px;
+  color: var(--accent-yellow);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.cal-desc {
+  font-size: 12.5px; color: var(--text-secondary);
+  line-height: 1.5;
+}
+.cal-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 4px;
+}
+.cal-action {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px; font-weight: 600;
+}
+.cal-action.positive {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.cal-action.negative {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.cal-stocks {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;
+}
+.cal-stock-tag {
+  padding: 2px 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 100px;
+  font-size: 10.5px;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* ===== Cost Summary Card ===== */
+.cost-summary {
+  display: none;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.08));
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-top: 14px;
+  animation: slideIn 0.4s ease;
+}
+.cost-summary.active { display: block; }
+.cost-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.cost-amount-row {
+  display: flex; align-items: baseline; gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.cost-usd {
+  font-size: 28px;
+  font-weight: 800;
+  color: #047857;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.cost-jpy {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.cost-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.cost-detail-row { display: flex; justify-content: space-between; gap: 8px; }
+.cost-cumulative {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.cost-cumulative a {
+  color: var(--accent-blue);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent-blue);
+}
+@media (max-width: 600px) {
+  .chart-svg-wrap { padding: 4px; }
+  .chart-svg-wrap svg { min-width: 360px; }
+  .chart-summary-prices { margin-left: 0; width: 100%; font-size: 11px; }
+}
+.history-item.selectable { cursor: pointer; }
+.history-item.selected {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15);
+}
+.history-checkbox-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border-glass);
+}
+.history-checkbox {
+  width: 20px; height: 20px;
+  accent-color: var(--accent-blue);
+  cursor: pointer; flex-shrink: 0;
+}
+.history-checkbox-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.history-item.selected .history-checkbox-label {
+  color: var(--accent-blue);
+}
+.selected-count {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+@media (max-width: 480px) {
+  .app { padding: 12px 12px 100px; }
+  .card { padding: 18px; border-radius: 20px; }
+  header { padding: 20px 0 16px; }
+  .result { padding: 22px 18px; }
+  .progress-panel { padding: 16px; }
+  .segmented label { font-size: 12px; padding: 10px 4px; }
+}
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="bg-grid"></div>
+
+<div class="app">
+  <header>
+    <h1 class="app-title">銘柄分析推奨アプリ</h1>
+  </header>
+
+  <button type="button" id="apiIndicator" class="api-indicator" title="クリックして API 設定を開く">
+    <span class="api-indicator-dot"></span>
+    <span>API 稼働中</span>
+    <span class="api-indicator-cog">⚙</span>
+  </button>
+
+  <div class="card" id="apiCard">
+    <div class="card-title">
+      <span class="card-icon">🔑</span>
+      <span>API 設定</span>
+      <button type="button" id="apiCardClose" class="card-close-btn" title="閉じる">✕</button>
+    </div>
+    <div class="api-key-row">
+      <input type="password" id="apiKey" placeholder="sk-ant-api03-...">
+      <button type="button" id="toggleKey" class="icon-btn" title="表示/非表示">👁</button>
+      <button type="button" id="saveKey" class="icon-btn" title="保存">💾</button>
+      <button type="button" id="clearKey" class="icon-btn" title="削除">🗑</button>
+    </div>
+    <div class="notice">
+      💡 APIキーは <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> で取得できます。「💾」で localStorage に保存。共有PCでは保存しないでください。保存後はこのカードが自動的に閉じられ、上部に「API稼働中」ランプが表示されます。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span class="card-icon paypay">📊</span>
+      <span>分析条件</span>
+      <span class="selected-count" id="selectedCount" style="display:none">0件選択中</span>
+    </div>
+
+    <div class="mode-toggle" role="radiogroup">
+      <button type="button" class="mode-option active" data-mode="new">🆕 新規分析</button>
+      <button type="button" class="mode-option" data-mode="review">🔄 保存済みから考察</button>
+    </div>
+
+    <div class="review-notice" id="reviewNotice">
+      💡 <strong>考察モード:</strong> 下の「📚 保存された分析」から1〜3件を選択して「考察開始」を押してください。AIが過去の推奨銘柄のその後の動向、世界情勢の変化、新しい推奨アクション(買い増し/利確/損切り等)を考察します。
+    </div>
+
+    <div class="learning-banner" id="learningBanner">
+      <span>🎓</span>
+      <span><strong>学習機能 ON:</strong> 過去の評価レポート <span class="learning-banner-count" id="learningCount">0</span> 件の学びを次回分析に自動反映します</span>
+    </div>
+
+    <div class="field">
+      <label for="model">使用モデル</label>
+      <select id="model">
+        <option value="eco-hybrid" selected>🌱 エコ・ハイブリッド (Sonnet研究 → Haiku執筆) — 最適節約★★★★★</option>
+        <option value="hybrid">💎 プレミアム・ハイブリッド (Opus研究 → Haiku執筆) — 最高品質</option>
+        <option value="claude-haiku-4-5" hidden>⚡ Haiku 4.5 (低コスト・高速) ★★★</option>
+        <option value="claude-sonnet-4-6" hidden>⚖ Sonnet 4.6 (バランス型) ★★★★</option>
+        <option value="claude-opus-4-6" hidden>✨ Opus 4.6 (高品質) ★★★★</option>
+        <option value="claude-opus-4-7" hidden>🌟 Opus 4.7 (最高品質・最新) ★★★★★</option>
+      </select>
+      <div class="model-info" id="modelInfo"></div>
+    </div>
+
+    <div class="field">
+      <label for="market">対象市場</label>
+      <select id="market">
+        <option value="paypay" selected>💴 PayPay証券で買える銘柄(日米株)</option>
+        <option value="sbi">🏦 SBI証券で買える銘柄(日米株・ETF・IPO 幅広く)</option>
+        <option value="japan">🇯🇵 日本株(全銘柄)</option>
+        <option value="us">🇺🇸 米国株(全銘柄)</option>
+        <option value="both">🌐 日米両市場</option>
+        <option value="crypto">🪙 暗号資産</option>
+        <option value="etf">📦 ETF・投資信託</option>
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>投資スタイル</label>
+        <div class="segmented" role="radiogroup">
+          <input type="radio" name="style" id="style-short" value="short">
+          <label for="style-short">⚡ 短期</label>
+          <input type="radio" name="style" id="style-mid" value="mid" checked>
+          <label for="style-mid">📊 中期</label>
+          <input type="radio" name="style" id="style-long" value="long">
+          <label for="style-long">📈 長期</label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>リスク許容度</label>
+        <div class="segmented" role="radiogroup">
+          <input type="radio" name="risk" id="risk-low" value="low">
+          <label for="risk-low">🛡 低</label>
+          <input type="radio" name="risk" id="risk-medium" value="medium" checked>
+          <label for="risk-medium">⚖ 中</label>
+          <input type="radio" name="risk" id="risk-high" value="high">
+          <label for="risk-high">🚀 高</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="amount">投資想定額</label>
+      <select id="amount">
+        <option value="micro">1,000〜10,000円(少額)</option>
+        <option value="small">1〜10万円</option>
+        <option value="medium" selected>10〜100万円</option>
+        <option value="large">100〜1,000万円</option>
+        <option value="xlarge">1,000万円以上</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="additional">追加リクエスト(任意)</label>
+      <textarea id="additional" placeholder="例: AI・半導体関連を中心に / 配当重視 / ESG など"></textarea>
+      <div class="chip-guide-actions">
+        <button id="chipGuideBtn" type="button" class="chip-guide-btn">🎯 ガイドで組み立てる(Haikuで提案)</button>
+        <button id="chipResetTextBtn" type="button" class="chip-reset-btn">🗑 クリア</button>
+      </div>
+      <div id="chipPanel" class="chip-panel">
+        <div class="chip-panel-header">
+          <span class="chip-step">Step <span id="chipStepNum">1</span></span>
+          <span class="chip-step-title" id="chipStepTitle">大まかな方向性を選んでください</span>
+          <button id="chipClosePanelBtn" type="button" class="chip-close-btn" title="閉じる">✕</button>
+        </div>
+        <div id="chipBreadcrumb" class="chip-breadcrumb"></div>
+        <div id="chipList" class="chip-list"></div>
+        <div id="chipStatus" class="chip-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analyze-wrap">
+    <button id="analyze" class="analyze-btn">
+      <span class="btn-text">🔍 最新情報を検索して分析開始</span>
+    </button>
+  </div>
+
+  <div id="progress-panel" class="progress-panel">
+    <div class="progress-header">
+      <span class="live-badge"><span class="live-badge-dot"></span><span>ライブ</span></span>
+      <span class="elapsed-time">⏱ <span id="elapsed">0:00</span></span>
+      <span class="search-counter" id="searchCounterDisplay" style="display:none">🔍 <span id="searchCounter">0</span>/15</span>
+      <span class="running-cost" id="runningCostDisplay" style="display:none">💵 <span id="runningCostAmount">$0.000</span></span>
+      <button type="button" id="stopBtn" class="stop-btn" title="分析を中止して止める">⏹ 停止</button>
+    </div>
+    <div class="current-phase">
+      <div class="phase-icon" id="phaseIcon">🚀</div>
+      <div class="phase-text">
+        <div class="phase-title" id="phaseTitle">準備中...</div>
+        <div class="phase-detail" id="phaseDetail">APIに接続しています</div>
+      </div>
+    </div>
+    <div id="currentQuery" class="current-query"><span class="current-query-label">🔎 検索クエリ</span><span id="currentQueryText"></span></div>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    <div class="detail-stats" id="detailStats">
+      <span class="detail-stat">📥 入力 <strong id="statInputTokens">0</strong></span>
+      <span class="detail-stat">📤 出力 <strong id="statOutputTokens">0</strong></span>
+      <span class="detail-stat">📝 生成 <strong id="statChars">0</strong>文字</span>
+      <span class="detail-stat">⚡ 速度 <strong id="statSpeed">0</strong>字/秒</span>
+    </div>
+    <div class="step-list" id="stepList">
+      <div class="step" data-step="connect"><span class="step-icon">⚪</span><span>API接続</span></div>
+      <div class="step" data-step="search"><span class="step-icon">⚪</span><span>情報収集(Web検索)</span><span class="step-count" id="stepSearchCount">0回</span></div>
+      <div class="step" data-step="generate"><span class="step-icon">⚪</span><span>分析を生成</span><span class="step-count" id="stepGenerateCount">0文字</span></div>
+      <div class="step" data-step="complete"><span class="step-icon">⚪</span><span>完了</span></div>
+    </div>
+    <div class="activity-log">
+      <div class="log-header">📜 アクティビティ(リアルタイム)</div>
+      <div id="logList" class="log-list"></div>
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+  <div id="result" class="result"></div>
+  <div id="costSummary" class="cost-summary"></div>
+
+  <div class="card" id="historyCard">
+    <div class="card-title">
+      <span class="card-icon green">📚</span>
+      <span>保存された分析</span>
+      <span class="count-badge" id="historyCount">0件</span>
+    </div>
+    <div id="historyList" class="history-list">
+      <div class="history-empty">まだ保存された分析がありません。分析を実行すると自動保存されます。</div>
+    </div>
+    <div class="history-clear-all" id="historyClearAllWrap" style="display:none">
+      <button class="history-btn danger" id="clearAllHistory">🗑 全削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'claude_api_key_v1';
+const MODEL_KEY = 'claude_model_v1';
+const DB_NAME = 'stock_analyzer_db';
+const DB_VERSION = 1;
+const STORE_NAME = 'analyses';
+
+const MODELS = {
+  'claude-haiku-4-5': {
+    name: 'Claude Haiku 4.5',
+    badge: '⚡ 低コスト・高速',
+    rating: 3,
+    inputCost: 1, outputCost: 5,
+    estimate: '約 $0.10〜0.30 / 回',
+    desc: '低コスト・高速。気軽に何度でも試せる。簡易な分析向け'
+  },
+  'claude-sonnet-4-6': {
+    name: 'Claude Sonnet 4.6',
+    badge: '⚖ バランス型',
+    rating: 4,
+    inputCost: 3, outputCost: 15,
+    estimate: '約 $0.40〜0.80 / 回',
+    desc: 'コスパが良く十分な品質。普段使いの第一候補'
+  },
+  'claude-opus-4-6': {
+    name: 'Claude Opus 4.6',
+    badge: '✨ 高品質',
+    rating: 4,
+    inputCost: 5, outputCost: 25,
+    estimate: '約 $0.80〜1.50 / 回',
+    desc: '高品質な深い分析。重要な判断時に。Opus 4.7 より少し旧'
+  },
+  'claude-opus-4-7': {
+    name: 'Claude Opus 4.7',
+    badge: '🌟 最高品質・最新',
+    rating: 5,
+    inputCost: 5, outputCost: 25,
+    estimate: '約 $0.80〜1.50 / 回',
+    desc: '最新最高性能。複雑な銘柄分析に最適。コストは高め'
+  },
+  'hybrid': {
+    name: 'プレミアム・ハイブリッド (Opus 4.7 + Haiku 4.5)',
+    badge: '💎 高品質',
+    rating: 5,
+    inputCost: null, outputCost: null,
+    estimate: '約 $1.50〜2.50 / 回',
+    desc: 'Phase1: Opus 4.7 が深いリサーチ → Phase2: Haiku 4.5 が執筆。最高品質だがコスト高め'
+  },
+  'eco-hybrid': {
+    name: 'エコ・ハイブリッド (Sonnet 4.6 + Haiku 4.5)',
+    badge: '🌱 最適節約',
+    rating: 5,
+    inputCost: null, outputCost: null,
+    estimate: '約 $0.40〜0.80 / 回 (推奨!)',
+    desc: 'Phase1: Sonnet 4.6 でバランス良くリサーチ → Phase2: Haiku 4.5 が執筆。Opus版の 1/3 のコストで十分な品質。最も推奨'
+  }
+};
+
+const apiKeyInput = document.getElementById('apiKey');
+const toggleBtn = document.getElementById('toggleKey');
+const saveBtn = document.getElementById('saveKey');
+const clearBtn = document.getElementById('clearKey');
+const analyzeBtn = document.getElementById('analyze');
+const statusDiv = document.getElementById('status');
+const resultDiv = document.getElementById('result');
+const apiCard = document.getElementById('apiCard');
+const apiIndicator = document.getElementById('apiIndicator');
+const apiCardClose = document.getElementById('apiCardClose');
+const costSummaryEl = document.getElementById('costSummary');
+
+// USD to JPY conversion rate (approximate, for display)
+const USD_TO_JPY = 155;
+
+function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, learningsCount }) {
+  // phases: [{label, model, inputCost, outputCost, inputTokens, outputTokens}]
+  let totalCost = 0;
+  const phaseHtml = phases.map(p => {
+    const cost = (p.inputTokens * (p.inputCost || 0) + p.outputTokens * (p.outputCost || 0)) / 1000000;
+    totalCost += cost;
+    return `<div class="cost-detail-row">
+      <span>${escapeHtml(p.label)}: 入力 ${p.inputTokens.toLocaleString()}tk + 出力 ${p.outputTokens.toLocaleString()}tk</span>
+      <span><strong>$${cost.toFixed(3)}</strong></span>
+    </div>`;
+  }).join('');
+  const jpyAmount = Math.round(totalCost * USD_TO_JPY);
+  costSummaryEl.innerHTML = `
+    <div class="cost-header">💵 今回の API 使用料金(推定)</div>
+    <div class="cost-amount-row">
+      <span class="cost-usd">$${totalCost.toFixed(3)}</span>
+      <span class="cost-jpy">≈ ¥${jpyAmount.toLocaleString()} (1USD=¥${USD_TO_JPY}換算)</span>
+    </div>
+    <div class="cost-detail">
+      ${phaseHtml}
+      ${searchCount ? `<div class="cost-detail-row"><span>🔍 Web検索回数</span><span><strong>${searchCount}回</strong></span></div>` : ''}
+      ${learningsCount ? `<div class="cost-detail-row"><span>🎓 学習反映</span><span><strong>${learningsCount}件</strong></span></div>` : ''}
+      <div class="cost-detail-row"><span>📦 モデル構成</span><span><strong>${escapeHtml(modelLabel)}</strong></span></div>
+    </div>
+    <div class="cost-cumulative">📊 累計使用量は <a href="https://console.anthropic.com/usage" target="_blank" rel="noopener">console.anthropic.com/usage</a> で確認できます</div>
+  `;
+  costSummaryEl.classList.add('active');
+}
+function hideCostSummary() { costSummaryEl.classList.remove('active'); costSummaryEl.innerHTML = ''; }
+
+function updateApiVisibility() {
+  const hasKey = !!localStorage.getItem(STORAGE_KEY) || !!apiKeyInput.value.trim();
+  if (hasKey) {
+    apiCard.style.display = 'none';
+    apiIndicator.classList.add('active');
+    apiCardClose.classList.add('active');
+  } else {
+    apiCard.style.display = 'block';
+    apiIndicator.classList.remove('active');
+    apiCardClose.classList.remove('active');
+  }
+}
+
+apiIndicator.addEventListener('click', () => {
+  apiCard.style.display = 'block';
+  apiIndicator.classList.remove('active');
+});
+
+apiCardClose.addEventListener('click', () => {
+  if (apiKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY)) {
+    apiCard.style.display = 'none';
+    apiIndicator.classList.add('active');
+  }
+});
+const modelSelect = document.getElementById('model');
+const modelInfoEl = document.getElementById('modelInfo');
+
+const progressPanel = document.getElementById('progress-panel');
+const elapsedEl = document.getElementById('elapsed');
+const phaseIconEl = document.getElementById('phaseIcon');
+const phaseTitleEl = document.getElementById('phaseTitle');
+const phaseDetailEl = document.getElementById('phaseDetail');
+const progressFill = document.getElementById('progressFill');
+const stepList = document.getElementById('stepList');
+const stepSearchCount = document.getElementById('stepSearchCount');
+const stepGenerateCount = document.getElementById('stepGenerateCount');
+const logList = document.getElementById('logList');
+const stopBtn = document.getElementById('stopBtn');
+const runningCostDisplay = document.getElementById('runningCostDisplay');
+const runningCostAmount = document.getElementById('runningCostAmount');
+const searchCounterDisplay = document.getElementById('searchCounterDisplay');
+const searchCounter = document.getElementById('searchCounter');
+const currentQueryEl = document.getElementById('currentQuery');
+const currentQueryText = document.getElementById('currentQueryText');
+const statInputTokens = document.getElementById('statInputTokens');
+const statOutputTokens = document.getElementById('statOutputTokens');
+const statChars = document.getElementById('statChars');
+const statSpeed = document.getElementById('statSpeed');
+
+// AbortController for cancelling in-flight analysis
+let currentAbortController = null;
+let analysisStartTime = 0;
+
+function abortAnalysis() {
+  if (currentAbortController) {
+    try { currentAbortController.abort(); } catch (e) { console.warn(e); }
+    currentAbortController = null;
+    addActivity('🛑 ユーザーが停止ボタンを押しました');
+    setPhase('🛑', '中止されました', 'ユーザーによって分析が中断されました');
+    stopElapsedTimer();
+    stopBtn.disabled = true;
+    analyzeBtn.disabled = false;
+    setStatusHTML('🛑 <strong>分析を中止しました</strong>(これまでの結果はそのまま残ります)', 'error');
+  }
+}
+stopBtn.addEventListener('click', () => {
+  if (confirm('分析を中止しますか?\n(これまでの結果はそのまま残ります、料金は実行された分のみ発生します)')) {
+    abortAnalysis();
+  }
+});
+
+function showRunningInfo() {
+  runningCostDisplay.style.display = 'inline-flex';
+  searchCounterDisplay.style.display = 'inline-flex';
+  stopBtn.disabled = false;
+  stopBtn.style.display = 'inline-flex';
+}
+function hideRunningInfo() {
+  runningCostDisplay.style.display = 'none';
+  searchCounterDisplay.style.display = 'none';
+  stopBtn.style.display = 'none';
+  currentQueryEl.classList.remove('active');
+}
+function updateRunningCost(cost) {
+  runningCostAmount.textContent = '$' + cost.toFixed(4) + ' (≒¥' + Math.round(cost * USD_TO_JPY) + ')';
+}
+function updateSearchCounter(n, max = 15) {
+  searchCounter.textContent = n;
+  searchCounterDisplay.querySelector('.search-counter, #searchCounter').parentNode.innerHTML = `🔍 <span id="searchCounter">${n}</span>/${max}`;
+}
+function updateStats({ inputTokens = 0, outputTokens = 0, chars = 0 }) {
+  statInputTokens.textContent = inputTokens.toLocaleString();
+  statOutputTokens.textContent = outputTokens.toLocaleString();
+  statChars.textContent = chars.toLocaleString();
+  const elapsedSec = (Date.now() - analysisStartTime) / 1000;
+  const speed = elapsedSec > 0 ? Math.round(chars / elapsedSec) : 0;
+  statSpeed.textContent = speed.toLocaleString();
+}
+function showCurrentQuery(query) {
+  currentQueryText.textContent = `"${query}"`;
+  currentQueryEl.classList.add('active');
+}
+function hideCurrentQuery() { currentQueryEl.classList.remove('active'); }
+
+const historyList = document.getElementById('historyList');
+const historyCount = document.getElementById('historyCount');
+const historyClearAllWrap = document.getElementById('historyClearAllWrap');
+const reviewNotice = document.getElementById('reviewNotice');
+const selectedCountBadge = document.getElementById('selectedCount');
+
+// Mode state
+let currentMode = 'new'; // 'new' | 'review'
+let selectedHistoryIds = new Set();
+const MAX_REVIEW_SELECTION = 3;
+let evaluatingItem = null; // Item being evaluated (overrides mode if set)
+
+const savedKey = localStorage.getItem(STORAGE_KEY);
+if (savedKey) apiKeyInput.value = savedKey;
+const VISIBLE_MODELS = ['eco-hybrid', 'hybrid'];
+const savedModel = localStorage.getItem(MODEL_KEY);
+if (savedModel && MODELS[savedModel] && VISIBLE_MODELS.includes(savedModel)) {
+  modelSelect.value = savedModel;
+} else {
+  modelSelect.value = 'eco-hybrid';
+}
+
+function updateModelInfo() {
+  const m = MODELS[modelSelect.value];
+  if (!m) { modelInfoEl.innerHTML = ''; return; }
+  modelInfoEl.innerHTML = `
+    <div class="model-info-row"><span class="model-info-label">📦 モデル</span><span class="model-info-value">${m.name}</span></div>
+    <div class="model-info-row"><span class="model-info-label">⭐ お勧め度</span><span class="model-rating">${'★'.repeat(m.rating)}${'☆'.repeat(5-m.rating)}</span></div>
+    <div class="model-info-row"><span class="model-info-label">💰 1回コスト目安</span><span class="model-info-value">${m.estimate}</span></div>
+    <div class="model-info-row"><span class="model-info-label">💡 特徴</span><span style="text-align:right; max-width:60%;">${m.desc}</span></div>
+  `;
+}
+updateModelInfo();
+modelSelect.addEventListener('change', () => { updateModelInfo(); localStorage.setItem(MODEL_KEY, modelSelect.value); });
+
+toggleBtn.addEventListener('click', () => {
+  if (apiKeyInput.type === 'password') { apiKeyInput.type = 'text'; toggleBtn.textContent = '🙈'; }
+  else { apiKeyInput.type = 'password'; toggleBtn.textContent = '👁'; }
+});
+saveBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  localStorage.setItem(STORAGE_KEY, key);
+  showStatus('✅ APIキーを保存しました。上部の「🟢 API稼働中」ランプから再表示できます', 'success');
+  updateApiVisibility();
+});
+clearBtn.addEventListener('click', () => {
+  if (confirm('保存されたAPIキーを削除しますか?')) {
+    localStorage.removeItem(STORAGE_KEY);
+    apiKeyInput.value = '';
+    showStatus('🗑 APIキーを削除しました', 'success');
+    updateApiVisibility();
+  }
+});
+
+// Initial visibility check on page load
+updateApiVisibility();
+analyzeBtn.addEventListener('click', () => analyzeStocks());
+
+// ===== Chip Guide (Haiku-powered request builder) =====
+const additionalTextarea = document.getElementById('additional');
+const chipGuideBtn = document.getElementById('chipGuideBtn');
+const chipResetTextBtn = document.getElementById('chipResetTextBtn');
+const chipPanel = document.getElementById('chipPanel');
+const chipList = document.getElementById('chipList');
+const chipStatus = document.getElementById('chipStatus');
+const chipStepNum = document.getElementById('chipStepNum');
+const chipStepTitle = document.getElementById('chipStepTitle');
+const chipBreadcrumb = document.getElementById('chipBreadcrumb');
+const chipClosePanelBtn = document.getElementById('chipClosePanelBtn');
+
+let chipState = { step: 0, history: [], totalCost: 0 };
+
+async function loadChips() {
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) {
+    alert('APIキーを入力してください');
+    return;
+  }
+
+  chipState.step += 1;
+  chipStepNum.textContent = chipState.step;
+  chipList.innerHTML = '';
+  chipStatus.innerHTML = '<span class="chip-loading"></span>Haiku が選択肢を生成中…';
+
+  // Update breadcrumb
+  if (chipState.history.length > 0) {
+    chipBreadcrumb.innerHTML = chipState.history.map((h, i) => {
+      const sep = i > 0 ? '<span class="chip-bc-sep">→</span>' : '';
+      return `${sep}<span class="chip-bc-item">${escapeHtml(h.label)}</span>`;
+    }).join('');
+  } else {
+    chipBreadcrumb.innerHTML = '';
+  }
+
+  const market = document.getElementById('market').value;
+  const style = getRadioValue('style');
+  const risk = getRadioValue('risk');
+  const amount = document.getElementById('amount').value;
+  const currentText = additionalTextarea.value.trim();
+  const selectionHistory = chipState.history.map(h => h.label).join(' → ') || '(まだ何も選んでいない)';
+
+  const stepHints = {
+    1: '大まかな投資テーマや方向性のカテゴリを 5〜7個',
+    2: '前の選択を踏まえて、より具体的なサブカテゴリを 5〜7個',
+    3: 'さらに細かい具体的な条件や戦略を 4〜6個',
+    4: 'ファインチューニング項目(リスク許容、配当志向、ESG等)を 4〜6個',
+    5: '最終調整項目を 3〜5個'
+  };
+  const stepHint = stepHints[chipState.step] || '更に細かい条件を 3〜5個';
+
+  const prompt = `あなたは株式投資のリクエスト組立てアシスタントです。ユーザー(完全な初心者)が段階的にチップを選んで、株式分析の「追加リクエスト」文を組み立てるのを手助けします。
+
+【現在の状況】
+- 市場: ${market}, スタイル: ${style}, リスク: ${risk}, 金額: ${amount}
+- これまでの選択: ${selectionHistory}
+- 現在の追加リクエスト文: "${currentText || '(空)'}"
+- 現在 Step ${chipState.step} / 最大 5
+
+【今回のタスク】
+ステップ${chipState.step}として「${stepHint}」を提示してください。
+
+【★★★ 絶対厳守 ★★★ 初心者超対応ルール】
+読み手は「株を始めたばかりで専門用語を全く知らない人」です。難しい言葉は絶対NG。
+
+❌ 絶対に使ってはいけない単語(これらを書いたら最初からやり直し):
+- 「PBR」「PER」「ROE」「EPS」「PEG」(数字も含めて専門用語のまま)
+- 「ディフェンシブ」「グロース」「バリュー」「シクリカル」
+- 「高配当」(→「もらえる株」と言い換え)
+- 「ボラティリティ」「ベータ値」「シャープレシオ」
+- 「IPO」「M&A」「TOB」「MBO」
+- 「サポートライン」「レジスタンス」「移動平均」「MACD」「RSI」
+- 「ESG」(→「環境にやさしい会社」と言い換え)
+- 「ファンダメンタル」「テクニカル」
+- 「上方修正」「ガイダンス」「カタリスト」
+- 「セクター」(→「業界」と言い換え)
+- 「ティッカー」(→「銘柄コード」と言い換え)
+- 「単元未満株」(→「1株から買える」と言い換え)
+
+✅ 使うべき言葉(身近な例え):
+- 「PBR1倍割れ」 → 「会社の財産より安い値段の株(お買い得な感じ)」
+- 「ROE 15%以上」 → 「お金をすごく効率よく稼ぐ会社」
+- 「ディフェンシブ銘柄」 → 「不景気でも潰れにくい安定した会社」
+- 「高配当株」 → 「定期的にお金が振り込まれる株(おすそ分けがもらえる)」
+- 「グロース株」 → 「これからグングン成長しそうな会社」
+- 「バリュー株」 → 「本当の価値より安く売られている株(お買い得)」
+- 「ESG銘柄」 → 「環境や社会に良いことをしている会社」
+- 「ボラティリティが低い」 → 「値動きが穏やかで安心できる株」
+- 「IPO銘柄」 → 「最近上場したばかりの新顔の会社」
+
+【出力ルール】
+- 必ず以下のJSON配列のみを出力(他の文章は一切不要)
+- 各選択肢は { "label": "...", "desc": "...", "text": "..." } の3フィールド
+- **label**: 8〜16文字、絵文字込みでパッと見て分かる名前(専門用語NG、日常語のみ)
+- **desc**: 15〜35文字、もっと噛み砕いた説明(例え話・身近な表現で。「○○みたいな」「○○な感じ」を使う)
+- **text**: 25〜60文字、AIへの実際のリクエスト文(具体的な条件を入れる)
+- 最後に必ず { "label": "✅ これで決定", "desc": "選択を確定して分析を開始", "text": "" } を含める
+- step 1 では大まかなテーマ(分かりやすい分野やジャンル)
+- step 2 以降は前の選択を踏まえて細かく
+- 互いに重複しない、選びやすい選択肢
+
+【出力例(初心者超対応バージョン)】
+[
+  { "label": "🤖 AIで儲ける会社", "desc": "ChatGPTやNVIDIAみたいな今話題の分野", "text": "AIや半導体関連の銘柄を中心に推奨してほしい" },
+  { "label": "💴 お金がもらえる株", "desc": "定期的にボーナス(配当)が振り込まれる安定した会社", "text": "配当利回り3%以上の高配当・安定企業を推奨" },
+  { "label": "🚗 電気自動車・車関連", "desc": "テスラやトヨタなど車を作る会社", "text": "EVや自動車関連の有望銘柄を推奨" },
+  { "label": "🌱 地球にやさしい会社", "desc": "環境や社会に良いことをしている企業", "text": "ESG・サステナブル経営の銘柄を選んで" },
+  { "label": "💎 お買い得な株", "desc": "本当の価値より安く売られている『掘り出し物』のような株", "text": "割安で財務健全な銘柄を中心に推奨" },
+  { "label": "✅ これで決定", "desc": "選択を確定して分析を開始", "text": "" }
+]
+
+★最重要: desc は必ず「○○みたいな」「○○な感じ」「○○できる」など身近な表現で、誰でも一読して分かる文章に。
+★絶対NG: 「ディフェンシブ」「グロース」「PBR1倍割れ」「ROE15%以上」など、専門用語を単体で使う。
+
+JSON のみを出力してください。`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await response.json();
+    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    const usage = data.usage || {};
+    const cost = ((usage.input_tokens || 0) * 1 + (usage.output_tokens || 0) * 5) / 1000000;
+    chipState.totalCost += cost;
+
+    // Extract JSON from response (handle code blocks and prose)
+    let chips = [];
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      try {
+        chips = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        const cleaned = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
+        chips = JSON.parse(cleaned);
+      }
+    }
+
+    if (!Array.isArray(chips) || chips.length === 0) {
+      throw new Error('チップ生成失敗(空のレスポンス)');
+    }
+
+    renderChips(chips);
+    chipStatus.innerHTML = `💡 一つ選ぶと、テキストに追加されて次のステップへ進みます。累計コスト: $${chipState.totalCost.toFixed(4)} (≒ ¥${Math.round(chipState.totalCost * USD_TO_JPY)})`;
+  } catch (e) {
+    console.error('Chip guide error:', e);
+    chipStatus.innerHTML = `❌ エラー: ${escapeHtml(e.message)}`;
+  }
+}
+
+function renderChips(chips) {
+  chipList.innerHTML = chips.map((c, i) => {
+    const isDone = !c.text || c.text.trim() === '' || /決定|終了|完了|done/i.test(c.label || '');
+    const cls = isDone ? 'chip-button done' : 'chip-button';
+    const label = escapeHtml(c.label || '無題');
+    const desc = c.desc ? escapeHtml(c.desc) : '';
+    const inner = desc
+      ? `<span class="chip-label-text">${label}</span><span class="chip-desc">${desc}</span>`
+      : `<span class="chip-label-text">${label}</span>`;
+    return `<button class="${cls}" data-idx="${i}" data-text="${escapeHtml(c.text || '')}" data-label="${label}">${inner}</button>`;
+  }).join('');
+}
+
+chipList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.chip-button');
+  if (!btn) return;
+  const text = btn.dataset.text;
+  const label = btn.dataset.label || btn.querySelector('.chip-label-text')?.textContent || btn.textContent;
+  if (!text || text.trim() === '') {
+    // ✅ Done button — call Haiku once more to polish the request into natural Japanese
+    await finalizeRequest();
+    return;
+  }
+  // Append to textarea (rough format)
+  const current = additionalTextarea.value.trim();
+  additionalTextarea.value = current ? `${current} / ${text}` : text;
+  chipState.history.push({ label, text });
+  // Step 5 is the cap — auto-finalize
+  if (chipState.step >= 5) {
+    await finalizeRequest();
+    return;
+  }
+  await loadChips();
+});
+
+async function finalizeRequest() {
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) { closeChipPanel(); return; }
+
+  const rough = additionalTextarea.value.trim();
+  if (!rough) {
+    closeChipPanel();
+    chipStatus.innerHTML = '何も選択されていないので、依頼文の整形はスキップします';
+    return;
+  }
+
+  const historyText = chipState.history.map((h, i) => `${i+1}. 「${h.label}」 → ${h.text}`).join('\n');
+  const market = document.getElementById('market').value;
+  const style = getRadioValue('style');
+  const risk = getRadioValue('risk');
+  const amount = document.getElementById('amount').value;
+
+  // Disable all chip buttons during finalization
+  chipList.querySelectorAll('.chip-button').forEach(b => b.disabled = true);
+  chipStatus.innerHTML = '<span class="chip-loading"></span>Haiku があなたの選択を分かりやすい依頼文にまとめています…';
+
+  const prompt = `あなたは投資リクエストの文章整形アシスタントです。
+ユーザー(株を始めたばかりの初心者)が段階的に選んだ選択肢を、自然で読みやすい依頼文に整えてください。
+
+【ユーザーの基本条件】
+- 市場: ${market}
+- 投資スタイル: ${style}
+- リスク許容度: ${risk}
+- 投資想定額: ${amount}
+
+【ユーザーが選んだ選択肢(${chipState.history.length}個)】
+${historyText}
+
+【現在の追加リクエスト(チップを単純につなげた状態)】
+"${rough}"
+
+【あなたのタスク】
+上記の選択履歴と現在のリクエストを元に、株式分析AIへ依頼する「自然で読みやすい日本語の依頼文」を作成してください。
+
+【★★★ 出力ルール ★★★】
+1. **180〜350文字** の長さ(短すぎず、長すぎず)
+2. **自然な日本語の文章** として読めるように(箇条書きは使わない、文章として滑らかに)
+3. **「〜してほしい」「〜を中心に推奨してください」「〜も考慮してもらえると嬉しいです」** などの自然な依頼表現を使う
+4. 選択した内容を**重複なく整理**し、矛盾があれば調整
+5. **専門用語は禁止**。初心者目線の易しい言葉で。「PBR」「ROE」「ディフェンシブ」「グロース」「ESG」「ボラティリティ」「セクター」等は使わず、噛み砕いた日本語に置き換え
+6. 適度に改行を入れて、視覚的にも読みやすく
+7. 文章の冒頭は「以下の条件で銘柄を推奨してほしいです」のような自然な書き出し
+8. 末尾は「よろしくお願いします」など丁寧に締めくくる
+
+【出力例】
+"""
+以下の条件で銘柄を推奨してほしいです。
+
+私は今話題のAIや半導体に関連する会社に投資したいと考えています。特に、これからグングン成長しそうな会社に注目しています。
+
+その中でも、定期的にお金が振り込まれる(配当がもらえる)安定した会社があれば嬉しいです。値動きが激しすぎない、安心して持てる銘柄を中心に選んでもらえると助かります。
+
+最終的には1〜2年くらいの中期で持ちたいので、その期間に値上がりが期待できる銘柄をお願いします。
+"""
+
+【絶対NG】
+- 「PBR1倍割れ」「ROE15%以上」「高配当ディフェンシブ」「グロース銘柄」など専門用語のまま使う
+- 箇条書きや「・」記号での列挙
+- 短すぎる(100文字以下)
+- ただの単語の羅列
+
+JSONや記号は不要。整形後の自然な日本語の依頼文のみを出力してください。`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await response.json();
+    let polished = ((data.content && data.content[0] && data.content[0].text) || '').trim();
+    const usage = data.usage || {};
+    const cost = ((usage.input_tokens || 0) * 1 + (usage.output_tokens || 0) * 5) / 1000000;
+    chipState.totalCost += cost;
+
+    // Strip surrounding quotes/markers if any
+    polished = polished.replace(/^["'""'']+|["'""'']+$/g, '').replace(/^"""\s*|\s*"""$/g, '').trim();
+    if (polished.length > 0) {
+      additionalTextarea.value = polished;
+    }
+
+    closeChipPanel();
+    const yen = Math.round(chipState.totalCost * USD_TO_JPY);
+    setStatusHTML(`✅ <strong>依頼文を整形しました!</strong>(${polished.length}文字)<div class="chips"><span class="chip">🎯 チップ選択 <span class="chip-value">${chipState.history.length}個</span></span><span class="chip">💵 累計コスト <span class="chip-value">$${chipState.totalCost.toFixed(4)} (≒¥${yen})</span></span></div>`, 'success');
+    additionalTextarea.focus();
+    additionalTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {
+    console.error('Finalize error:', e);
+    chipList.querySelectorAll('.chip-button').forEach(b => b.disabled = false);
+    chipStatus.innerHTML = `❌ 整形に失敗しました: ${escapeHtml(e.message)} (現在の文章はそのまま残っています)`;
+  }
+}
+
+chipGuideBtn.addEventListener('click', async () => {
+  if (chipPanel.classList.contains('active')) return;
+  if (!apiKeyInput.value.trim()) {
+    alert('APIキーを入力してください(上の API 設定で💾 ボタン)');
+    return;
+  }
+  chipState = { step: 0, history: [], totalCost: 0 };
+  chipPanel.classList.add('active');
+  chipStepTitle.textContent = '大まかな方向性を選んでください';
+  await loadChips();
+});
+
+chipResetTextBtn.addEventListener('click', () => {
+  additionalTextarea.value = '';
+  chipState = { step: 0, history: [], totalCost: 0 };
+  closeChipPanel();
+});
+
+chipClosePanelBtn.addEventListener('click', () => closeChipPanel());
+
+function closeChipPanel() {
+  chipPanel.classList.remove('active');
+}
+
+// Mode toggle
+document.querySelectorAll('.mode-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    currentMode = opt.dataset.mode;
+    if (currentMode === 'new') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.remove('active');
+    } else {
+      reviewNotice.classList.add('active');
+    }
+    renderHistory();
+    updateAnalyzeButtonLabel();
+    updateSelectionBadge();
+  });
+});
+
+function updateSelectionBadge() {
+  const n = selectedHistoryIds.size;
+  if (currentMode === 'review' && n > 0) {
+    selectedCountBadge.style.display = 'inline-flex';
+    selectedCountBadge.textContent = `${n}件選択中`;
+  } else {
+    selectedCountBadge.style.display = 'none';
+  }
+}
+
+function updateAnalyzeButtonLabel() {
+  const btnText = analyzeBtn.querySelector('.btn-text');
+  if (currentMode === 'review') {
+    if (selectedHistoryIds.size === 0) {
+      btnText.textContent = '⚠️ 過去の分析を選択してください';
+    } else {
+      btnText.textContent = `🔄 ${selectedHistoryIds.size}件の分析を元に考察開始`;
+    }
+  } else {
+    btnText.textContent = '🔍 最新情報を検索して分析開始';
+  }
+}
+
+function showStatus(msg, type) { statusDiv.textContent = msg; statusDiv.className = 'status active' + (type === 'error' ? ' error' : type === 'success' ? ' success' : ''); }
+function setStatusHTML(html, type) { statusDiv.innerHTML = html; statusDiv.className = 'status active' + (type === 'error' ? ' error' : type === 'success' ? ' success' : ''); }
+function hideStatus() { statusDiv.className = 'status'; }
+function getRadioValue(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; }
+
+// ===== IndexedDB =====
+let dbPromise = null;
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+    };
+  });
+  return dbPromise;
+}
+async function dbSave(analysis) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.add(analysis);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { console.error('DB save failed', e); return null; }
+}
+async function dbList() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.index('timestamp').openCursor(null, 'prev');
+      const results = [];
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) { results.push(cursor.value); cursor.continue(); }
+        else resolve(results);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { console.error('DB list failed', e); return []; }
+}
+async function dbGet(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbDelete(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbClear() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== Evaluation Learnings (feedback loop) =====
+// Extract "学び・教訓" and "総合所感" sections from past evaluation reports
+// and inject them as priority guidance for new analyses / reviews.
+async function getEvaluationLearnings(maxItems = 5) {
+  try {
+    const all = await dbList();
+    const evaluations = all
+      .filter(item => item.mode === 'evaluate' && item.result)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, maxItems);
+    return evaluations.map(item => {
+      const date = new Date(item.timestamp).toLocaleDateString('ja-JP');
+      const learnMatch = item.result.match(/##\s*💡\s*学び[\s\S]*?(?=\n##|$)/);
+      const soushouMatch = item.result.match(/##\s*📌\s*総合所感[\s\S]*?(?=\n##|$)/);
+      const targetDate = item.evaluateTargetId ? '対象分析を評価' : '';
+      return {
+        date, targetDate,
+        learnings: learnMatch ? learnMatch[0].trim() : '',
+        soushou: soushouMatch ? soushouMatch[0].trim() : '',
+        hasContent: !!(learnMatch || soushouMatch)
+      };
+    }).filter(x => x.hasContent);
+  } catch (e) {
+    console.error('Failed to load learnings:', e);
+    return [];
+  }
+}
+function buildLearningsBlock(learnings) {
+  if (!learnings || learnings.length === 0) return '';
+  return `
+
+【★★★ 過去の評価レポートからの学習(必ず参照) ★★★】
+あなたは過去にも分析を行い、その結果を評価してきました。以下は過去 ${learnings.length} 件の評価レポートから抽出した「学び・教訓」と「総合所感」です。
+**今回の分析では必ずこれらの教訓を活かし、過去に外した予測の原因を意識して推奨を出してください。同じ失敗を繰り返さないこと。**
+
+${learnings.map((l, i) => `--- 過去の評価 ${i+1} (${l.date}) ---
+${l.learnings}
+
+${l.soushou}`).join('\n\n')}
+
+【★重要★】
+- 上記の教訓を必ず分析に反映してください
+- 過去に外した予測パターン(例: 楽観的すぎる目標株価、リスク認識の甘さ等)を意識し、より慎重で精度の高い推奨を行ってください
+- 学びから得られた「強み」は引き続き活かし、「弱み」は改善してください
+`;
+}
+
+// ===== History UI =====
+function formatDate(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffDay = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  const hm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  if (diffDay === 0) return `今日 ${hm}`;
+  if (diffDay === 1) return `昨日 ${hm}`;
+  if (diffDay < 7) return `${diffDay}日前 ${hm}`;
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${hm}`;
+}
+function stripMd(text) {
+  return text.replace(/[#*`_>\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+
+async function updateLearningBanner() {
+  const learnings = await getEvaluationLearnings();
+  const banner = document.getElementById('learningBanner');
+  const countEl = document.getElementById('learningCount');
+  if (learnings.length > 0) {
+    countEl.textContent = learnings.length;
+    banner.classList.add('active');
+  } else {
+    banner.classList.remove('active');
+  }
+}
+
+async function renderHistory() {
+  const items = await dbList();
+  historyCount.textContent = `${items.length}件`;
+  historyClearAllWrap.style.display = items.length > 0 ? 'block' : 'none';
+  await updateLearningBanner();
+  if (items.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">まだ保存された分析がありません。分析を実行すると自動保存されます。</div>';
+    return;
+  }
+  historyList.innerHTML = items.map(item => {
+    const m = MODELS[item.model] || { name: item.model, badge: '?' };
+    const summaryText = item.summary || extractAnalysisSummary(item.result || '');
+    const preview = summaryText
+      ? escapeHtml(summaryText.slice(0, 300))
+      : escapeHtml(stripMd(item.result).slice(0, 150));
+    const marketIcons = { paypay: '💴 PayPay', sbi: '🏦 SBI', japan: '🇯🇵 日本株', us: '🇺🇸 米国株', both: '🌐 日米', crypto: '🪙 暗号資産', etf: '📦 ETF' };
+    const isReview = currentMode === 'review';
+    const isSelected = selectedHistoryIds.has(item.id);
+    const checkboxRow = isReview ? `
+      <div class="history-checkbox-row">
+        <input type="checkbox" class="history-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''} aria-label="この分析を考察対象に含める">
+        <label class="history-checkbox-label">${isSelected ? '✅ 考察対象として選択中' : '🔲 考察対象に含める'}</label>
+      </div>
+    ` : '';
+    // Title: use stored title, or extract from result (for old items), or fall back
+    let titleText = item.title || extractAnalysisTitle(item.result || '');
+    let titleHtml;
+    if (titleText) {
+      const modeIcon = item.mode === 'evaluate' ? '📊' : item.mode === 'review' ? '🔄' : '💡';
+      titleHtml = `<div class="history-title">
+        <span class="history-title-icon">${modeIcon}</span>
+        <span class="history-title-text">${escapeHtml(titleText)}</span>
+      </div>`;
+    } else {
+      // Fallback: try to extract first H2 heading from result
+      const h2 = (item.result || '').match(/##\s*[^\n]+/);
+      const fallback = h2 ? stripMd(h2[0]).slice(0, 60) : '(タイトル未設定の旧分析)';
+      titleHtml = `<div class="history-title-fallback">📝 ${escapeHtml(fallback)}</div>`;
+    }
+    return `
+      <div class="history-item ${isReview ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
+        ${checkboxRow}
+        ${titleHtml}
+        <div class="history-meta">
+          <span class="history-meta-item">📅 ${formatDate(item.timestamp)}</span>
+          <span class="history-meta-item model">${m.badge} ${m.name}</span>
+          <span class="history-meta-item">${marketIcons[item.market] || item.market}</span>
+          ${item.mode === 'review' ? `<span class="history-meta-item" style="background:linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.15));color:#1d4ed8;font-weight:600">🔄 考察モード${item.reviewSourceIds ? ` (${item.reviewSourceIds.length}件参照)` : ''}</span>` : ''}
+          ${item.mode === 'evaluate' ? `<span class="history-meta-item" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309;font-weight:600">📊 評価レポート</span>` : ''}
+          ${item.searchCount ? `<span class="history-meta-item">🔍 ${item.searchCount}回検索</span>` : ''}
+        </div>
+        <div class="history-preview">${preview}...</div>
+        <div class="history-actions">
+          <button class="history-btn primary" data-action="open" data-id="${item.id}">📖 開く</button>
+          ${item.mode !== 'evaluate' ? `<button class="history-btn" data-action="evaluate" data-id="${item.id}" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309;border-color:rgba(245,158,11,0.3)">📊 評価する</button>` : ''}
+          <button class="history-btn" data-action="download" data-id="${item.id}">📥 ダウンロード</button>
+          <button class="history-btn danger" data-action="delete" data-id="${item.id}">🗑 削除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+historyList.addEventListener('change', (e) => {
+  if (!e.target.classList.contains('history-checkbox')) return;
+  const id = parseInt(e.target.dataset.id, 10);
+  if (e.target.checked) {
+    if (selectedHistoryIds.size >= MAX_REVIEW_SELECTION) {
+      e.target.checked = false;
+      alert(`考察モードでは最大 ${MAX_REVIEW_SELECTION} 件まで選択できます（トークン消費を抑えるため）`);
+      return;
+    }
+    selectedHistoryIds.add(id);
+  } else {
+    selectedHistoryIds.delete(id);
+  }
+  renderHistory();
+  updateAnalyzeButtonLabel();
+  updateSelectionBadge();
+});
+
+historyList.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = parseInt(btn.dataset.id, 10);
+  const action = btn.dataset.action;
+  if (action === 'open') {
+    const item = await dbGet(id);
+    if (item) {
+      renderMarkdown(item.result);
+      ensureResultActions(item);
+      resultDiv.classList.add('active');
+      resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+  } else if (action === 'download') {
+    const item = await dbGet(id);
+    if (item) downloadAnalysis(item);
+  } else if (action === 'evaluate') {
+    const item = await dbGet(id);
+    if (item) {
+      evaluatingItem = item;
+      const past = new Date(item.timestamp).toLocaleDateString('ja-JP');
+      const days = Math.floor((Date.now() - item.timestamp) / (1000 * 60 * 60 * 24));
+      if (confirm(`この分析(${past}, ${days}日前)を評価しますか?\n\nAIがその後の市場動向を web_search で調査し、推奨銘柄の予測精度を5段階評価します。\n(モデル: ${MODELS[modelSelect.value].name}, 推定コスト: ${MODELS[modelSelect.value].estimate})`)) {
+        analyzeStocks();
+      } else {
+        evaluatingItem = null;
+      }
+    }
+  } else if (action === 'delete') {
+    if (confirm('この分析を削除しますか?')) {
+      await dbDelete(id);
+      await renderHistory();
+    }
+  }
+});
+
+document.getElementById('clearAllHistory').addEventListener('click', async () => {
+  if (confirm('すべての保存済み分析を削除しますか?この操作は取り消せません。')) {
+    await dbClear();
+    await renderHistory();
+  }
+});
+
+function downloadAnalysis(item) {
+  const m = MODELS[item.model] || { name: item.model };
+  const itemTitle = item.title || extractAnalysisTitle(item.result || '');
+  const titleLine = itemTitle ? `# ${itemTitle}\n\n` : `# 銘柄分析結果\n\n`;
+  const header = `${titleLine}- 日時: ${formatDate(item.timestamp)}\n- モデル: ${m.name}\n- 市場: ${item.market}\n- 投資スタイル: ${item.style}\n- リスク: ${item.risk}\n- 想定金額: ${item.amount}\n${item.additional ? `- 追加要望: ${item.additional}\n` : ''}\n---\n\n`;
+  const blob = new Blob([header + item.result], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date(item.timestamp).toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  const slug = itemTitle ? itemTitle.replace(/[\\/:*?"<>|]/g, '').slice(0, 30) : 'stock_analysis';
+  a.href = url;
+  a.download = `${slug}_${dateStr}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ensureResultActions(currentItem) {
+  // Insert action bar at top of result
+  let actionsBar = document.getElementById('resultActionsBar');
+  if (!actionsBar) {
+    actionsBar = document.createElement('div');
+    actionsBar.id = 'resultActionsBar';
+    actionsBar.className = 'result-actions';
+    resultDiv.insertBefore(actionsBar, resultDiv.firstChild);
+  }
+  actionsBar.innerHTML = `
+    <button class="result-btn primary" id="downloadCurrent">📥 Markdownでダウンロード</button>
+    <button class="result-btn" id="copyCurrent">📋 クリップボードにコピー</button>
+  `;
+  document.getElementById('downloadCurrent').onclick = () => downloadAnalysis(currentItem);
+  document.getElementById('copyCurrent').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(currentItem.result);
+      const btn = document.getElementById('copyCurrent');
+      btn.textContent = '✅ コピー完了';
+      setTimeout(() => { btn.textContent = '📋 クリップボードにコピー'; }, 2000);
+    } catch { alert('コピーに失敗しました'); }
+  };
+}
+
+// ===== Progress tracking =====
+let startTime = null, elapsedInterval = null, activityLog = [];
+function showProgressPanel() { progressPanel.classList.add('active'); }
+function startElapsedTimer() {
+  startTime = Date.now(); updateElapsed();
+  if (elapsedInterval) clearInterval(elapsedInterval);
+  elapsedInterval = setInterval(updateElapsed, 1000);
+}
+function stopElapsedTimer() { if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; } }
+function updateElapsed() {
+  if (!startTime) return;
+  const sec = Math.floor((Date.now() - startTime) / 1000);
+  const m = Math.floor(sec / 60), s = sec % 60;
+  elapsedEl.textContent = `${m}:${String(s).padStart(2, '0')}`;
+}
+function setPhase(icon, title, detail) {
+  phaseIconEl.textContent = icon;
+  phaseTitleEl.textContent = title;
+  phaseDetailEl.textContent = detail || '';
+}
+function setStep(stepName, state) {
+  const step = stepList.querySelector(`[data-step="${stepName}"]`);
+  if (!step) return;
+  step.classList.remove('active', 'done');
+  if (state === 'active') step.classList.add('active');
+  if (state === 'done') step.classList.add('done');
+  const icon = step.querySelector('.step-icon');
+  if (icon) icon.textContent = state === 'done' ? '✅' : state === 'active' ? '🔄' : '⚪';
+}
+function setProgressPercent(pct) { progressFill.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+function addActivity(text) {
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  activityLog.unshift({ time, text });
+  if (activityLog.length > 30) activityLog.length = 30;
+  logList.innerHTML = activityLog.map(item =>
+    `<div class="log-item"><span class="log-time">${item.time}</span><span class="log-text">${item.text}</span></div>`
+  ).join('');
+}
+function resetProgress() {
+  activityLog = []; logList.innerHTML = '';
+  setStep('connect', 'pending'); setStep('search', 'pending');
+  setStep('generate', 'pending'); setStep('complete', 'pending');
+  setProgressPercent(0);
+  stepSearchCount.textContent = '0回';
+  stepGenerateCount.textContent = '0文字';
+  setPhase('🚀', '準備中...', 'APIに接続しています');
+}
+
+const SECTION_MARKERS = [
+  { re: /##\s*📊/, name: '市場概況を整理中', icon: '📊', pct: 25 },
+  { re: /##\s*🌍/, name: '世界情勢を整理中', icon: '🌍', pct: 32 },
+  { re: /##\s*🔬/, name: '分析方針を整理中', icon: '🔬', pct: 38 },
+  { re: /##\s*💡\s*(推奨|おすすめ)銘柄/, name: 'おすすめ銘柄を分析中', icon: '💡', pct: 50 },
+  { re: /##\s*🛒/, name: '買い方ガイドを作成中', icon: '🛒', pct: 70 },
+  { re: /##\s*🎯\s*個別銘柄/, name: '個別銘柄を評価中', icon: '🎯', pct: 60 },
+  { re: /##\s*🎯/, name: '投資戦略を構築中', icon: '🎯', pct: 80 },
+  { re: /##\s*⚠️/, name: 'リスク分析中', icon: '⚠️', pct: 88 },
+  { re: /##\s*🔄/, name: '推奨アクションを見直し中', icon: '🔄', pct: 75 },
+  { re: /##\s*📈/, name: '市場見通しを評価中', icon: '📈', pct: 70 },
+  { re: /##\s*💡\s*学び/, name: '学び・教訓を整理中', icon: '💡', pct: 90 },
+  { re: /##\s*📌/, name: 'まとめを作成中', icon: '📌', pct: 95 }
+];
+function detectCurrentSection(text) {
+  let last = null, lastIndex = -1;
+  for (const m of SECTION_MARKERS) {
+    const match = m.re.exec(text);
+    if (match && match.index > lastIndex) { lastIndex = match.index; last = m; }
+  }
+  return last;
+}
+function countStocks(text) {
+  const m = text.match(/###\s*\d+\.\s+/g);
+  return m ? m.length : 0;
+}
+
+// ===== Reusable SSE streaming helper (used by hybrid mode) =====
+async function streamFetch({apiKey, model, prompt, useTools, onEvent, signal}) {
+  const tools = useTools ? [
+    ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
+      ? { type: 'web_search_20260209', name: 'web_search', max_uses: 15 }
+      : { type: 'web_search_20260209', name: 'web_search', max_uses: 15, allowed_callers: ['direct'] }
+  ] : undefined;
+
+  const body = {
+    model, max_tokens: 16000, stream: true,
+    messages: [{ role: 'user', content: prompt }]
+  };
+  if (tools) body.tools = tools;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body),
+    signal
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorMessage = `APIエラー (${response.status})`;
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
+      else errorMessage += ': ' + errorText;
+    } catch { errorMessage += ': ' + errorText; }
+    throw new Error(errorMessage);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split(/\r?\n\r?\n/);
+    buffer = events.pop();
+    for (const event of events) {
+      if (!event.trim()) continue;
+      const lines = event.split(/\r?\n/);
+      let data = null;
+      for (const line of lines) {
+        if (line.startsWith('data: ')) data = line.slice(6).trim();
+      }
+      if (!data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        console.log('[SSE]', parsed.type, parsed);
+        await onEvent(parsed);
+      } catch (e) {
+        console.warn('SSE parse error:', data, e);
+      }
+    }
+  }
+}
+
+// ===== Hybrid Mode (Opus 4.7 research → Haiku 4.5 writer) =====
+async function analyzeStocksHybrid(ctx) {
+  const {
+    apiKey, today, retryCount, MAX_RETRIES,
+    researchModel = 'claude-opus-4-7', writerModel = 'claude-haiku-4-5', hybridMode = 'hybrid',
+    market, style, risk, amount, additional,
+    marketLabels, styleLabels, riskLabels, amountLabels,
+    paypayBlock, sbiBlock, shortTermTimingBlock, learningsBlock,
+    brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
+    stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
+    pastLearnings, currentMode
+  } = ctx;
+  const isEcoHybrid = hybridMode === 'eco-hybrid';
+  const researchModelLabel = isEcoHybrid ? 'Sonnet 4.6' : 'Opus 4.7';
+  const hybridIcon = isEcoHybrid ? '🌱' : '💎';
+  const hybridLabel = isEcoHybrid ? 'エコ・ハイブリッド' : 'プレミアム・ハイブリッド';
+
+  // UI setup
+  analyzeBtn.disabled = true;
+  analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>分析中...';
+  hideStatus();
+  if (retryCount === 0) {
+    resultDiv.innerHTML = ''; resultDiv.classList.remove('active');
+    hideCostSummary();
+    resetProgress(); showProgressPanel(); startElapsedTimer();
+    addActivity(`${hybridIcon} ${hybridLabel}モード開始 (${researchModelLabel} 研究 → Haiku 4.5 執筆)`);
+    if (pastLearnings.length > 0) addActivity(`🎓 過去の評価 ${pastLearnings.length} 件の学びを反映`);
+  } else {
+    addActivity(`🔁 リトライ ${retryCount}/${MAX_RETRIES} 開始`);
+  }
+  setStep('connect', 'active');
+  setPhase('🔬', `Phase 1/2: ${researchModelLabel} リサーチ開始`, 'web_search で詳細データを収集中...');
+  setProgressPercent(5);
+
+  // ===== Research Prompt (Phase 1) =====
+  const researchPrompt = `あなたは金融データのリサーチャーです。本日(${today})の最新情報を web_search で 3〜5回程度(上限5回)詳細に調査し、構造化された研究データを出力してください。
+
+【調査対象】
+- 対象市場: ${marketLabels[market]}
+- 投資スタイル: ${styleLabels[style]}
+- リスク許容度: ${riskLabels[risk]}
+- 投資想定額: ${amountLabels[amount]}
+${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
+
+【必須調査項目】(web_search で最新データを取得)
+(A) プロのアナリスト/機関投資家の最新コメント、大手証券のレーティング・目標株価
+(B) 主要株価指数の動向(日経平均、TOPIX、S&P500、NASDAQ等の終値と変動率)
+(C) 経済指標・金利・為替の最新動向
+(D) 世界情勢: 戦争(ウクライナ、中東、台湾)、感染症、政治、エネルギー、サプライチェーン
+(E) 推奨候補となる3〜5銘柄について:
+  - 会社概要・ビジネスモデル
+  - ファンダメンタル(PER, PBR, ROE, ROA, 配当利回り, 営業利益率, 自己資本比率, FCF の実数値)
+  - テクニカル(5/25/75/200日MA, RSI, MACD, サポート/レジスタンス)
+  - 需給(機関投資家保有比率, 信用倍率, 空売り比率)
+  - アナリストコンセンサス(強気/中立/弱気の集計, 平均目標株価)
+  - カタリスト(決算, ガイダンス, 自社株買い, 新製品, M&A)
+  - 主要リスク
+(F) ${marketLabels[market]} での銘柄購入手順
+(G) 投資戦略(配分目安, エントリーポイント, 損切りライン)
+${style === 'short' ? `(H) 各銘柄の短期売買タイミング(具体的な買値、損切り価格、利確価格、保有期間目安)` : ''}
+
+【予測価格の時間軸】(投資スタイル「${styleLabels[style]}」)
+${stylePeriodsListItems}
+※ 各銘柄について上記4ポイントの予測価格レンジ(安値・高値)を必ず
+
+【出力形式】(以下の構造で、客観的・データ中心。フレンドリーな表現は不要)
+
+# 市場概況
+[主要指数の数値、変動率、注目ニュース]
+
+# 世界情勢
+[戦争、感染症、政治、エネルギー等の最新情報と影響セクター]
+
+# 推奨銘柄
+
+## 1. 銘柄名 (TICKER/コード)
+- 会社: [何をして儲けているか]
+- 現在価格: [通貨記号][数値] / 時価総額: [数値]
+- ファンダメンタル: PER X.X / PBR X.X / ROE X.X% / 配当利回り X.X% / 営業利益率 X.X% / 自己資本比率 X.X%
+- テクニカル: 5/25/75/200日MA [位置関係]、RSI X、MACD [シグナル]、サポート X、レジスタンス X
+- 需給: 機関保有 X%、信用倍率 X倍、空売り X%
+- アナリスト評価: 強気 X / 中立 Y / 弱気 Z、平均目標株価 [数値]
+- カタリスト: [箇条書き]
+- 主要リスク: [箇条書き]
+- 予測価格 (投資スタイル「${styleLabels[style]}」):
+  - ${stylePeriods[0]}: 安値 [数値], 高値 [数値]
+  - ${stylePeriods[1]}: 安値 [数値], 高値 [数値]
+  - ${stylePeriods[2]}: 安値 [数値], 高値 [数値]
+  - ${stylePeriods[3]}: 安値 [数値], 高値 [数値]
+- 推奨アクション: buy / hold / sell
+- お勧め度: 1〜5${style === 'short' ? `
+- 短期売買タイミング:
+  - 狙いの買値: [具体価格]
+  - 損切り価格: [具体価格、-3%目安]
+  - 第1利確: [+5%目安の価格]
+  - 第2利確: [+10%目安の価格]
+  - 保有期間目安: [数日〜2週間など]
+  - 毎日チェックすべき指標: [3つ]` : ''}
+
+(2〜5 銘柄について同様に)
+
+# 買い方ガイド (${marketLabels[market]})
+- 証券会社/取引所推奨と理由 / 口座開設手順 / 入金方法 / 銘柄の探し方 / 購入手順 / 注文タイプ / 手数料・税金 / 初心者の注意点
+
+# 投資戦略
+- ポートフォリオ配分案 / エントリーポイント / 損切り・利確ライン
+
+# 注意すべきリスク
+- 経済イベント(FOMC、決算、選挙等) / マクロリスク(金利、為替、地政学)
+
+【重要】
+- web_search を 3〜5回程度(上限5回)実施
+- 数値は具体的に
+- 客観的データに徹し、感情表現は不要
+- これは中間データなので、構造化された簡潔な形式で出力`;
+
+  let phase1Search = 0, phase1In = 0, phase1Out = 0;
+  let researchText = '';
+  let phase1ToolInput = '', phase1ToolIndex = null;
+  let phase2In = 0, phase2Out = 0;
+  let accumulatedText = '';
+  let stopReason = null;
+  let currentSectionName = null;
+  let lastStockCount = 0;
+
+  try {
+    currentAbortController = new AbortController();
+    analysisStartTime = Date.now();
+    showRunningInfo();
+    // ===== Phase 1: Research =====
+    await streamFetch({
+      apiKey, model: researchModel, prompt: researchPrompt, useTools: true,
+      signal: currentAbortController.signal,
+      onEvent: (parsed) => {
+        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+          phase1In = parsed.message.usage.input_tokens || 0;
+          addActivity(`📨 Phase1 応答開始 (入力 ${phase1In.toLocaleString()}tk)`);
+          setStep('connect', 'done');
+          setStep('search', 'active');
+        }
+        if (parsed.type === 'content_block_start') {
+          const block = parsed.content_block;
+          if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+            phase1Search++;
+            phase1ToolInput = '';
+            phase1ToolIndex = parsed.index;
+            stepSearchCount.textContent = `${phase1Search}回`;
+            updateSearchCounter(phase1Search, 15);
+            const phaseLabel = phase1Search <= 5 ? '🌱 Phase A 情報収集' : phase1Search <= 12 ? '🔍 Phase B 深掘り' : '🎯 Phase C まとめ';
+            setProgressPercent(Math.min(45, 10 + phase1Search * 3));
+            setPhase('🔍', `${phaseLabel} - 検索 ${phase1Search}/15`, `${researchModelLabel} が情報収集中...`);
+            addActivity(`🔍 ${phaseLabel} #${phase1Search}`);
+          }
+        }
+        if (parsed.type === 'content_block_delta') {
+          const delta = parsed.delta;
+          if (delta && delta.type === 'text_delta') researchText += delta.text;
+          if (delta && delta.type === 'input_json_delta' && parsed.index === phase1ToolIndex) {
+            phase1ToolInput += delta.partial_json || '';
+          }
+        }
+        if (parsed.type === 'content_block_stop' && parsed.index === phase1ToolIndex && phase1ToolInput) {
+          try {
+            const inp = JSON.parse(phase1ToolInput);
+            if (inp.query) {
+              addActivity(`🔎 クエリ: "${inp.query}"`);
+              showCurrentQuery(inp.query);
+            }
+          } catch {}
+          phase1ToolIndex = null; phase1ToolInput = '';
+        }
+        if (parsed.type === 'message_delta' && parsed.usage) {
+          phase1Out = parsed.usage.output_tokens || phase1Out;
+          const _r = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+          updateRunningCost((phase1In * (_r.inputCost || 5) + phase1Out * (_r.outputCost || 25)) / 1000000);
+          updateStats({ inputTokens: phase1In, outputTokens: phase1Out, chars: researchText.length });
+        }
+      }
+    });
+
+    addActivity(`✅ Phase 1 完了: リサーチ ${researchText.length.toLocaleString()}文字、検索 ${phase1Search}回`);
+    setStep('search', 'done');
+    setStep('generate', 'active');
+    setPhase('✍️', 'Phase 2/2: Haiku 4.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
+    setProgressPercent(50);
+    if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+
+    // ===== Writer Prompt (Phase 2) =====
+    const writerPrompt = `あなたは金融ライターです。以下のリサーチデータを元に、初心者にもフレンドリーで楽しい銘柄分析を Markdown 形式で書いてください。
+
+【リサーチデータ】(別のアナリストAIが詳細調査したもの)
+================================
+${researchText}
+================================
+
+【投資家プロフィール】
+- 対象市場: ${marketLabels[market]}
+- 投資スタイル: ${styleLabels[style]}
+- リスク許容度: ${riskLabels[risk]}
+- 投資想定額: ${amountLabels[amount]}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+
+${learningsBlock}
+
+★★★ 最重要 ★★★【表現スタイル — 必ず厳守】
+「友達と一緒に楽しく株を学ぶような、フレンドリーで温かみのある日本語」で書いてください。
+- 親しみやすい「です・ます調」で、適度に絵文字 🎯💡🚀⚠️📈🏢💴
+- 「〜なんですよ」「〜ですよね」「ここがポイント!」など語りかけ表現
+- 専門用語は必ず例え話で説明:
+  - PER → 「年間利益で何年分払えば株を買い戻せるか」「年100万円のお店ならPER15倍=1500万円の値段感覚」
+  - PBR → 「会社の財産の何倍の値段で売られてるか。1倍以下はバーゲン」
+  - ROE → 「自分のお金でどれだけ稼ぐ効率」「100万円預けて10万円儲かる効率」
+  - RSI → 「買われすぎ/売られすぎの体温計🌡。70超で熱中症🥵、30以下で風邪気味🤧」
+  - MACD → 「お風呂の温度計♨。上向きなら熱くなる兆し」
+  - 移動平均線 → 「過去の平均株価をつないだ道🛤、上り坂なら山登り中⛰」
+  - 損切り → 「ダラダラ食べ続けないダイエットルール🍰」
+  - 利確 → 「ゲームで強アイテムをセーブする感覚🎮」
+- 数値変動は感覚的に「+15% は1万円が1.15万円になった感覚📈、ランチ1回プラス」
+- ストーリー仕立てで、銘柄を「物語」として語る
+
+【出力形式】Markdown で:
+
+## 📊 市場概況 - 今の市場、どんな雰囲気? (${today}時点)
+リサーチデータの「市場概況」を温かく解説
+
+## 🌍 世界情勢の影響 - 世界で何が起きてる? (${today}時点)
+連鎖のストーリーで(「中東紛争→原油↑→ガソリン代↑→物流コスト↑」など)
+
+## 🔬 今回の分析で重視した観点
+プロが見ているポイントを初心者目線で
+
+## 💡 おすすめ銘柄、ご紹介します!(3〜5銘柄)
+### 1. 銘柄名(ティッカー/コード)
+- **🏢 どんな会社?**: 身近な例えで
+- **💴 今の株価**: 価格・取得日・時価総額
+- **🎯 ぼくのおすすめは?**: 買い/様子見/売り
+- **💪 会社の体力チェック**: PER/PBR/ROE/配当/営業利益率(実数値+例え)
+- **📈 株価の今のムード**: テクニカル指標を「山登り中」「下り坂」等で
+- **👀 市場での人気度**: 機関投資家・信用倍率
+- **🎤 プロたちはどう言ってる?**: アナリスト評価+目標株価
+- **✨ なぜおすすめなのか(3つ以上)**: ストーリー仕立て
+- **🎯 どこまで上がりそう?**: 目標レンジと根拠
+- **⏱ いつまで持つ?**: 保有期間
+- **⚠️ 気をつけたいこと**: 銘柄固有のリスク${market === 'paypay' ? `
+- **💴 PayPay証券で買える?**: 取扱有・最低投資額` : ''}${style === 'short' ? `
+
+各銘柄に必ず以下を追加(リサーチデータの該当部分を温かく解説):
+#### ⏰ いつ買う? — 具体的な買値・トリガー条件
+#### 💰 いつ売る? — 第1利確・第2利確・トレーリングストップ
+#### 🛑 損切りライン — 具体的な撤退価格と判断基準
+#### 📅 想定保有期間とシナリオ — ベスト/ベース/ワーストケース
+#### 👀 毎日チェックすべき指標 — 3つ` : ''}
+
+## 🛒 買い方ガイド (${marketLabels[market]}向け / 初心者対応)
+リサーチデータの「買い方ガイド」を優しく丁寧に
+
+## 🎯 投資戦略 - どう動けばいい?
+配分・タイミング・損切り
+
+## ⚠️ ここは気をつけて! - 今知っておきたいリスク
+イベントとマクロリスク
+
+## 📌 今日のまとめ - 最後に一言
+温かいメッセージで締めくくり
+
+[CHART_DATA]
+{
+  "stocks": [
+    {
+      "name": "銘柄名",
+      "ticker": "ティッカー",
+      "currency": "¥ or $",
+      "current_price": 数値,
+      "action": "buy" / "hold" / "sell",
+      "rating": 1-5,
+      "forecasts": [
+        { "period": "${stylePeriods[0]}", "price_low": 数値, "price_high": 数値 },
+        { "period": "${stylePeriods[1]}", "price_low": 数値, "price_high": 数値 },
+        { "period": "${stylePeriods[2]}", "price_low": 数値, "price_high": 数値 },
+        { "period": "${stylePeriods[3]}", "price_low": 数値, "price_high": 数値 }
+      ]
+    }
+  ]
+}
+[/CHART_DATA]
+
+[CALENDAR_DATA]
+{
+  "events": [
+    {
+      "date": "2026-05-15",
+      "time": "23:00",
+      "title": "FOMC 金利決定",
+      "type": "policy",
+      "importance": 5,
+      "stocks_affected": ["AAPL", "NVDA"],
+      "if_positive": "ハイテク株を買い増し",
+      "if_negative": "ハイテク株を即売却",
+      "description": "アメリカの中央銀行が金利を決める会議。利下げならハイテク株上昇"
+    },
+    {
+      "date": "2026-05-20",
+      "time": "15:00",
+      "title": "NVIDIA 決算発表",
+      "type": "earnings",
+      "importance": 4,
+      "stocks_affected": ["NVDA", "6857"],
+      "if_positive": "AI関連株を追加買い",
+      "if_negative": "AI関連株を一部利確",
+      "description": "AI半導体の決算、市場予想を上回ればAIブーム継続"
+    }
+  ]
+}
+[/CALENDAR_DATA]
+
+(events は今後1〜3ヶ月の重要イベントを 3〜8 個。type は policy/earnings/geopolitical/macro/election/regulation/tech/energy/pandemic/war/other から選ぶ)
+
+[ANALYSIS_SUMMARY]
+3〜4行で、この分析の要点をまとめてください。後で履歴から「あの分析だ!」と一目で分かるように:
+- 1行目: どんな投資テーマか(例: AI半導体ブームを狙った中期グロース戦略)
+- 2行目: 主な推奨銘柄と方向性(例: トヨタ(7203)買い・ソニーG(6758)買い増し・任天堂(7974)様子見)
+- 3行目: 注意すべき主なリスク(例: 円高進行で輸出株は要注意)
+- 4行目: 投資目線(例: 6ヶ月〜1年で+15〜25%を狙う中期目線)
+[/ANALYSIS_SUMMARY]
+
+[ANALYSIS_TITLE]30文字以内の特徴的なタイトル[/ANALYSIS_TITLE]
+
+【絶対守ること】
+- リサーチデータの数値・事実を必ず正確に反映
+- 表現は中学生でも分かるよう例え話を多用
+- フレンドリーで楽しいトーンで
+- 必ず [CHART_DATA] [CALENDAR_DATA] [ANALYSIS_SUMMARY] [ANALYSIS_TITLE] の4つすべて含める
+- forecasts の period は必ず ${stylePeriodsCompact} を使用`;
+
+    // ===== Phase 2: Haiku 4.5 Writing =====
+    await streamFetch({
+      apiKey, model: writerModel, prompt: writerPrompt, useTools: false,
+      signal: currentAbortController ? currentAbortController.signal : undefined,
+      onEvent: (parsed) => {
+        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+          phase2In = parsed.message.usage.input_tokens || 0;
+          addActivity(`📨 Phase2 応答開始 (入力 ${phase2In.toLocaleString()}tk)`);
+        }
+        if (parsed.type === 'content_block_delta') {
+          const delta = parsed.delta;
+          if (delta && delta.type === 'text_delta') {
+            accumulatedText += delta.text;
+            renderMarkdown(accumulatedText);
+            stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
+            const sec = detectCurrentSection(accumulatedText);
+            if (sec && sec.name !== currentSectionName) {
+              currentSectionName = sec.name;
+              setPhase(sec.icon, sec.name, `${accumulatedText.length.toLocaleString()}文字生成済み`);
+              setProgressPercent(50 + Math.floor(sec.pct / 2));
+              addActivity(`📝 ${sec.name}`);
+            }
+            const stockCount = countStocks(accumulatedText);
+            if (stockCount !== lastStockCount && currentSectionName && currentSectionName.includes('銘柄')) {
+              lastStockCount = stockCount;
+              addActivity(`💡 銘柄 ${stockCount} 件目を分析中`);
+            }
+          }
+        }
+        if (parsed.type === 'message_delta') {
+          if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+          if (parsed.usage) phase2Out = parsed.usage.output_tokens || phase2Out;
+          // Update running cost (Phase1 + Phase2 combined)
+          const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+          const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
+          const totalCost = (phase1In * (_r1.inputCost || 5) + phase1Out * (_r1.outputCost || 25) +
+                              phase2In * (_r2.inputCost || 1) + phase2Out * (_r2.outputCost || 5)) / 1000000;
+          updateRunningCost(totalCost);
+          updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + phase2Out, chars: accumulatedText.length });
+        }
+      }
+    });
+
+    addActivity(`✅ Phase 2 完了: ${accumulatedText.length.toLocaleString()}文字`);
+
+    // ===== Save & Complete =====
+    if (!accumulatedText.trim()) {
+      stopElapsedTimer();
+      setPhase('⚠️', 'Phase2 で本文未生成', 'Haiku 4.5 が本文を生成できませんでした');
+      resultDiv.innerHTML = `<h2>⚠️ Phase2 で本文が生成されませんでした</h2>
+        <p>Phase1 のリサーチは ${researchText.length.toLocaleString()}文字取得できましたが、Phase2 で本文化に失敗しました。もう一度「分析開始」を押してみてください。</p>
+        <h3>診断情報</h3>
+        <ul>
+          <li>Phase1 リサーチ文字数: <code>${researchText.length}</code></li>
+          <li>Phase1 検索: <code>${phase1Search}</code> 回</li>
+          <li>Phase1 トークン: 入力 <code>${phase1In}</code> / 出力 <code>${phase1Out}</code></li>
+          <li>Phase2 トークン: 入力 <code>${phase2In}</code> / 出力 <code>${phase2Out}</code></li>
+          <li>stop_reason: <code>${stopReason || '(未受信)'}</code></li>
+        </ul>`;
+      resultDiv.classList.add('active');
+      showStatus('⚠️ Phase2 で本文未生成。再試行してください', 'error');
+    } else {
+      stopElapsedTimer();
+      setStep('generate', 'done');
+      setStep('complete', 'done');
+      setProgressPercent(100);
+      setPhase('✅', 'ハイブリッド分析完了!', `${accumulatedText.length.toLocaleString()}文字を生成`);
+      addActivity('✅ ハイブリッド分析が完了しました');
+
+      const extractedTitle = extractAnalysisTitle(accumulatedText);
+      const extractedSummary = extractAnalysisSummary(accumulatedText);
+      const savedItem = {
+        timestamp: Date.now(),
+        model: hybridMode, market, style, risk, amount, additional,
+        result: accumulatedText,
+        title: extractedTitle,
+        summary: extractedSummary,
+        searchCount: phase1Search,
+        inputTokens: phase1In + phase2In,
+        outputTokens: phase1Out + phase2Out,
+        stopReason,
+        mode: 'new',
+        reviewSourceIds: [],
+        evaluateTargetId: null,
+        learningsApplied: pastLearnings.length,
+        hybridPhases: {
+          phase1: { model: researchModel, input: phase1In, output: phase1Out, search: phase1Search },
+          phase2: { model: writerModel, input: phase2In, output: phase2Out }
+        }
+      };
+
+      const newId = await dbSave(savedItem);
+      if (newId) {
+        savedItem.id = newId;
+        if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
+        addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
+        await renderHistory();
+        ensureResultActions(savedItem);
+      }
+
+      // Cost: model-specific rates (input/output $ per 1M tokens)
+      const rates = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+      const writerRates = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
+      const r1In = rates.inputCost || 5, r1Out = rates.outputCost || 25;
+      const r2In = writerRates.inputCost || 1, r2Out = writerRates.outputCost || 5;
+      const cost = (phase1In * r1In + phase1Out * r1Out + phase2In * r2In + phase2Out * r2Out) / 1000000;
+      let chips = '';
+      chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.18),rgba(16,185,129,0.18));color:#047857;font-weight:700">${hybridIcon} ${hybridLabel}</span>`;
+      chips += `<span class="chip">🔍 検索 <span class="chip-value">${phase1Search}回</span></span>`;
+      chips += `<span class="chip">📥 入力 <span class="chip-value">${(phase1In + phase2In).toLocaleString()}</span></span>`;
+      chips += `<span class="chip">📤 出力 <span class="chip-value">${(phase1Out + phase2Out).toLocaleString()}</span></span>`;
+      if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
+      if (pastLearnings.length > 0) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.12));color:#047857">🎓 学習反映 <span class="chip-value">${pastLearnings.length}件</span></span>`;
+      chips += `<span class="chip">💾 自動保存済み</span>`;
+      chips += `<span class="chip">💵 推定 <span class="chip-value">$${cost.toFixed(3)}</span></span>`;
+
+      // Show prominent cost summary card with phase breakdown
+      const researchModelInfo = MODELS[researchModel] || { name: researchModel, inputCost: r1In, outputCost: r1Out };
+      const writerModelInfo = MODELS[writerModel] || { name: writerModel, inputCost: r2In, outputCost: r2Out };
+      showCostSummary({
+        phases: [
+          { label: `Phase1 (${researchModelLabel} 研究)`, inputCost: r1In, outputCost: r1Out, inputTokens: phase1In, outputTokens: phase1Out },
+          { label: `Phase2 (Haiku 4.5 執筆)`, inputCost: r2In, outputCost: r2Out, inputTokens: phase2In, outputTokens: phase2Out }
+        ],
+        totalIn: phase1In + phase2In, totalOut: phase1Out + phase2Out,
+        modelLabel: `${hybridIcon} ${hybridLabel}`,
+        searchCount: phase1Search, learningsCount: pastLearnings.length
+      });
+
+      setStatusHTML(`✅ <strong>${hybridLabel}分析完了!</strong> ${researchModelLabel} がリサーチ、Haiku 4.5 が執筆<div class="chips">${chips}</div>`, 'success');
+    }
+  } catch (error) {
+    console.error('Hybrid mode error:', error);
+    const errStr = error.message || String(error);
+    // Handle user abort gracefully
+    if (error.name === 'AbortError' || /abort/i.test(errStr)) {
+      stopElapsedTimer();
+      setPhase('🛑', '分析を中止しました', `ユーザーによる中止(${researchModelLabel} 研究中 or Haiku 執筆中)`);
+      addActivity('🛑 ユーザーによる中止');
+      showStatus('🛑 分析を中止しました', 'error');
+      return;
+    }
+    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+      const waitSec = Math.pow(2, retryCount + 1);
+      setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
+      addActivity(`⏳ ${waitSec}秒待機してリトライ`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+      analyzeBtn.disabled = false;
+      return analyzeStocks(retryCount + 1);
+    }
+    stopElapsedTimer();
+    setPhase('❌', 'ハイブリッドモードでエラー', errStr);
+    addActivity(`❌ ${errStr}`);
+    let msg = '❌ ハイブリッドモードでエラー: ' + errStr;
+    if (errStr.includes('Failed to fetch')) msg += '\n\n💡 ネットワーク接続を確認してください。';
+    else if (errStr.includes('401')) msg += '\n\n💡 APIキーが正しいか確認してください。';
+    else if (errStr.includes('429')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
+    else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。`;
+    showStatus(msg, 'error');
+  } finally {
+    analyzeBtn.disabled = false;
+    evaluatingItem = null;
+    currentAbortController = null;
+    hideRunningInfo();
+    updateAnalyzeButtonLabel();
+  }
+}
+
+async function analyzeStocks(retryCount = 0) {
+  const MAX_RETRIES = 3;
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+
+  // Review mode validation
+  let reviewItems = [];
+  if (currentMode === 'review' && !evaluatingItem) {
+    if (selectedHistoryIds.size === 0) {
+      showStatus('⚠️ 考察モードでは過去の分析を1件以上選択してください', 'error');
+      return;
+    }
+    for (const id of selectedHistoryIds) {
+      const item = await dbGet(id);
+      if (item) reviewItems.push(item);
+    }
+    reviewItems.sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  // Evaluation mode flag (set by the 📊 評価 button on history items)
+  const isEvaluating = !!evaluatingItem;
+  const evalTarget = evaluatingItem; // snapshot for closure
+
+  // Fetch past evaluation learnings (used in new/review modes, not evaluation mode)
+  const pastLearnings = !isEvaluating ? await getEvaluationLearnings(5) : [];
+  const learningsBlock = buildLearningsBlock(pastLearnings);
+
+  const model = modelSelect.value;
+  const market = document.getElementById('market').value;
+  const style = getRadioValue('style');
+  const risk = getRadioValue('risk');
+  const amount = document.getElementById('amount').value;
+  const additional = document.getElementById('additional').value.trim();
+
+  const marketLabels = {
+    paypay: 'PayPay証券で取引可能な銘柄(日本株・米国株)',
+    sbi: 'SBI証券で取引可能な銘柄(日本株・米国株・ETF・REIT・投資信託・IPO 等 幅広く)',
+    japan: '日本株(東証)', us: '米国株(NYSE/NASDAQ)',
+    both: '日本株と米国株', crypto: '暗号資産', etf: 'ETF・投資信託'
+  };
+  const styleLabels = { short: '短期(数日〜数週間)', mid: '中期(数ヶ月)', long: '長期(1年以上)' };
+  const riskLabels = { low: '低(保守的)', medium: '中(バランス型)', high: '高(積極的)' };
+  const amountLabels = {
+    micro: '1,000〜10,000円(超少額・お試し)', small: '1〜10万円',
+    medium: '10〜100万円', large: '100〜1,000万円', xlarge: '1,000万円以上'
+  };
+
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  // Investment-style-specific forecast time periods for the prediction chart
+  const stylePeriodsMap = {
+    short: ['1日後', '1週間後', '2週間後', '1ヶ月後'],
+    mid:   ['1ヶ月後', '3ヶ月後', '6ヶ月後', '1年後'],
+    long:  ['3ヶ月後', '6ヶ月後', '1年後', '3年後']
+  };
+  const stylePeriods = stylePeriodsMap[style] || stylePeriodsMap.mid;
+  const stylePeriodsListItems = stylePeriods.map(p => `  - "${p}"`).join('\n');
+  const stylePeriodsCompact = stylePeriods.map(p => `"${p}"`).join(', ');
+
+  const paypayBlock = market === 'paypay' ? `
+
+【PayPay証券限定の絶対条件】
+- PayPay証券は日本株 約180銘柄・米国株 約200銘柄を扱う(端株対応、1,000円から購入可能)
+- 必ず web_search で「PayPay証券 取扱銘柄一覧 ${new Date().getFullYear()}」を検索して最新の取扱銘柄を確認
+- PayPay証券で取り扱っていない銘柄は推奨しないでください` : '';
+
+  const sbiBlock = market === 'sbi' ? `
+
+【SBI証券限定の重要条件】
+- SBI証券は国内最大級のネット証券。日本株(全銘柄)・米国株(約6,000銘柄以上)・ETF・REIT・投資信託・IPO等を幅広く取り扱う
+- 単元未満株「S株」サービスで 100円程度から少額投資も可能
+- NISA口座(成長投資枠+つみたて投資枠)に完全対応、IPO抽選も人気
+- 米国株は住信SBIネット銀行連携で為替手数料を最安レベルに削減可能
+- 必ず web_search で「SBI証券 取扱銘柄 ${new Date().getFullYear()}」「SBI証券 手数料 最新」「SBI証券 ゼロ革命」を確認し、国内株売買手数料 0円対応の最新動向を反映
+- 推奨銘柄は SBI証券 で取引可能なものから選定 (実質的にほぼすべての主要銘柄が対象)
+- IPO・PO・新規上場銘柄が直近で SBI証券 で取扱開始されたものがあれば積極的に検討` : '';
+
+  // Broker assumption: SBI証券 is the default registered broker (except for PayPay市場)
+  const userBroker = market === 'paypay' ? 'PayPay証券' : 'SBI証券';
+  const brokerBlock = `
+
+【★ユーザーの取引環境(重要)★】
+ユーザーは「${userBroker}」に既に口座を開設済みです:
+- 口座開設・本人確認・初回入金 等の手続きは完了しているので、これらの手順は説明不要
+- 「🛒 買い方ガイド」セクションは、${userBroker} での具体的な操作(銘柄検索→注文→約定確認)に絞って解説
+
+【★★★ 絶対必須 ★★★ 証券会社の最新情報を毎回チェック(分析毎に必ず実行)】
+証券会社の情報は手数料改定・取扱銘柄追加・キャンペーン更新などで頻繁に変わります。
+分析のたびに必ず web_search で「PayPay証券」と「SBI証券」の両方の最新情報を取得し、買い方ガイドに反映してください。
+
+▼ 必須検索クエリ(必ず実行):
+- 「SBI証券 手数料 ${new Date().getFullYear()}」「SBI証券 取扱銘柄 最新」「SBI証券 手数料改定」
+- 「SBI証券 NISA ${new Date().getFullYear()}」「SBI証券 キャンペーン 最新」「SBI証券 アプリ アップデート」
+- 「PayPay証券 手数料 ${new Date().getFullYear()}」「PayPay証券 取扱銘柄 最新」「PayPay証券 手数料改定」
+- 「PayPay証券 キャンペーン 最新」「PayPay証券 新サービス ${new Date().getFullYear()}」
+- 「証券会社 ${new Date().getFullYear()} 比較 手数料」「ネット証券 ${new Date().getFullYear()} 最新動向」
+
+▼ 取得すべき情報:
+- 最新の取引手数料体系(売買手数料、定額制/従量制、無料化の動き、最新の料金プラン)
+- 直近で追加された取扱銘柄(米国株/日本株/ETF/REIT等の新規追加)
+- 現在実施中のキャンペーン(口座開設、入金、手数料キャッシュバック、ポイント付与等)
+- 新サービス・新機能(新NISA、IPO、IPO抽選方法、信用取引、貸株、ロボアド、米国株オプション等)
+- アプリ・ウェブの新機能やUI変更
+- システム障害情報や注意喚起(あれば)
+- ${userBroker} と他社との差別化ポイント(競争力比較)
+
+▼ 出力時のルール:
+- ❌ 古い情報や昔の手数料体系をそのまま提示するのは禁止
+- ✅ 必ず「20XX年X月時点」のように情報取得日を明記
+- ✅ 手数料改定の最新動向(無料化の流れ等)があれば反映
+- ✅ "${userBroker}" の現在のキャンペーン情報も含める(あれば)
+- ✅ もし他社と比較してメリット/デメリットがあれば触れる
+
+${market === 'us' ? '- ' + userBroker + ' の米国株取引手順(為替手数料、住信SBIネット銀行との連携、外国税控除)も具体的に' : ''}
+${market === 'japan' || market === 'both' ? '- ' + userBroker + ' の単元未満株(S株)サービスや日経テレコン連携も活用可能' : ''}
+- アプリ版(${userBroker === 'SBI証券' ? 'SBI証券 株アプリ' : 'PayPay証券アプリ'})とウェブ版どちらでも操作可能なように説明
+`;
+
+  // ★★★ Search strategy — phased, purposeful search approach (max 15 with auto wrap-up)
+  const searchStrategyBlock = `
+
+【★★★ 検索戦略(必ず段階的・繋がりのある調査をする)★★★】
+web_search は単発で並列に使うのではなく、以下の3段階で「ストーリーのある調査」をしてください。
+上限は15回。それ以上は検索しない(キリがないため)。
+
+▼ 🌱 Phase A: 情報収集(検索 1〜5 回目)
+目的: 全体像を俯瞰し、注目すべきテーマ・銘柄候補を見つける
+- 主要株価指数の最新動向(日経平均、TOPIX、S&P500、NASDAQ等)
+- マクロ環境(金利、為替、コモディティ、世界情勢)
+- 注目セクター・テーマの最新ニュース
+- 検索クエリ例: 「日経平均 ${new Date().getFullYear()} 動向」「米国市場 直近」「注目セクター ${new Date().getFullYear()}」「世界情勢 株式市場」
+
+▼ 🔍 Phase B: 深掘り(検索 6〜12 回目)
+目的: Phase A で見つけた注目銘柄・テーマを深く掘り下げ、推奨判断の根拠を集める
+- ★ 必ず前の検索結果を踏まえて、繋がりのある検索を ★
+- 例: 「Phase A で AI半導体が伸びている」と分かったら → 「個別銘柄(NVDA、Advantest等)の最新決算・株価動向」「AI市場の長期見通し」「競合状況」を順に検索
+- 例: 「Phase A で円安加速」と分かったら → 「輸出企業の業績への影響」「具体的な恩恵銘柄」「為替リスクの逆風銘柄」を順に検索
+- 個別銘柄: 財務指標、テクニカル、アナリスト評価、最新ニュース、決算、競合
+- リスク要因の深掘り: Phase A で見えたリスクの派生影響、対象セクター
+- 検索の繋がりを意識:「○○を検索 → ○○の中で △△ が興味深い → △△ を更に深堀」のような連鎖
+
+▼ 🎯 Phase C: まとめ・最終確認(検索 13〜15 回目、必要な場合のみ)
+目的: 推奨を出す前の最終チェック、矛盾解消、最新性確認
+- 推奨候補銘柄の現在価格・直近ニュースの最終確認
+- ${userBroker} での取扱状況の最終確認(まだ確認していなければ)
+- 今後1〜3ヶ月の重要イベント(FOMC、決算等)の日時確認
+- 矛盾している情報があればその真偽の確認
+- 15回に達したら検索を打ち切り、得られた情報で分析を完成させる
+
+【★絶対ルール★】
+- 単発・独立した検索ではなく、ストーリーのある調査として行う
+- 各検索は前の検索の結果から「もっと知りたい」と思った部分を掘る
+- 検索回数を意識し、Phase A は浅く広く、Phase B は深く、Phase C は最終確認
+- 15回到達したら「もう少し」と粘らず、これまでの情報で結論を出す
+- 内容の薄い検索結果が続く場合は早めに Phase C(まとめ)に移行する
+
+`;
+
+  // ★★★ Compact output rules — strict length limits to keep output readable
+  const compactOutputBlock = `
+
+【★★★ 絶対厳守 ★★★ コンパクト出力ルール(長文NG)】
+読み手は忙しい個人投資家。長文は読まれません。視覚的・簡潔に書いてください:
+
+▼ 全体の長さ目標: 3,000〜4,500 文字 (絶対に 5,000 文字を超えない)
+
+▼ 各セクションの長さ制限:
+- 📊 市場概況: 100〜200文字 (1〜2文で要約)
+- 🌍 世界情勢: 150〜250文字 (1〜2文 + 影響セクター)
+- 🔬 分析の観点: 80〜150文字 (短く)
+- 💡 各銘柄: 400〜600文字 (簡潔に、表形式で数値を整理)
+- 🛒 買い方ガイド: 200〜350文字 (手順を箇条書き、各ステップ1文)
+- 🎯 投資戦略: 100〜200文字
+- ⚠️ リスク: 100〜200文字
+- 📌 まとめ: 80〜150文字
+
+▼ 書き方ルール:
+- 長文の段落は禁止 → 必ず箇条書き or 表形式
+- 1文は40字以内に
+- 重複説明は禁止
+- 数値の羅列は表形式に
+- 各銘柄の「なぜおすすめか」は3つ以内の箇条書き
+- イベントの詳細は CALENDAR_DATA に集約(本文では触れる程度)
+- 売買タイミングの詳細は CHART_DATA と CALENDAR_DATA で視覚化
+
+▼ 推奨銘柄テンプレート(これに従う):
+### 1. 銘柄名 (CODE)
+| 項目 | 値 |
+|---|---|
+| 💴 現在価格 | ¥X (時価総額 X兆円) |
+| 🎯 推奨 | 🟢 買い (★★★★) |
+| 🎯 目標価格 | ¥X 〜 ¥Y (+Z%) |
+| 💪 ファンダ | PER X / PBR Y / ROE Z% |
+| 📈 テクニカル | 上昇トレンド / RSI Z |
+| ⏱ 想定保有 | 中期(3〜6ヶ月) |
+
+**📝 一言で言うと:** [1文で銘柄の魅力を]
+**✨ おすすめ理由:** ① [短く] ② [短く] ③ [短く]
+**⚠️ リスク:** [1〜2項目を短く]
+
+短期スタイルのみ、以下を1ブロック追加(リアルタイム・トリガーの完全版は CALENDAR_DATA で):
+**⏰ 売買タイミング:** 買い ¥X〜 / 損切り ¥Y / 利確 ¥Z
+
+詳細(リアルタイム・トリガー、長文説明)は最小限にし、視覚化データに集約してください。
+`;
+
+  // ★★★ Strict jargon translation rules — applied to entire output
+  const jargonRulesBlock = `
+
+【★★★ 専門用語の超厳格な翻訳ルール(絶対厳守) ★★★】
+読み手は株式投資を始めたばかりの初心者です。
+**専門用語を単体で書いたら不合格** です。必ず「友達に話すような分かりやすい言葉」に翻訳してください。
+
+【絶対NG例 ❌】(これを書いたら最初からやり直し)
+- 「寄り付きで連れ高を狙って成行買い」 ← 全部専門用語!分からない!
+- 「FOMC後にYCC見直しでサポートライン割れたら損切り」 ← 何言ってるか不明!
+- 「PER 15倍、PBR 1.2倍、ROE 12%」 ← 数字だけ並べても意味不明!
+
+【必須翻訳辞書】(これらの言葉を使う時は必ず以下の説明を添えること)
+
+▼ 取引・タイミング系
+- 「寄り付き」→ 「朝の取引開始の瞬間(日本株は朝9:00、米国株は日本時間 夜23:30〜)」
+- 「引け」→ 「取引が終わる時間(日本株は午後3:00)」
+- 「成行注文/成行買い」→ 「『今すぐ買う』注文(値段は市場価格に任せる、すぐに約定する)」
+- 「指値注文/指値買い」→ 「『○○円まで下がったら買う』と予約しておく注文(その値段になるまで待つ)」
+- 「連れ高」→ 「同じ業界の他の銘柄が値上がりするのに合わせて、ふわっと一緒に上がる現象」
+- 「連れ安」→ 「他の関連銘柄が下がるのに合わせて、つられて下がる現象」
+- 「押し目買い」→ 「一時的に値下がりしたタイミングで買う(セールを狙うような感覚)」
+- 「ブレイクアウト」→ 「過去ずっと超えられなかった上の壁(レジスタンスライン)を突き破って急上昇する瞬間」
+- 「損切り」→ 「これ以上下がったら売る!と決めた撤退ライン(被害を最小限にするためのルール)」
+- 「利確」→ 「ここまで上がったら売って利益を確保(ゲームでセーブする感覚)」
+
+▼ チャート・指標系
+- 「サポートライン」→ 「過去に株価が下がってきたとき、ここで止まる傾向のある『床』のような価格」
+- 「レジスタンスライン」→ 「過去に株価が上がってきたとき、ここで頭打ちになる『天井』のような価格」
+- 「移動平均線」→ 「過去N日の平均株価をつないだ線(株価のトレンドを示す道)」
+- 「RSI」→ 「買われすぎ/売られすぎを示す体温計(70超で熱中症、30以下で風邪気味)」
+- 「MACD」→ 「株価が上がる兆しか下がる兆しかを示す温度計」
+- 「ボリンジャーバンド」→ 「株価の通常範囲を示す上下のレーン」
+- 「出来高」→ 「その日にどれだけ売買されたかの量(お祭りの人出のような賑わい指標)」
+
+▼ ファンダメンタル系(必ず例えを添える)
+- 「PER」→ 「会社の年間利益で何年分払えば株を買い戻せるか(年100万円稼ぐお店なら、PER 15倍は1500万円の値段感覚)」
+- 「PBR」→ 「会社の財産の何倍の値段で売られてるか(1倍以下はバーゲン)」
+- 「ROE」→ 「会社が自分のお金でどれだけ稼ぐ効率(100万円預けて10万円儲かるなら10%、優秀)」
+- 「EPS」→ 「1株あたりの会社の利益」
+- 「配当利回り」→ 「株価に対する年間配当の割合(銀行預金の金利と比較してみよう)」
+- 「営業利益率」→ 「売上の何%が利益として残るか(本業の儲け効率)」
+- 「自己資本比率」→ 「会社の財産のうち自分のお金が何%か(高いほど借金少なく健全)」
+
+▼ 需給・センチメント系
+- 「機関投資家」→ 「年金や保険会社など、大金を運用するプロの大口投資家(動くと市場が揺れる)」
+- 「信用倍率」→ 「『買いたい人』と『売りたい人』の比率(高いと買い人気)」
+- 「空売り」→ 「持ってない株を借りて先に売り、後で安く買い戻して儲ける作戦」
+- 「インサイダー」→ 「会社の役員や大株主(その人たちが買えば自信あり、売れば不安かも)」
+
+▼ マクロ・経済イベント系
+- 「FOMC」→ 「アメリカの金利を決める最重要会議(月1回開催、世界中の投資家が注目)」
+- 「日銀会合」→ 「日本の金融政策(金利・お金の量)を決める会議」
+- 「YCC」→ 「日銀が長期金利を一定範囲内に収める政策」
+- 「量的緩和」→ 「中央銀行がお金をジャブジャブ印刷して景気をテコ入れする政策」
+- 「インフレ」→ 「お金の価値が薄まる現象(100円のアイスが150円になるイメージ)」
+- 「リセッション」→ 「経済が風邪をひいた状態(景気後退)」
+
+▼ その他
+- 「カタリスト」→ 「株価を動かす出来事(花火大会の打ち上げ花火のような注目イベント)」
+- 「ガイダンス」→ 「会社が『来期はこれくらい儲かりそうです』と自分で発表する予想」
+- 「決算」→ 「3ヶ月ごとの成績発表(売上・利益が予想を上回るか下回るかで株価が大きく動く)」
+- 「IPO」→ 「会社が初めて株式市場に上場すること(新規公開株)」
+
+【書き方のルール】
+1. 専門用語を出すときは、必ず後ろに「(これは○○のこと)」と説明を添える
+2. 数字を出すときは、必ず例えで噛み砕く(例: 「PER 15倍(年100万円のお店なら1500万円の値段感覚)」)
+3. アクション指示は具体的な手順で(例: 「朝9時に取引アプリを開いて『成行買い』をタップ」)
+4. 「○○したら△△する」は、いつ・誰が・何を・どう、を明記
+5. アクション例は時刻と画面操作レベルまで具体化
+
+【良い書き方の例 ✅】
+✅ 「朝の取引開始直後(日本時間 朝9時)、同業他社の株が値上がりしているのを見たら、 SBI証券のアプリを開いて○○株を『成行注文(今すぐ買う)』でタップして購入。1株からでも OK!」
+✅ 「PER 15倍(会社の年間利益15年分で全株式を買い戻せる水準、年100万円稼ぐお店なら1500万円で買える感覚)。同業界の平均が PER 20倍なら、この株は『割安(まあまあお買い得)』と言えます。」
+
+`;
+
+  // ★ Real-time scenario trigger advice block (for all investment styles)
+  const scenarioTriggerBlock = `
+
+【★★★ リアルタイム・トリガーアドバイス(必須・全銘柄に含めること) ★★★】
+朝起きてニュースを見た瞬間に「あ、これ売り(買い)だ!」と即判断できる、超具体的なシナリオベースのアドバイスを各銘柄に必ず含めてください。
+
+各推奨銘柄に必ず以下の構造で:
+
+### 🚨 リアルタイム・トリガー(この銘柄の「もし○○なら即アクション」)
+
+#### 🟢 即「買い」シグナル(以下のいずれかが起きたら寄り付きで成行買い等)
+- もし [人物名/組織] が [日時(例:2026年X月X日 X時)] に [具体的な発言/行動] をしたら → 即「買い」(理由: ...)
+- もし [世界情勢の好転: 戦争休戦合意/関税緩和/政策発表] が起きたら → 即「買い増し」
+- もし この銘柄の決算が [具体的数値: 売上○億円超え / EPS $X超え] → 即「買い増し」
+- もし [指数や為替: 日経平均 X円突破 / USD/JPY Y円割れ] になったら → 即「買い」
+
+#### 🔴 即「売り」シグナル(以下のいずれかが起きたら即座に成行売り or 損切り)
+- もし [トランプ大統領/米FRB議長/日銀総裁/その他要人] が [日時] に [ネガティブ発言: 追加関税/利上げ前倒し/規制強化] をしたら → 即「全売却」(理由: ...)
+- もし [戦争勃発/テロ/政変/大規模災害] が報じられたら → 即「全売却」
+- もし [この銘柄が依存する取引先] が [スキャンダル/業績悪化] したら → 即「損切り」
+- もし [株価] が [具体価格] を下回ったら → 即「機械的に損切り」
+
+#### 🟡 「様子見」シグナル
+- もし [曖昧な状況・先送り発表] が出たら → 翌営業日まで様子を見る
+
+#### 📅 これから1〜3ヶ月の重要監視イベント
+具体的な日時付きで:
+- [年月日]: [イベント(例:FOMC、決算発表、選挙)] — 起きうるシナリオと、それぞれのアクション
+- 例: 「2026年X月X日 23:00 FOMC → 0.25%利下げ発表ならハイテク株買い増し、利下げ見送りなら即売却」
+- 例: 「2026年X月X日 ○○社決算 → 売上前年比+15%超なら買い増し、未達なら即売却」
+
+【★絶対ルール★】
+- 「相場が悪くなったら」「重要ニュースが出たら」のような曖昧表現は厳禁
+- 必ず「いつ・誰が(具体名)・何を(具体発言/事象)・どの銘柄を・何で(価格や%)」を明記
+- ✅ 良い例:「2026年11月15日 23:00(日本時間)の FOMC で『利下げ見送り』が発表されたら、ハイテク株○○を翌日寄り付きで全部売却」
+- ✅ 良い例:「トランプ大統領が次の演説で『中国製品に追加関税』と明言したら、中国依存度の高い◇◇株を即売却、代わりに国内生産強化の□□株を即購入」
+- ✅ 良い例:「△△社の決算で EPS が予想($X)を 10%以上上回ったら、翌営業日の寄り付きで成行買い」
+- ❌ 悪い例:「ニュースに注意」「相場に応じて判断」(具体性ゼロ)
+- 直近の世界情勢・経済イベントを必ず web_search で調査し、リアルなシナリオを提示
+`;
+
+  // Short-term style: explicit buy/sell timing block
+  const shortTermTimingBlock = style === 'short' ? `
+
+【★★★ 短期投資の必須セクション ★★★】 — いつ買う?いつ売る?
+投資スタイルが「短期」です。各推奨銘柄について「実際にいつ売買すればよいか」を、初心者が迷わないレベルで具体的にアドバイスしてください。曖昧な表現は禁止、必ず数値(価格や%)で。
+
+各銘柄に必ず以下のサブセクションを含めてください:
+
+#### ⏰ いつ買う?(エントリー条件)
+- **狙いの買値**: 「○○円以下に下がったら買い」など具体的に
+- **トリガー条件**: 移動平均線をブレイク / RSI 30以下 / 押し目買い水準到達 など
+- **注文タイプの提案**: 指値 ○○円 / 成行 (市場開場直後を狙う 等)
+- **エントリー前の最終チェック**: 出来高、ニュース有無、相場全体の方向
+
+#### 💰 いつ売る?(利確戦略)
+- **第1段階利確**: 「+5% で半分売却」など、具体的な%や価格で
+- **第2段階利確(全部売却)**: 「+10% で全て売却」または「目標株価到達で全撤退」
+- **トレーリングストップ**: 高値から○%下落で売却ルール
+
+#### 🛑 損切りライン(撤退条件)
+- **損切り価格**: 「○○円を下回ったら即撤退」「-3% で機械的に損切り」
+- **時間的損切り**: 「2週間動かなければ撤退」など
+- **損切りを発動する判断基準**: 移動平均線割れ、サポートライン割れ等
+
+#### 📅 想定保有期間とシナリオ
+- **保有期間目安**: 「数日〜2週間」「次の決算発表まで」「金融政策イベントまで」
+- **ベストシナリオ**: 「決算ポジティブサプライズで一気に +15% → 即利確」
+- **ベースシナリオ**: 「1〜2週間で +5〜10% → 段階的に利確」
+- **ワーストシナリオ**: 「悪材料で -3% → 即損切り、損失最小化」
+
+#### 👀 毎日チェックすべき指標
+- 「RSI」「MACD」「出来高」「移動平均線」「特定ニュース」など、毎朝確認すべきものを 3 つ
+- スマホアプリで設定すべきアラート (○○円到達、○○%変動 など)
+
+絶対ルール:
+- 「上がったら売る」「下がったら買う」のような曖昧表現禁止
+- 必ず数値や具体的な条件で示す
+- 短期トレードは「ルールを決めて機械的に動く」のが鉄則であることを伝える
+- 初心者でも「明日の朝起きたら何をすればいいか」が分かるレベルの具体性で
+` : '';
+
+  // ===== Review mode prompt =====
+  const reviewBlock = (currentMode === 'review' && reviewItems.length > 0) ? `
+
+★★★ 考察モード(再評価) ★★★
+これは「過去の分析」をベースにした再評価です。以下に示す過去の分析結果について、その後の市場変動・世界情勢の変化・銘柄の現状を web_search で 3〜5回程度(上限5回)調査し、新しい推奨アクションを考察してください。
+
+【過去の分析(${reviewItems.length}件)】
+${reviewItems.map((it, i) => {
+  const past = new Date(it.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  return `--- 分析 ${i+1} (実行日: ${past}, 市場: ${it.market}, スタイル: ${it.style}, リスク: ${it.risk}) ---\n${it.result}`;
+}).join('\n\n')}
+--- 過去分析ここまで ---
+
+【考察モードでの調査・出力項目】
+過去分析を踏まえて、以下を必ず web_search で調査:
+1. 過去推奨銘柄の現在価格と、過去の目標価格との比較
+2. 過去分析以降に発生した重要なニュース・決算・イベント
+3. 世界情勢の変化(戦争、感染症、政治、経済、エネルギー、為替)
+4. マクロ環境の変化(金利、為替、コモディティ)
+5. セクターの優劣交代
+
+【考察モードの出力形式】Markdown で:
+
+## 📋 過去分析のサマリー
+何件の分析を、いつ、どんな条件で行ったか。どんな銘柄を推奨したかを短く要約。
+
+## 📊 その後の市場変動(${today}時点)
+過去推奨銘柄ごとに:
+- **銘柄名(コード)**
+- 過去推奨時の価格 → 現在の価格 (差分 +X% / -X% を明記)
+- 株価が予想通り動いたか、外れたか、その理由
+- その間に発生した重要なニュース・イベント
+
+## 🌍 世界情勢の変化
+過去分析以降に発生・変化した世界情勢イベント(戦争、感染症、政治、サプライチェーン等)とその影響を分かりやすく。
+
+## 🔄 推奨アクションの見直し
+各過去推奨銘柄について、新しい推奨アクションを:
+- **現状評価**: 想定通り / 想定以上 / 想定以下
+- **新しい推奨アクション**: 買い増し / 維持 / 利確(一部売却) / 損切り(撤退) / 様子見
+- **理由**: なぜそう判断するかを身近な例えで分かりやすく
+- **目標価格の更新**: 必要に応じて
+
+## 💡 新たな注目銘柄(任意)
+過去分析に含まれていないが、現在の市場状況で新たに注目すべき銘柄があれば 1〜3 銘柄。
+
+## ⚠️ 現在のリスク
+今この瞬間に注意すべき市場・世界情勢リスク。
+
+## 📌 総括と今後の見通し
+過去分析からの学び、これからの方針を初心者にも分かるストーリーで。
+
+【表現スタイル】
+- 中学生でも分かる平易な日本語で(専門用語は必ず例え話で説明)
+- 数値変動は「+15% (1万円が1.15万円になった感覚)」のように直感的に
+- 株価変動の物語として読めるように書く` : '';
+
+  // ===== Evaluation mode prompt =====
+  const evalBlock = isEvaluating ? (() => {
+    const past = new Date(evalTarget.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+    const days = Math.floor((Date.now() - evalTarget.timestamp) / (1000 * 60 * 60 * 24));
+    return `あなたは経験豊富な金融アナリストです。これは「評価モード」です。以下に示す過去の分析について、その後の市場動向を web_search で 3〜5回程度(上限5回)詳細に調査し、推奨内容の精度を5段階で厳しく評価してください。
+
+【評価対象の過去分析】
+- 実行日: ${past}
+- 経過日数: ${days}日
+- 使用モデル: ${MODELS[evalTarget.model]?.name || evalTarget.model}
+- 対象市場: ${evalTarget.market}, スタイル: ${evalTarget.style}, リスク: ${evalTarget.risk}
+
+【過去分析の本文】
+${evalTarget.result}
+--- 過去分析ここまで ---
+
+【必須の調査項目】(web_search で必ず確認)
+1. 過去分析で推奨された各銘柄の現在価格・出来高・最新ニュース
+2. 推奨当時から現在までの株価動向 (主要な上下と理由)
+3. 予測されたリスクが実際に発生したか
+4. 当時の市場予測が当たったか外れたか
+5. 推奨当時には予測されていなかった重要イベントが起きたか
+
+【表現スタイル — 必ず守る】
+- 中学生でも分かる平易な日本語で(専門用語は必ず例え話で説明)
+- 株価変動は「+15% (1万円が1.15万円になった感覚)」のように直感的に
+- 予測精度の評価は厳しめに、ただし建設的に
+
+【評価モードの出力形式】Markdown で:
+
+## 📊 評価サマリー
+- 分析実行日: ${past}
+- 経過期間: ${days}日
+- **総合評価: ★★★★☆** (5段階で厳しめに評価。理由も明記)
+- 一行コメント (例: 「市場見通しは的中、個別銘柄の選定がやや甘い」)
+
+## 🎯 個別銘柄の評価
+### 1. 銘柄名(コード)
+- **推奨当時の価格**: \$X / 目標: \$X 〜 \$X
+- **現在価格(${today}時点)**: \$X
+- **値動き**: ${days}日間で +X% / -X% (例えで補足: 「1万円が1.15万円になった感覚」)
+- **目標達成度**: 完全達成 / 一部達成 / 未達成 / 想定外の動き
+- **予測精度評価**: ★★★★☆
+- **何が当たって、何が外れたか**: 具体的な理由を初心者にも分かるように
+
+(過去分析の各推奨銘柄について同様に)
+
+## 📈 市場見通しの評価
+- 当時の市場予測(主要指数、セクター動向、マクロ環境)と実際の比較
+- **評価**: ★★★★☆
+- 良かった点 / 外れた点
+
+## 🌍 世界情勢の予測評価
+- 当時認識されていたリスクが実際に発生したか
+- 当時認識されていなかった重要イベントは何か(新たな戦争、感染症、政治変動等)
+- **評価**: ★★★★☆
+
+## 🔄 もし当時に戻れるなら
+- 過去分析を踏まえて、もし当時に戻れるならどう判断すべきだったか
+- 現在保有していたら今どうすべきか (買い増し / 維持 / 利確 / 損切り / 様子見)
+
+## 💡 学び・教訓
+この分析から学べる教訓(投資判断のヒント)を初心者にも分かるストーリーで
+
+## 📌 総合所感
+このアナリスト(AI)の傾向、強み、弱み、改善点を率直に
+
+【重要】
+- 必ず最新の Web 検索結果に基づいて回答
+- 推測ではなく実データを引用(可能なら出典URL併記)
+- 厳しめだが建設的な評価を行うこと`;
+  })() : null;
+
+  // ===== HYBRID MODE BRANCH =====
+  if ((model === 'hybrid' || model === 'eco-hybrid') && !isEvaluating) {
+    const researchModel = model === 'eco-hybrid' ? 'claude-sonnet-4-6' : 'claude-opus-4-7';
+    return await analyzeStocksHybrid({
+      apiKey, today, retryCount, MAX_RETRIES,
+      researchModel, writerModel: 'claude-haiku-4-5',
+      hybridMode: model,
+      market, style, risk, amount, additional,
+      marketLabels, styleLabels, riskLabels, amountLabels,
+      paypayBlock, sbiBlock, shortTermTimingBlock, learningsBlock,
+      brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
+      stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
+      pastLearnings, currentMode
+    });
+  }
+
+  const prompt = isEvaluating ? evalBlock :
+    currentMode === 'review' && reviewItems.length > 0 ? `あなたは経験豊富な金融アナリストです。本日(${today})時点での再評価を、過去分析と最新の web_search 結果を組み合わせて行ってください。
+${learningsBlock}
+【現在の条件】
+- 対象市場: ${marketLabels[market]}
+- 投資スタイル: ${styleLabels[style]}
+- リスク許容度: ${riskLabels[risk]}
+- 投資想定額: ${amountLabels[amount]}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${reviewBlock}` :
+`あなたは経験豊富な金融アナリストです。本日(${today})の最新の市場情報を web_search で 3〜5回程度(上限5回)調査し、銘柄を推奨してください。
+${learningsBlock}
+【投資家プロフィール】
+- 対象市場: ${marketLabels[market]}
+- 投資スタイル: ${styleLabels[style]}
+- リスク許容度: ${riskLabels[risk]}
+- 投資想定額: ${amountLabels[amount]}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+
+【★調査方針 — プロのアナリスト/機関投資家の手法に準拠★】
+推奨を出す前に必ず以下を web_search で調査し、複数手法を組み合わせること:
+(A) プロのアナリスト手法: 「機関投資家 銘柄選定」「証券アナリスト ファンダメンタル分析」等の最新手法、著名投資家・大手証券のレーティング・目標株価
+(B) ファンダメンタル: 売上成長率、営業利益率、EPS、PER、PBR、PEG、ROE、ROA、自己資本比率、FCF、配当性向
+(C) テクニカル: 5/25/75/200日移動平均、RSI、MACD、ボリンジャーバンド、サポート/レジスタンス
+(D) センチメント・需給: 機関投資家保有比率、信用倍率、空売り比率、インサイダー売買
+(E) マクロ: 金利・為替・コモディティ感応度、セクターローテーション
+(F) カタリスト: 直近決算、ガイダンス、自社株買い、配当、M&A、新製品
+(G) 世界情勢・地政学リスク (株価に影響しうるあらゆるグローバルイベントを必ず最新情報で調査):
+  - 戦争・紛争 (ウクライナ侵攻、中東紛争、台湾海峡、その他軍事衝突)
+  - パンデミック・感染症 (新型ウィルスの流行、変異株、ワクチン動向、医療逼迫)
+  - 国際政治イベント (米中関係、米露関係、主要国の選挙、政権交代、貿易協定・関税)
+  - サプライチェーン混乱 (半導体・レアアース・食料・エネルギーの供給制約)
+  - エネルギー価格 (原油、天然ガス、電力、再生エネ)
+  - 大規模災害・気候変動 (異常気象、地震、洪水)
+  - 規制動向 (AI規制、環境規制、暗号資産規制、独禁法)
+  - 為替・通貨の変動 (USD/JPY、新興国通貨危機)
+  - 各イベントが特定セクター・推奨銘柄にどう波及するかを具体的に分析する
+  - 検索クエリ例: 「世界情勢 株価 影響 ${new Date().getFullYear()}」「地政学リスク 株式市場」「戦争 株価」「ウクライナ 株式」「中東 原油」「米中関係 半導体」「パンデミック リスク 株式」など
+(H) 買い方の調査 (必ず実施 — 対象市場「${marketLabels[market]}」での購入手順を最新情報で調査):
+  - 必要な準備: 口座開設、本人確認(マイナンバー等)、入金方法
+  - アプリ/ウェブの具体的な操作手順 (画面遷移レベルで)
+  - 注文タイプ(成行・指値)の選び方
+  - 手数料・税金 (NISA、特定口座、源泉徴収、米国株なら為替手数料、外国税)
+  - 受渡日や取引時間の注意
+  - 初心者がよく間違えるポイント
+  - 検索クエリ例: 「${marketLabels[market]} 買い方 初心者 ${new Date().getFullYear()}」「${marketLabels[market]} 口座開設 手順」「${marketLabels[market]} 注文方法」「証券会社 比較 初心者」など
+
+★★★ 最重要 ★★★【表現スタイル — 必ず厳守】
+
+出力は「友達と一緒に楽しく株を学ぶような、フレンドリーで温かみのある日本語」で書いてください。
+読み手が「あ、なるほど!」「面白い!」「もっと知りたい!」「投資ってちょっと楽しそう!」と感じるような、ワクワクする文章にしてください。
+
+【トーンの基本ルール】
+- 親しみやすい「です・ます調」で、堅苦しくならないように(でも砕けすぎない、温かい先輩のような口調)
+- 適度に絵文字を活用して視覚的に楽しく(各セクションのキーポイントに 🎯💡🚀⚠️📈 など)
+- 「〜なんですよ」「〜ですよね」「〜と思いませんか?」「ちょっと驚きですよね」など語りかける表現を多用
+- 重要なところで「ここがポイント!✨」「実はこれが面白くて...」「ぜひ覚えておいてほしいのが...」など読者の興味を引く
+- 数字を出すたびに「これって○○みたいなものなんです」のような身近な例えを必ず添える
+- ストーリー仕立てで、各銘柄や市場の動きを「物語」として語る
+- 適度な間(かん)を持たせて、改行や段落を使って読みやすく
+
+【★比喩・例え話のルール★】 — 必ず多用してください
+専門用語は出てきたら必ず2〜3個の身近な例えで噛み砕いて説明:
+
+▼ 株式投資全般の例え
+- 株を買う → 「会社のオーナーの一員になる感覚🏢」「会社の小さなピースを買い取るイメージ」
+- 配当 → 「会社が儲けの一部を株主にお年玉的に配るおすそ分け🎁」
+- 損切り → 「お腹いっぱいになる前に止めるダイエットルール🍰、ダラダラ食べ続けないコツ」
+- 利確 → 「上がった分でいったん勝ち逃げする🏃‍♂️」「ゲームで強いアイテム取ったらセーブする感覚🎮」
+- ポートフォリオ → 「お弁当の中身🍱、いろんなおかずをバランスよく詰める」
+- 分散投資 → 「卵を一つのカゴに盛らない🥚、危険を分散する昔からの知恵」
+- NISA → 「税金がかからない特別な貯金箱💰、国からのプレゼント枠」
+
+▼ 分析指標の例え(必ず例え+数値感覚で説明)
+- PER → 「会社の利益で何年分払えば丸ごと買えるかの指標🧮。年100万円稼ぐお店ならPER 15倍は1500万円の値段感覚。15年分のバイト代で買える計算」
+- PBR → 「会社の財産(土地・建物・現金)の何倍で売られてるか📦。PBR 1倍なら『定価で買う』、2倍なら『ブランド料込み』、0.7倍なら『バーゲンセール🏷』」
+- ROE → 「会社が手元のお金でどれだけ稼ぐ効率🏃‍♂️。100万円預けて10万円儲かるならROE 10%、バイトの時給で言うと優秀なほう」
+- RSI → 「買われすぎ・売られすぎを示す体温計🌡。70超は『熱中症レベル🥵、いったんクールダウン必要』、30以下は『風邪気味🤧、回復するかも』」
+- MACD → 「お風呂のお湯が温まってきたか冷めてきたかの温度計♨。線が上向き=熱くなる(株価が上がる兆し)、下向き=冷める(下がる兆し)」
+- 移動平均線 → 「過去N日の平均価格をつないだ道🛤。上り坂なら株価は山登り中⛰、下り坂なら下山中、平らなら横ばい」
+- ボラティリティ → 「穏やかな池🪷(低)か荒れた海🌊(高)か。船(株価)が揺れるかどうか」
+- ガイダンス → 「会社が『来期はこれくらい儲かりそうです』と自分で発表する予想📣」
+- カタリスト → 「株価を動かすキッカケ🎆、花火大会の打ち上げ花火みたいな注目イベント」
+- サポートライン → 「株価が下がってきたとき『ここで止まる』という床🪵」
+- レジスタンスライン → 「株価が上がってきたとき『ここで頭打ち』という天井🪜」
+- 出来高 → 「その日にどれだけ売買されたかの量📦、お祭りの人出みたいなもの」
+- 機関投資家 → 「年金や保険会社など、巨額のお金を動かすプロの大口投資家🐋。彼らが動くと市場全体が揺れる」
+- 信用倍率 → 「『買いたい人』と『売りたい人』の比率。高いと『買い手の人気投票で勝ってる』状態」
+- 空売り → 「持ってない株を借りて先に売って、後で安く買い戻して儲ける作戦📉。下がると思う人がやる」
+
+▼ 経済・マクロの例え(必ずわかりやすく)
+- 金利上昇 → 「お金を借りるコストが高くなる💸→企業が借入しにくい→成長が鈍る。家のローンも組みにくくなる時代」
+- インフレ → 「お金の価値が薄まる現象📉、昔100円で買えたアイスが150円になるイメージ」
+- 円安 → 「日本円の力が弱まる💴⬇、海外旅行が高くなるけど、輸出企業はホクホク」
+- 円高 → 「日本円の力が強まる💴⬆、海外旅行が安くなるけど、輸出企業はガッカリ」
+- 量的緩和 → 「中央銀行がお金をジャブジャブ印刷して景気をテコ入れ💵💧」
+- リセッション → 「経済が風邪をひいた状態🤒、しばらく不調が続く」
+- FOMC → 「アメリカの金利を決める最重要会議📅、世界中の投資家が固唾を呑んで見守る」
+- 日銀会合 → 「日本の中央銀行が金融政策を決める会議🏛、円相場が大きく動くきっかけになる」
+
+【★ストーリー仕立てのコツ★】
+- 銘柄ごとに「この会社の物語」を語る
+  ✅ 例: 「○○社は実はAIブームの裏方なんです🎭。NVIDIAがチップを作るのに必要な特殊部品を独占的に作っていて、まさにゴールドラッシュ時代に『つるはしを売って儲けた商人』のような立ち位置。みんなが金を掘ろうとする中、道具を売る方が確実に儲かる、そんな会社です」
+- 数値変動は感覚的に
+  ✅ 例: 「+15% は1万円が1.15万円になった感覚📈。ランチ1回分プラスの嬉しさ」
+  ✅ 例: 「-5% は1万円が9500円になる感じ📉。コーヒー1杯分のロス、まだ余裕」
+- 「だからどうなる?」を必ず添える
+  ✅ 例: 「金利が上がる → ローン返済が増える → 家を買う人が減る → 不動産株は逆風 🏠⬇」
+
+【絶対NG ❌】
+- いきなり「PER」「ROE」「テクニカル」だけ書く(必ず噛み砕く)
+- 「割安です」「割高です」を数値だけで言う(なぜそう言えるか必ず説明)
+- 「上昇基調」「軟調」など曖昧表現で済ます(具体的に+%で)
+- 「機関投資家の動向」「アナリストコンセンサス」を専門用語のまま使う
+- 冷たいレポート調(○○です。○○である。の連発)
+- 説明なしの英略語(IPO、M&A、ROIなど → 必ず説明)
+
+【望ましい ✅】
+- 数字や指標が出るたびに「これって○○ということなんです」と必ず噛み砕く
+- 「想像してみてください、もし〜だったら...」のような読者の想像を促す表現
+- 楽しい例え話を最低3つ以上は含める
+- 読者が「投資、ちょっと面白そう!」と感じるような熱量で書く
+- 適度に🎯✨💡📈🚀⚠️💴🏢などの絵文字を使って視覚的にメリハリ
+- 「ここがポイント!」「ぜひ覚えてほしいのが...」など読者の注意を引く言い回し
+- 段落と段落の間に余白を持たせて、読みやすく
+
+【出力形式】Markdown形式で:
+
+## 📊 市場概況 - 今の市場、どんな雰囲気? (${today}時点)
+こんにちは、まずは今日の市場の空気感をお伝えしますね🌤
+主要指数の動き(具体的な数値と+%/-%)を、身近な例えで「今日の気温」のように噛み砕いて。注目ニュースは「ストーリー」として紹介してください。
+
+## 🌍 世界情勢の影響 - 世界で何が起きてる? (${today}時点)
+さて、株は世界の出来事と密接に繋がっています🌐 今、世界では何が起きているか、それが私たちの投資にどう関係するか、わかりやすく解説:
+- **🔥 戦争・紛争**: 主要な紛争(ウクライナ、中東、台湾海峡など)の最新状況とその影響 (例: 「ウクライナ情勢 → エネルギー価格↑ → ガソリン代も↑ → 原油関連株はホクホク、運輸株はピンチ」のような連鎖を分かりやすく)
+- **🦠 パンデミック・感染症**: 新型ウィルスや感染症の状況 (もしあれば医薬品・物流・観光への影響を)
+- **🏛 政治イベント**: 米中関係、選挙、政策変更とその波及効果
+- **⛽ エネルギー・コモディティ**: 原油・天然ガス価格の動向と関連銘柄
+- **🔗 サプライチェーン**: 半導体・レアメタル等のニュース
+- これらが今回の推奨銘柄にどう関係するか、必ず「だから○○株はこうなる」という連鎖のストーリーで解説
+
+## 🔬 今回の分析で重視した観点 - どうやって銘柄を見つけたか
+プロが普段使っている「銘柄を選ぶときのモノサシ」を、初心者にもワクワクして読めるように紹介🔍 「ファンダメンタル」「テクニカル」って何?を温かく解説してください。
+
+## 💡 おすすめ銘柄、ご紹介します!(3〜5銘柄)
+お待たせしました、今日の主役たちです!🎉 それぞれの会社を「物語」として紹介しますね。
+
+### 1. 銘柄名(ティッカー/コード)
+- **🏢 どんな会社?**: この会社がどんな商売で儲けているのか、身近なものに例えて(例: 「みんながスマホで動画見るとき、その動画を保存してるサーバーを作ってる会社。YouTubeの裏方さん的な存在✨」)
+- **💴 今の株価**: 価格・取得日・時価総額 (「時価総額って?」も一言で説明: 「会社全体の値段、丸ごと買ったらいくらかの数字」)
+- **🎯 ぼくのおすすめは?**: 買い / 様子見 / 売り — なぜそう思うか温かく一言で
+- **💪 会社の体力チェック(ファンダメンタル)**: PER/PBR/ROE/配当利回り/営業利益率を実数値で、それぞれ「これって○○みたいなことです」と必ず例えで解説
+- **📈 株価の今のムード(テクニカル)**: 移動平均線との位置関係、RSI、MACD、サポレジを「山登り中」「下り坂」「踊り場で休憩中」など、視覚的なイメージで
+- **👀 市場での人気度**: 機関投資家(プロの大口さん)の動き、信用倍率、空売り比率を「人気投票で勝ってる/負けてる」のような表現で
+- **🎤 プロたちはどう言ってる?**: 大手証券各社(ゴールドマン、モルガン、野村、大和等)のレーティング集計と平均目標株価
+- **✨ なぜおすすめなのか(3つ以上)**: ストーリー仕立てで、ファンダ・テクニカル・カタリストを織り交ぜて温かく解説。「実は、この会社のすごいところは...」のような語り口で
+- **🎯 どこまで上がりそう?**: 短期/中期/長期の目標レンジと、その根拠を分かりやすく(PER倍率法やアナリスト平均など)
+- **⏱ いつまで持つ?**: 投資スタイルに応じた保有期間の目安
+- **⚠️ 気をつけたいこと**: この銘柄固有のリスク — 「もし○○が起きたら、株価は△△になるかも」と具体的に${market === 'paypay' ? `
+- **💴 PayPay証券で買える?**: 取扱の有無、1,000円から購入できるかなど` : ''}
+
+## 🛒 買い方ガイド - 実際に買うにはどうすれば?(${marketLabels[market]} 向け / 初心者完全対応)
+ここからは実践編です!🚀 必ず web_search で最新情報を調べて、まるで隣で教えてあげるように、優しく丁寧に案内してください。「初めての株、緊張しちゃいますよね」というところから始めてOK。
+
+### 1. 🎒 まず準備しよう
+- どの証券会社/取引所を使うのがおすすめ?(複数あれば手数料や使いやすさを比較して、初心者目線で「これがいいですよ」と教えてあげる)
+- 口座開設の流れ(必要書類、何日かかるか、未成年OK?など)
+- 本人確認・マイナンバー登録のコツ
+- 入金方法(銀行振込、即時入金、PayPay残高など) — 「コンビニATMでチャージする感覚」のように例えて
+- 口座種別の選び方: NISA(税金ゼロの宝箱💰)/ 特定口座(税金を勝手に処理してくれる楽ちん口座) / 一般口座(自分で確定申告) — どれを選ぶべき?
+
+### 2. 🔍 銘柄を探してみよう
+- アプリ/サイトでの銘柄検索のやり方(ティッカー、コード、会社名で検索)
+- 「お気に入り登録」して値動きをチェックする習慣
+- 株価チャート・指標の見方の基本を「天気予報の見方」のように
+
+### 3. 🛍 いざ購入!(ステップバイステップ)
+- どの画面で何をタップ/クリック?順番にガイド
+- 数量・金額の入力方法
+- 確認画面でチェックすべきポイント(「ここを必ず確認して!」というコツ)
+- 約定までの流れ(「ピンポン!買えました」までの裏側)
+
+### 4. 🎯 注文タイプ、どっちを使う?
+- **成行注文(なりゆき)**: 「今すぐ買う!」💨 — 野菜を店頭価格でホイっと買う感覚。スピード重視
+- **指値注文(さしね)**: 「この値段まで下がったら買う」🪝 — 欲しい値段の値札を貼って釣り糸を垂らす感覚。じっくり派
+- 初心者には状況別にどっちがおすすめか、温かくアドバイス
+
+### 5. 💰 手数料と税金のお話
+- 売買手数料(1回あたりいくら?無料枠はある?)
+- ${market === 'us' ? '為替手数料(円→ドル、ドル→円) — 海外旅行で両替するときの手数料みたいなもの💱、外国税控除(米国側で10%源泉徴収) — 二重課税にならない仕組み' : market === 'crypto' ? 'スプレッド、送金手数料、税金は雑所得扱い(累進課税)で要注意!⚠ 株とは違うルール' : '譲渡益課税 20.315% — 利益の約2割が税金💸、NISAなら非課税の魔法🌟、配当も同じく約2割課税'}
+- 確定申告が必要なケース、不要なケース
+
+### 6. 🪤 初心者が陥りやすい落とし穴
+- よくある失敗談(注文タイミング、入金忘れ、税区分の確認漏れなど) — 笑い話風に「こうならないように!」
+- セキュリティの注意(二段階認証、フィッシングメール対策)
+- ${market === 'paypay' ? '少額(1,000円〜)からの始め方のコツ — お小遣い感覚で慣れていくのがおすすめ' : market === 'us' ? '取引時間(日本時間 23:30〜翌6:00 / サマータイム時 22:30〜翌5:00) — 夜型の生活と相性◎' : market === 'crypto' ? 'ボラティリティの高さ — ジェットコースター並みの値動き🎢、レバレッジの危険性 — 一気に資金を失うリスク' : '取引時間 (9:00〜11:30、12:30〜15:00) — 平日の昼間だけ、受渡日 T+2 — 売っても3日後に現金化'}
+
+## 🎯 投資戦略 - どう動けばいい?
+さて、ここからは戦略の話です♟ あなたの大事なお金を、どう動かすのがベストか、一緒に考えていきましょう。
+- **🥗 ポートフォリオ配分の目安**: 例「銘柄A 30%、B 25%、C 25%、現金20%」のように、お弁当の中身を考える感覚で🍱 — なぜその配分か理由も
+- **🟢 いつ買えばいい?**: 押し目買い(株価が下がったタイミングで買う、セールを狙う感覚🛒)、ブレイクアウト(株価が壁を突き破った瞬間に乗る🚀)などを分かりやすく
+- **🛑 いつ売る/損切り?**: 「これ以上下がったら撤退する」具体的な価格や %の目安 — 「サンクコストを断ち切る勇気」も大事
+
+## ⚠️ ここは気をつけて! - 今知っておきたいリスク
+投資にはどうしても「想定外」がつきもの🌧 でも事前に知っていれば備えられます。
+- **📅 近々の重要イベント**: FOMC(米国の金利決定会議)、決算発表、選挙、日銀会合など — それぞれ「何が」「どう影響するか」を予報官のように
+- **🌐 マクロ環境のリスク**: 金利、為替、地政学リスク — 「もし○○が起きたら、市場は△△に動きそう」と先読みして
+
+## 📌 今日のまとめ - 最後に一言
+お疲れさまでした!ここまで読んでいただきありがとうございます☕ 最後に大事なポイントを振り返ります:
+- 今日の市場のまとめを一言で
+- これから注目すべき指標・イベント
+- あなたへのおすすめアクション("まずは少額から試してみる"など、優しく背中を押す)
+- 「投資は焦らず、楽しみながら」というメッセージで温かく締めくくり
+
+【🚨🚨🚨 絶対必須 — 視覚化チャートデータ(これを出さないと分析は不完全)🚨🚨🚨】
+本文の後に、必ず以下の JSON ブロックを **そのままの形式で** 出力してください。
+これがないと、ユーザー画面に予測折れ線グラフが表示されません。**省略は絶対禁止です。**
+
+**実際に書くべき例(これをコピーして数値を埋める)**:
+
+[CHART_DATA]
+{
+  "stocks": [
+    {
+      "name": "トヨタ自動車",
+      "ticker": "7203",
+      "currency": "¥",
+      "current_price": 2850,
+      "action": "buy",
+      "rating": 4.5,
+      "forecasts": [
+        { "period": "${stylePeriods[0]}", "price_low": 2900, "price_high": 3050 },
+        { "period": "${stylePeriods[1]}", "price_low": 2950, "price_high": 3200 },
+        { "period": "${stylePeriods[2]}", "price_low": 3000, "price_high": 3400 },
+        { "period": "${stylePeriods[3]}", "price_low": 3100, "price_high": 3800 }
+      ]
+    },
+    {
+      "name": "ソニーグループ",
+      "ticker": "6758",
+      "currency": "¥",
+      "current_price": 13200,
+      "action": "buy",
+      "rating": 4,
+      "forecasts": [
+        { "period": "${stylePeriods[0]}", "price_low": 13400, "price_high": 13900 },
+        { "period": "${stylePeriods[1]}", "price_low": 13600, "price_high": 14500 },
+        { "period": "${stylePeriods[2]}", "price_low": 13800, "price_high": 15200 },
+        { "period": "${stylePeriods[3]}", "price_low": 14000, "price_high": 16500 }
+      ]
+    }
+  ]
+}
+[/CHART_DATA]
+
+(銘柄数は実際の推奨数に合わせる。3〜5銘柄)
+
+★★★絶対ルール★★★ 投資スタイル「${styleLabels[style]}」のため、forecasts の period は必ず以下の 4 つを順番通りに使用してください(これが予測折れ線グラフの X 軸になります):
+${stylePeriodsListItems}
+
+つまり、各銘柄の forecasts は必ずこの4要素になります:
+[
+  { "period": ${stylePeriods.map(p => `"${p}"`).join(', "..."}, { "period": ')} }, ...
+]
+
+★絶対ルール:
+- 推奨銘柄をすべて含めること(3〜5件)
+- forecasts は必ず上記の 4 つの時点(${stylePeriodsCompact})を含める
+- price_low, price_high, current_price は必ず数値(クォートで囲まない)
+- price_low ≤ price_high で、時間が進むほど予測レンジが広がる(不確実性が増す)よう自然な値を
+- 例: 1ヶ月後はレンジ ±5%程度、1年後はレンジ ±20%程度のように、未来ほど幅広く
+- action は必ず英小文字の "buy" / "hold" / "sell" のいずれか
+- JSONは厳密に有効な形式で(末尾カンマ・コメント禁止)
+- [CHART_DATA] と [/CHART_DATA] のタグは正確に
+
+【🚨🚨🚨 絶対必須 - 重要イベントカレンダー 🚨🚨🚨】
+今後 1〜3ヶ月の重要イベント(売買トリガー)を以下のJSON形式で必ず出力してください。アプリが視覚的なカレンダーとして表示します:
+
+[CALENDAR_DATA]
+{
+  "events": [
+    {
+      "date": "2026-05-15",
+      "time": "23:00",
+      "title": "FOMC 金利決定",
+      "type": "policy",
+      "importance": 5,
+      "stocks_affected": ["AAPL", "NVDA"],
+      "if_positive": "ハイテク株を買い増し",
+      "if_negative": "ハイテク株を即売却",
+      "description": "アメリカの中央銀行が金利を決める会議。利下げならハイテク株上昇"
+    },
+    {
+      "date": "2026-05-20",
+      "time": "15:00",
+      "title": "NVIDIA 決算発表",
+      "type": "earnings",
+      "importance": 4,
+      "stocks_affected": ["NVDA", "6857"],
+      "if_positive": "AI関連株を追加買い",
+      "if_negative": "AI関連株を一部利確",
+      "description": "AI半導体の決算。市場予想を上回ればAIブーム継続"
+    }
+  ]
+}
+[/CALENDAR_DATA]
+
+ルール:
+- 3〜8 個のイベントを必ず出力
+- date は YYYY-MM-DD 形式
+- type は: policy / earnings / geopolitical / macro / election / regulation / tech / energy / pandemic / war / other のいずれか
+- importance は 1〜5(5 が最重要)
+- stocks_affected は推奨銘柄のティッカーリスト
+- if_positive と if_negative は短く具体的な売買アクション
+
+【★必須★ 分析サマリー - 履歴一覧用の短い説明】
+保存された分析を一覧で見たときに「何の分析か」が一目で分かる、3〜4行のサマリーを必ず出力してください:
+
+[ANALYSIS_SUMMARY]
+3〜4行で要点を要約。後で履歴から「あの分析だ!」と一目で分かるように:
+- 1行目: どんな投資テーマか(例: AI半導体ブームを狙った中期グロース戦略)
+- 2行目: 主な推奨銘柄と方向性(例: トヨタ買い / ソニーG買い増し / 任天堂様子見)
+- 3行目: 注意すべき主なリスク(例: 円高進行で輸出株は要注意)
+- 4行目: 投資目線(例: 6ヶ月〜1年で +15〜25% を狙う中期目線)
+[/ANALYSIS_SUMMARY]
+
+【★必須★ 分析タイトル - キャッチーな短いタイトル】
+[ANALYSIS_TITLE]ここに30文字以内の特徴的なタイトル[/ANALYSIS_TITLE]
+
+タイトルの良い例:
+- "AI半導体ブームで攻める中期グロース戦略"
+- "円安追い風の輸出系優良株3選"
+- "決算カタリスト狙いの短期トレード"
+
+ルール:
+- 30文字以内(全角換算)
+- 「〇〇銘柄の分析」のような汎用タイトルは避ける
+- 後で「あ、あの時の分析だ」と思い出せる具体性
+
+★★★ すべての出力に必ず以下の4つを含める ★★★
+- [CHART_DATA]...[/CHART_DATA] (折れ線グラフ用)
+- [CALENDAR_DATA]...[/CALENDAR_DATA] (カレンダー用)
+- [ANALYSIS_SUMMARY]...[/ANALYSIS_SUMMARY] (履歴一覧用の要約)
+- [ANALYSIS_TITLE]...[/ANALYSIS_TITLE] (短いタイトル)
+
+【重要事項】
+- 必ず最新の Web 検索結果に基づいて回答
+- 推測ではなく実データを引用(可能なら出典URL併記)
+- 数値は具体的に、ただし必ず例えで噛み砕く
+- これは投資助言ではなく分析情報として`;
+
+  analyzeBtn.disabled = true;
+  analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>分析中...';
+  hideStatus();
+  if (retryCount === 0) {
+    resultDiv.innerHTML = ''; resultDiv.classList.remove('active');
+    hideCostSummary();
+    resetProgress(); showProgressPanel(); startElapsedTimer();
+    if (isEvaluating) {
+      const past = new Date(evalTarget.timestamp).toLocaleDateString('ja-JP');
+      addActivity(`📊 評価モード開始 (対象: ${past}の分析, モデル: ${MODELS[model].name})`);
+    } else if (currentMode === 'review') {
+      addActivity(`🔄 考察モード開始 (過去 ${reviewItems.length} 件 × モデル: ${MODELS[model].name})`);
+      reviewItems.forEach((it, i) => {
+        addActivity(`  ↳ 分析 ${i+1}: ${new Date(it.timestamp).toLocaleDateString('ja-JP')} (${MODELS[it.model]?.name || it.model})`);
+      });
+    } else {
+      addActivity(`🚀 新規分析開始 (モデル: ${MODELS[model].name})`);
+    }
+    if (pastLearnings.length > 0) {
+      addActivity(`🎓 過去の評価レポート ${pastLearnings.length} 件の学びをプロンプトに反映`);
+      pastLearnings.forEach((l, i) => {
+        addActivity(`  ↳ 学び ${i+1}: ${l.date} の評価から抽出`);
+      });
+    }
+  } else {
+    addActivity(`🔁 リトライ ${retryCount}/${MAX_RETRIES} 開始`);
+  }
+  setStep('connect', 'active');
+  setPhase('🔌', `API に接続中${retryCount > 0 ? ` (リトライ ${retryCount}/${MAX_RETRIES})` : ''}`, `モデル: ${MODELS[model].name}`);
+  setProgressPercent(5);
+
+  let searchCount = 0, accumulatedText = '', inputTokens = 0, outputTokens = 0;
+  let stopReason = null, receivedBlockTypes = [], eventCount = 0, streamError = null;
+  let currentSectionName = null, lastStockCount = 0;
+  let pendingToolInput = '', pendingToolIndex = null;
+
+  try {
+    currentAbortController = new AbortController();
+    analysisStartTime = Date.now();
+    showRunningInfo();
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      signal: currentAbortController.signal,
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 16000,
+        stream: true,
+        tools: [
+          // Haiku 4.5 はプログラマティックツール呼び出し(PTC)未対応のため allowed_callers: ['direct'] を明示
+          // Opus 4.7/4.6, Sonnet 4.6 は PTC 対応で動的フィルタリングが有効になる
+          ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
+            ? { type: 'web_search_20260209', name: 'web_search', max_uses: 15 }
+            : { type: 'web_search_20260209', name: 'web_search', max_uses: 15, allowed_callers: ['direct'] }
+        ],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `APIエラー (${response.status})`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
+        else errorMessage += ': ' + errorText;
+      } catch { errorMessage += ': ' + errorText; }
+      throw new Error(errorMessage);
+    }
+
+    setStep('connect', 'done'); setProgressPercent(10);
+    addActivity('✅ API接続成功');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop();
+
+      for (const event of events) {
+        if (!event.trim()) continue;
+        const lines = event.split(/\r?\n/);
+        let data = null;
+        for (const line of lines) {
+          if (line.startsWith('data: ')) data = line.slice(6).trim();
+        }
+        if (!data) continue;
+        eventCount++;
+
+        try {
+          const parsed = JSON.parse(data);
+          console.log('[SSE]', parsed.type, parsed);
+
+          if (parsed.type === 'error') {
+            streamError = (parsed.error && parsed.error.message) ? parsed.error.message : JSON.stringify(parsed.error);
+            addActivity(`❌ エラー: ${streamError}`);
+            continue;
+          }
+          if (parsed.type === 'message_start' && parsed.message) {
+            if (parsed.message.usage) inputTokens = parsed.message.usage.input_tokens || 0;
+            addActivity(`📨 応答開始 (入力 ${inputTokens.toLocaleString()} tokens)`);
+            setPhase('📨', 'AIが応答を開始しました', 'まもなく Web 検索と分析が始まります');
+          }
+          else if (parsed.type === 'content_block_start') {
+            const block = parsed.content_block;
+            if (block) receivedBlockTypes.push(block.type);
+            if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+              searchCount++;
+              pendingToolInput = ''; pendingToolIndex = parsed.index;
+              setStep('connect', 'done'); setStep('search', 'active');
+              setProgressPercent(10 + Math.min(20, searchCount * 4));
+              stepSearchCount.textContent = `${searchCount}回`;
+              setPhase('🔍', `Web検索中 (${searchCount}回目)`, '最新の市場情報を取得しています...');
+              addActivity(`🔍 Web検索 #${searchCount} を実行中`);
+            } else if (block && block.type === 'web_search_tool_result') {
+              setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
+              addActivity(`📥 検索結果 #${searchCount} を取得`);
+            } else if (block && block.type === 'text') {
+              setStep('search', 'done'); setStep('generate', 'active');
+              setProgressPercent(30);
+              setPhase('✍️', '分析テキストを生成中', 'AIが結果を文書化しています');
+              addActivity('✍️ 分析の本文生成を開始');
+              if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+            } else if (block && block.type === 'thinking') {
+              setPhase('🧠', 'AI が思考中', '入力情報を整理し、分析方針を組み立てています');
+              addActivity('🧠 思考ブロック開始');
+            }
+          }
+          else if (parsed.type === 'content_block_delta') {
+            const delta = parsed.delta;
+            if (delta && delta.type === 'text_delta') {
+              accumulatedText += delta.text;
+              renderMarkdown(accumulatedText);
+              stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
+              const sec = detectCurrentSection(accumulatedText);
+              if (sec && sec.name !== currentSectionName) {
+                currentSectionName = sec.name;
+                setPhase(sec.icon, sec.name, `${accumulatedText.length.toLocaleString()}文字生成済み`);
+                setProgressPercent(sec.pct);
+                addActivity(`📝 ${sec.name}`);
+              } else if (currentSectionName) {
+                phaseDetailEl.textContent = `${accumulatedText.length.toLocaleString()}文字生成済み`;
+              }
+              const stockCount = countStocks(accumulatedText);
+              if (stockCount !== lastStockCount && currentSectionName === '推奨銘柄を分析中') {
+                lastStockCount = stockCount;
+                addActivity(`💡 推奨銘柄 ${stockCount} 件目の分析を生成`);
+                phaseDetailEl.textContent = `${stockCount}件目を分析中 / ${accumulatedText.length.toLocaleString()}文字`;
+              }
+            } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
+              pendingToolInput += delta.partial_json || '';
+            }
+          }
+          else if (parsed.type === 'content_block_stop') {
+            if (parsed.index === pendingToolIndex && pendingToolInput) {
+              try {
+                const inp = JSON.parse(pendingToolInput);
+                if (inp.query) {
+                  phaseDetailEl.textContent = `クエリ: "${inp.query}"`;
+                  addActivity(`🔎 クエリ: "${inp.query}"`);
+                }
+              } catch {}
+              pendingToolIndex = null; pendingToolInput = '';
+            }
+          }
+          else if (parsed.type === 'message_delta') {
+            if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+            if (parsed.usage) {
+              if (parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
+              if (parsed.usage.input_tokens !== undefined) inputTokens = parsed.usage.input_tokens;
+            }
+          }
+          else if (parsed.type === 'message_stop') {
+            addActivity('🏁 ストリーム完了');
+          }
+        } catch (e) {
+          console.warn('SSE parse error:', data, e);
+        }
+      }
+    }
+
+    const isOverloaded = streamError && /overload/i.test(streamError);
+    if (isOverloaded && retryCount < MAX_RETRIES) {
+      const waitSec = Math.pow(2, retryCount + 1);
+      setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
+      addActivity(`⏳ ${waitSec}秒待機してリトライ`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+      return analyzeStocks(retryCount + 1);
+    }
+
+    if (!accumulatedText.trim()) {
+      stopElapsedTimer();
+      setStep('generate', 'pending');
+      setPhase('⚠️', '本文未生成', '応答テキストが取得できませんでした');
+      const hints = {
+        pause_turn: 'Web検索の反復上限に達しました。もう一度「分析開始」を押すと続行できる場合があります。',
+        refusal: 'AIが安全性の観点から回答を控えました。',
+        max_tokens: '出力上限に達しました。',
+        end_turn: 'AIが本文を生成せずに終了しました。'
+      };
+      const reasonText = hints[stopReason] || `不明な終了理由 (${stopReason || '不明'})`;
+      const errorBlock = streamError ? `<p style="color:#b91c1c"><strong>ストリームエラー:</strong> ${streamError}</p>` : '';
+      const blockInfo = receivedBlockTypes.length ? receivedBlockTypes.join(', ') : '(なし)';
+      resultDiv.innerHTML = `
+        <h2>⚠️ 応答テキストが取得できませんでした</h2>
+        <p>${reasonText}</p>${errorBlock}
+        <h3>診断情報</h3>
+        <ul>
+          <li>受信イベント数: <code>${eventCount}</code></li>
+          <li>受信ブロック種別: <code>${blockInfo}</code></li>
+          <li>Web検索実行回数: <code>${searchCount}</code></li>
+          <li>stop_reason: <code>${stopReason || '(未受信)'}</code></li>
+          <li>入力トークン: <code>${inputTokens}</code> / 出力トークン: <code>${outputTokens}</code></li>
+        </ul>
+        <p>💡 ブラウザの開発者ツール (F12) のコンソールで <code>[SSE]</code> ログを確認してください。</p>
+      `;
+      resultDiv.classList.add('active');
+      let chips = '';
+      if (retryCount > 0) chips += `<span class="chip">🔁 リトライ <span class="chip-value">${retryCount}回</span></span>`;
+      if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
+      setStatusHTML(`⚠️ <strong>本文未生成</strong><div class="chips">${chips}</div>`, 'error');
+    } else {
+      stopElapsedTimer();
+      setStep('generate', 'done'); setStep('complete', 'done');
+      setProgressPercent(100);
+      setPhase('✅', '分析完了', `${accumulatedText.length.toLocaleString()}文字を生成しました`);
+      addActivity('✅ 分析が完了しました');
+
+      // Auto-save to IndexedDB
+      const extractedTitle = extractAnalysisTitle(accumulatedText);
+      const extractedSummary = extractAnalysisSummary(accumulatedText);
+      const savedItem = {
+        timestamp: Date.now(),
+        model, market, style, risk, amount, additional,
+        result: accumulatedText,
+        title: extractedTitle,
+        summary: extractedSummary,
+        searchCount, inputTokens, outputTokens, stopReason,
+        mode: isEvaluating ? 'evaluate' : currentMode,
+        reviewSourceIds: currentMode === 'review' && !isEvaluating ? Array.from(selectedHistoryIds) : [],
+        evaluateTargetId: isEvaluating ? evalTarget.id : null,
+        learningsApplied: pastLearnings.length
+      };
+      const newId = await dbSave(savedItem);
+      if (newId) {
+        savedItem.id = newId;
+        if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
+        addActivity(`💾 IndexedDB に保存しました (ID: ${newId})`);
+        await renderHistory();
+        ensureResultActions(savedItem);
+      }
+
+      let chips = '';
+      if (searchCount > 0) chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
+      if (inputTokens > 0) chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
+      if (outputTokens > 0) chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
+      if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
+      if (retryCount > 0) chips += `<span class="chip">🔁 リトライ <span class="chip-value">${retryCount}回</span></span>`;
+      if (isEvaluating) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}を評価</span></span>`;
+      else if (currentMode === 'review') chips += `<span class="chip">🔄 考察モード <span class="chip-value">${reviewItems.length}件参照</span></span>`;
+      if (pastLearnings.length > 0) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.12));color:#047857">🎓 学習反映 <span class="chip-value">${pastLearnings.length}件</span></span>`;
+      chips += `<span class="chip">💾 自動保存済み</span>`;
+
+      // Show prominent cost summary card
+      const mInfo = MODELS[model] || {};
+      showCostSummary({
+        phases: [{
+          label: mInfo.name || model,
+          inputCost: mInfo.inputCost || 0,
+          outputCost: mInfo.outputCost || 0,
+          inputTokens, outputTokens
+        }],
+        totalIn: inputTokens, totalOut: outputTokens,
+        modelLabel: mInfo.name || model,
+        searchCount, learningsCount: pastLearnings.length
+      });
+
+      setStatusHTML(`✅ <strong>分析が完了しました</strong><div class="chips">${chips}</div>`, 'success');
+    }
+
+  } catch (error) {
+    console.error(error);
+    const errStr = error.message || String(error);
+    // Handle user abort gracefully
+    if (error.name === 'AbortError' || /abort/i.test(errStr)) {
+      stopElapsedTimer();
+      setPhase('🛑', '分析を中止しました', 'ユーザーによる中止');
+      addActivity('🛑 ユーザーによる中止');
+      showStatus('🛑 分析を中止しました', 'error');
+      return;
+    }
+    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+      const waitSec = Math.pow(2, retryCount + 1);
+      setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
+      addActivity(`⏳ ${waitSec}秒待機してリトライ`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+      analyzeBtn.disabled = false;
+      return analyzeStocks(retryCount + 1);
+    }
+    stopElapsedTimer();
+    setPhase('❌', 'エラーが発生しました', errStr);
+    addActivity(`❌ ${errStr}`);
+    let msg = '❌ エラー: ' + errStr;
+    if (errStr.includes('Failed to fetch') || errStr.includes('NetworkError')) msg += '\n\n💡 ネットワーク接続を確認してください。';
+    else if (errStr.includes('401') || errStr.includes('authentication')) msg += '\n\n💡 APIキーが正しいか確認してください。';
+    else if (errStr.includes('429') || errStr.includes('rate')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
+    else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。数分後に再度お試しください。`;
+    showStatus(msg, 'error');
+  } finally {
+    analyzeBtn.disabled = false;
+    evaluatingItem = null; // Clear evaluation state after run
+    currentAbortController = null;
+    hideRunningInfo();
+    updateAnalyzeButtonLabel();
+  }
+}
+
+function formatNum(n) {
+  if (typeof n !== 'number' || !isFinite(n)) return String(n);
+  if (Math.abs(n) >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (Math.abs(n) >= 10) return n.toFixed(2).replace(/\.?0+$/, '');
+  return n.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function renderChart(data) {
+  if (!data || !Array.isArray(data.stocks) || data.stocks.length === 0) return '';
+  const stocks = data.stocks.slice(0, 8);
+
+  // Build time-series for each stock as % change from current
+  stocks.forEach(s => {
+    const cp = Number(s.current_price);
+    if (!isFinite(cp) || cp <= 0) { s._series = []; return; }
+    const series = [{ x: 0, low: 0, high: 0, mid: 0, label: '現在', priceLow: cp, priceHigh: cp, priceMid: cp }];
+
+    if (Array.isArray(s.forecasts) && s.forecasts.length > 0) {
+      s.forecasts.forEach((f, i) => {
+        const pLow = Number(f.price_low), pHigh = Number(f.price_high);
+        if (!isFinite(pLow) || !isFinite(pHigh)) return;
+        const low = ((pLow - cp) / cp) * 100;
+        const high = ((pHigh - cp) / cp) * 100;
+        const mid = (low + high) / 2;
+        series.push({
+          x: i + 1, low, high, mid,
+          label: String(f.period || `${i+1}期`),
+          priceLow: pLow, priceHigh: pHigh, priceMid: (pLow + pHigh) / 2
+        });
+      });
+    } else if (isFinite(Number(s.target_low)) && isFinite(Number(s.target_high))) {
+      const tl = Number(s.target_low), th = Number(s.target_high);
+      const low = ((tl - cp) / cp) * 100;
+      const high = ((th - cp) / cp) * 100;
+      const mid = (low + high) / 2;
+      series.push({ x: 1, low, high, mid, label: '目標期間', priceLow: tl, priceHigh: th, priceMid: (tl + th) / 2 });
+    }
+    s._series = series;
+  });
+
+  const validStocks = stocks.filter(s => s._series && s._series.length >= 2);
+  if (validStocks.length === 0) return '<div class="chart-loading">📊 予測データが不足しています</div>';
+
+  // Y-axis range
+  let yMin = Infinity, yMax = -Infinity;
+  validStocks.forEach(s => {
+    s._series.forEach(p => {
+      if (p.low < yMin) yMin = p.low;
+      if (p.high > yMax) yMax = p.high;
+    });
+  });
+  yMin = Math.min(yMin, -5);
+  yMax = Math.max(yMax, 5);
+  const yRange = yMax - yMin;
+  yMin -= yRange * 0.08;
+  yMax += yRange * 0.15;
+
+  // X-axis: use longest series for labels
+  const longest = validStocks.reduce((a, b) => (b._series.length > a._series.length ? b : a), validStocks[0]);
+  const xLabels = longest._series.map(p => p.label);
+  const maxX = longest._series.length - 1;
+
+  // SVG dimensions
+  const W = 760, H = 440;
+  const pad = { top: 30, right: 90, bottom: 60, left: 60 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const xScale = x => pad.left + (maxX > 0 ? (x / maxX) * chartW : chartW / 2);
+  const yScale = y => pad.top + chartH - ((y - yMin) / (yMax - yMin)) * chartH;
+
+  const palette = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#ef4444', '#a855f7'];
+  const emojiMap = { buy: '🟢', hold: '🟡', sell: '🔴' };
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+
+  // Y-axis grid + labels
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = yMin + (yMax - yMin) * (i / yTicks);
+    const y = yScale(val);
+    const isZero = Math.abs(val) < 0.5;
+    svg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="${isZero ? '#cbd5e1' : '#f1f5f9'}" stroke-width="${isZero ? 1.5 : 1}" stroke-dasharray="${isZero ? '0' : '3,4'}"/>`;
+    svg += `<text x="${pad.left - 8}" y="${y + 4}" font-size="11" fill="#64748b" text-anchor="end">${val > 0 ? '+' : ''}${val.toFixed(0)}%</text>`;
+  }
+
+  // X-axis labels
+  xLabels.forEach((label, i) => {
+    const x = xScale(i);
+    svg += `<line x1="${x}" y1="${pad.top}" x2="${x}" y2="${H - pad.bottom}" stroke="#f8fafc" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${H - pad.bottom + 20}" font-size="11" fill="#475569" text-anchor="middle">${escapeHtml(label)}</text>`;
+  });
+
+  // Draw shaded ranges (low-high band) for each stock
+  validStocks.forEach((s, i) => {
+    const color = palette[i % palette.length];
+    let path = '';
+    s._series.forEach((p, idx) => {
+      path += `${idx === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.high)} `;
+    });
+    for (let j = s._series.length - 1; j >= 0; j--) {
+      const p = s._series[j];
+      path += `L ${xScale(p.x)} ${yScale(p.low)} `;
+    }
+    path += 'Z';
+    svg += `<path d="${path}" fill="${color}" opacity="0.1"/>`;
+  });
+
+  // Draw mid lines on top
+  validStocks.forEach((s, i) => {
+    const color = palette[i % palette.length];
+    const action = (s.action || 'hold').toLowerCase();
+    const dash = action === 'sell' ? '5,3' : action === 'hold' ? '3,2' : '';
+    let line = '';
+    s._series.forEach((p, idx) => {
+      line += `${idx === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.mid)} `;
+    });
+    svg += `<path d="${line}" fill="none" stroke="${color}" stroke-width="2.8" stroke-dasharray="${dash}" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>`;
+    s._series.forEach(p => {
+      svg += `<circle cx="${xScale(p.x)}" cy="${yScale(p.mid)}" r="4" fill="white" stroke="${color}" stroke-width="2.2"/>`;
+    });
+    // End label
+    const last = s._series[s._series.length - 1];
+    if (last) {
+      svg += `<text x="${xScale(last.x) + 8}" y="${yScale(last.mid) - 4}" font-size="11" font-weight="700" fill="${color}">${escapeHtml(s.name)}</text>`;
+      svg += `<text x="${xScale(last.x) + 8}" y="${yScale(last.mid) + 10}" font-size="10" fill="${color}">${last.mid > 0 ? '+' : ''}${last.mid.toFixed(1)}%</text>`;
+    }
+  });
+
+  // Axis titles
+  svg += `<text x="${pad.left + chartW / 2}" y="${H - 6}" font-size="11" fill="#64748b" text-anchor="middle">時間軸 →</text>`;
+  svg += `<text x="14" y="${pad.top + chartH / 2}" font-size="11" fill="#64748b" text-anchor="middle" transform="rotate(-90, 14, ${pad.top + chartH / 2})">現在価格からの変動率 (%)</text>`;
+
+  svg += '</svg>';
+
+  // Legend
+  const legend = validStocks.map((s, i) => {
+    const color = palette[i % palette.length];
+    const action = (s.action || 'hold').toLowerCase();
+    const emoji = emojiMap[action] || '⚪';
+    const last = s._series[s._series.length - 1];
+    const pct = last ? `${last.mid > 0 ? '+' : ''}${last.mid.toFixed(1)}%` : '';
+    const pctColor = last && last.mid > 0 ? '#047857' : last && last.mid < 0 ? '#b91c1c' : '#64748b';
+    return `<span class="chart-legend-item">
+      <span class="chart-legend-line" style="background:${color}"></span>
+      ${emoji}
+      <span class="chart-legend-name">${escapeHtml(s.name)}</span>
+      <span class="chart-legend-pct" style="color:${pctColor}">${pct}</span>
+    </span>`;
+  }).join('');
+
+  // Summary table below chart
+  const summary = validStocks.map(s => {
+    const cur = escapeHtml(s.currency || '');
+    const cp = Number(s.current_price);
+    const last = s._series[s._series.length - 1];
+    const priceText = last ? `${cur}${formatNum(last.priceLow)}〜${cur}${formatNum(last.priceHigh)} (${last.label})` : '';
+    return `<div class="chart-summary-item">
+      <span class="chart-summary-name">${escapeHtml(s.name)}</span>
+      <span class="chart-summary-ticker">${escapeHtml(s.ticker || '')}</span>
+      <span class="chart-summary-prices">${cur}${formatNum(cp)} → ${priceText}</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="prediction-chart">
+    <h3 class="chart-title">📈 推奨銘柄の予測折れ線グラフ</h3>
+    <div class="chart-subtitle">時系列で予測される価格変動です。実線は予測価格の中央値、薄い帯は予測レンジ(下限〜上限)を示しています。</div>
+    <div class="chart-svg-wrap">${svg}</div>
+    <div class="chart-legend">${legend}</div>
+    <div class="chart-summary-grid">${summary}</div>
+  </div>`;
+}
+
+function extractAnalysisTitle(text) {
+  const m = text.match(/\[ANALYSIS_TITLE\]([\s\S]*?)\[\/ANALYSIS_TITLE\]/);
+  if (!m) return '';
+  return m[1].trim().replace(/\s+/g, ' ').slice(0, 80);
+}
+
+function extractAnalysisSummary(text) {
+  const m = text.match(/\[ANALYSIS_SUMMARY\]([\s\S]*?)\[\/ANALYSIS_SUMMARY\]/);
+  if (!m) return '';
+  return m[1].trim().slice(0, 400);
+}
+
+function renderCalendar(data) {
+  if (!data || !Array.isArray(data.events) || data.events.length === 0) return '';
+  const events = [...data.events].sort((a, b) => {
+    const da = new Date((a.date || '') + 'T' + (a.time || '00:00'));
+    const db = new Date((b.date || '') + 'T' + (b.time || '00:00'));
+    return da - db;
+  });
+  const typeIcons = {
+    policy: '🏛', earnings: '📊', geopolitical: '🌍', macro: '📈',
+    election: '🗳', regulation: '📜', tech: '💻', energy: '⛽',
+    pandemic: '🦠', war: '⚔', other: '📌'
+  };
+  const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekdayShort = ['日','月','火','水','木','金','土'];
+  const eventsHtml = events.map(ev => {
+    const dateStr = ev.date || '';
+    let dateDisplay = dateStr;
+    let monthDisp = '', dayDisp = '', wdDisp = '';
+    if (dateStr) {
+      const d = new Date(dateStr);
+      if (!isNaN(d)) {
+        monthDisp = monthShort[d.getMonth()] || '';
+        dayDisp = String(d.getDate());
+        wdDisp = weekdayShort[d.getDay()] || '';
+      }
+    }
+    const time = ev.time ? `⏰ ${escapeHtml(ev.time)}` : '';
+    const imp = Math.max(1, Math.min(5, parseInt(ev.importance, 10) || 3));
+    const impStars = '★'.repeat(imp) + '☆'.repeat(5 - imp);
+    const typeIcon = typeIcons[(ev.type || 'other').toLowerCase()] || '📌';
+    const title = escapeHtml(ev.title || '無題のイベント');
+    const desc = escapeHtml(ev.description || '');
+    const ifPos = ev.if_positive || ev.action_if_positive;
+    const ifNeg = ev.if_negative || ev.action_if_negative;
+    const stocks = Array.isArray(ev.stocks_affected) ? ev.stocks_affected : (Array.isArray(ev.stocks) ? ev.stocks : []);
+    const stocksHtml = stocks.length > 0
+      ? `<div class="cal-stocks">${stocks.map(s => `<span class="cal-stock-tag">${escapeHtml(String(s))}</span>`).join('')}</div>`
+      : '';
+    return `
+      <div class="cal-event imp-${imp}">
+        <div class="cal-date-col">
+          <div class="cal-date-month">${monthDisp}</div>
+          <div class="cal-date-day">${dayDisp}</div>
+          <div class="cal-date-weekday">${wdDisp}</div>
+          ${time ? `<div class="cal-date-time">${escapeHtml(ev.time)}</div>` : ''}
+        </div>
+        <div class="cal-content">
+          <div class="cal-title-row">
+            <span class="cal-type-icon">${typeIcon}</span>
+            <span class="cal-title-text">${title}</span>
+            <span class="cal-importance" title="重要度">${impStars}</span>
+          </div>
+          ${desc ? `<div class="cal-desc">${desc}</div>` : ''}
+          ${(ifPos || ifNeg) ? `<div class="cal-actions">
+            ${ifPos ? `<span class="cal-action positive">🟢 ${escapeHtml(ifPos)}</span>` : ''}
+            ${ifNeg ? `<span class="cal-action negative">🔴 ${escapeHtml(ifNeg)}</span>` : ''}
+          </div>` : ''}
+          ${stocksHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+  return `<div class="event-calendar">
+    <h3 class="calendar-title">📅 今後の重要イベント・カレンダー</h3>
+    <div class="calendar-subtitle">日付順に並んだ売買トリガーイベント。重要度は ★1〜5、左端の色帯で視覚化(赤=最重要)。</div>
+    <div class="calendar-events">${eventsHtml}</div>
+  </div>`;
+}
+
+function renderMarkdown(text) {
+  let html = text;
+  // Strip [ANALYSIS_TITLE]...[/ANALYSIS_TITLE] from display (kept in raw text for extraction)
+  html = html.replace(/\[ANALYSIS_TITLE\][\s\S]*?\[\/ANALYSIS_TITLE\]/g, '');
+  // Hide incomplete ANALYSIS_TITLE block during streaming
+  html = html.replace(/\[ANALYSIS_TITLE\][\s\S]*$/, '');
+
+  // Strip [ANALYSIS_SUMMARY]...[/ANALYSIS_SUMMARY] from display (kept in raw text for extraction)
+  html = html.replace(/\[ANALYSIS_SUMMARY\][\s\S]*?\[\/ANALYSIS_SUMMARY\]/g, '');
+  html = html.replace(/\[ANALYSIS_SUMMARY\][\s\S]*$/, '');
+
+  // Extract calendar data
+  const calendarPlaceholders = [];
+  const addCalendar = (json) => {
+    calendarPlaceholders.push(json.trim());
+    return `\n\nCALENDARBLOCK${calendarPlaceholders.length - 1}END\n\n`;
+  };
+  html = html.replace(/\[CALENDAR_DATA\]([\s\S]*?)\[\/CALENDAR_DATA\]/gi, (m, json) => addCalendar(json));
+  html = html.replace(/```calendar-data\s*\n?([\s\S]*?)```/gi, (m, json) => addCalendar(json));
+  html = html.replace(/\[CALENDAR_DATA\][\s\S]*$/i, '\n\nCALENDARLOADINGEND\n\n');
+
+  // Extract chart data — accept multiple formats (BEFORE HTML escape, using placeholders)
+  const chartPlaceholders = [];
+  const addChart = (json) => {
+    chartPlaceholders.push(json.trim());
+    return `\n\nCHARTBLOCK${chartPlaceholders.length - 1}END\n\n`;
+  };
+  // Format 1: [CHART_DATA]...[/CHART_DATA] (standard)
+  html = html.replace(/\[CHART_DATA\]([\s\S]*?)\[\/CHART_DATA\]/gi, (m, json) => addChart(json));
+  // Format 2: ```chart-data ... ``` (code block with tag)
+  html = html.replace(/```chart-data\s*\n?([\s\S]*?)```/gi, (m, json) => addChart(json));
+  // Format 3: ```json ... ``` containing "stocks" key (heuristic)
+  html = html.replace(/```json\s*\n?(\{[\s\S]*?"stocks"[\s\S]*?\})\s*\n?```/gi, (m, json) => addChart(json));
+  // Format 4: <chart>...</chart> (HTML-like)
+  html = html.replace(/<chart>([\s\S]*?)<\/chart>/gi, (m, json) => addChart(json));
+  // Hide incomplete CHART_DATA blocks (still streaming)
+  html = html.replace(/\[CHART_DATA\][\s\S]*$/i, '\n\nCHARTLOADINGEND\n\n');
+  html = html.replace(/```chart-data[\s\S]*$/i, '\n\nCHARTLOADINGEND\n\n');
+  if (chartPlaceholders.length > 0) {
+    console.log('[Chart] Extracted ' + chartPlaceholders.length + ' chart data block(s)');
+  }
+
+  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  html = html.replace(/```([\s\S]*?)```/g, (m, code) => '<pre><code>' + code.trim() + '</code></pre>');
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replace(/^---+$/gm, '<hr>');
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<li data-num="$1">$2</li>');
+  html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li[^>]*>[\s\S]+?<\/li>(?:\n<li[^>]*>[\s\S]+?<\/li>)*)/g, (match) => {
+    if (match.includes('data-num')) return '<ol>' + match.replace(/ data-num="[^"]+"/g, '') + '</ol>';
+    return '<ul>' + match + '</ul>';
+  });
+  const blocks = html.split(/\n\n+/);
+  html = blocks.map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<(h[1-6]|ul|ol|hr|pre|blockquote)/i.test(block)) return block;
+    if (/^CHARTBLOCK\d+END$/.test(block) || block === 'CHARTLOADINGEND') return block;
+    if (/^CALENDARBLOCK\d+END$/.test(block) || block === 'CALENDARLOADINGEND') return block;
+    return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+
+  // Replace calendar placeholders with actual calendar HTML
+  calendarPlaceholders.forEach((json, i) => {
+    let calHtml = '';
+    let data = null;
+    try { data = JSON.parse(json); } catch (e) {
+      try {
+        const cleaned = json.replace(/,(\s*[}\]])/g, '$1').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        data = JSON.parse(cleaned);
+      } catch (e2) {
+        console.warn('[Calendar] JSON parse failed', e2.message, 'Raw:', json.slice(0, 200));
+      }
+    }
+    if (data) {
+      calHtml = renderCalendar(data);
+      if (!calHtml) calHtml = `<div class="chart-loading">📅 カレンダーデータが空です</div>`;
+    } else {
+      calHtml = `<div class="chart-loading">📅 カレンダーデータの解析に失敗しました</div>`;
+    }
+    html = html.replace(new RegExp(`(<p>)?CALENDARBLOCK${i}END(</p>)?`), calHtml);
+  });
+  html = html.replace(/(<p>)?CALENDARLOADINGEND(<\/p>)?/, '<div class="chart-loading">📅 重要イベント・カレンダーを準備中…</div>');
+
+  // Replace chart placeholders with actual chart HTML (with lenient JSON parsing)
+  chartPlaceholders.forEach((json, i) => {
+    let chartHtml = '';
+    let parsedData = null;
+    // Try parsing as-is first
+    try { parsedData = JSON.parse(json); } catch (e) {
+      // Lenient parsing: remove trailing commas, fix common issues
+      try {
+        const cleaned = json
+          .replace(/,(\s*[}\]])/g, '$1')  // Remove trailing commas
+          .replace(/\/\/.*$/gm, '')         // Remove line comments
+          .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove block comments
+        parsedData = JSON.parse(cleaned);
+      } catch (e2) {
+        console.warn('[Chart] JSON parse failed', e2.message, 'Raw:', json.slice(0, 200));
+      }
+    }
+    if (parsedData) {
+      chartHtml = renderChart(parsedData);
+      if (!chartHtml) {
+        chartHtml = `<div class="chart-loading">📊 チャートデータが空または不正な形式です</div>`;
+      }
+    } else {
+      chartHtml = `<div class="chart-loading">📊 チャートデータの解析に失敗しました。詳細はコンソール (F12) で確認</div>`;
+    }
+    html = html.replace(new RegExp(`(<p>)?CHARTBLOCK${i}END(</p>)?`), chartHtml);
+  });
+  // Replace loading placeholder
+  html = html.replace(/(<p>)?CHARTLOADINGEND(<\/p>)?/, '<div class="chart-loading">📊 推奨銘柄チャートを準備中…</div>');
+
+  resultDiv.innerHTML = html;
+}
+
+// Initial render of history
+renderHistory();
+</script>
+</body>
+</html>
