@@ -608,6 +608,50 @@ label {
   border-left: 3px solid var(--accent-blue); padding-left: 16px;
   margin: 12px 0; color: var(--text-secondary); font-style: italic;
 }
+.result table.md-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  font-size: 13.5px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.result table.md-table thead {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(59, 130, 246, 0.12));
+}
+.result table.md-table th {
+  padding: 11px 14px;
+  font-weight: 700;
+  color: #4c1d95;
+  text-align: left;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border-glass);
+  white-space: nowrap;
+}
+.result table.md-table td {
+  padding: 10px 14px;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(127, 127, 127, 0.08);
+  vertical-align: top;
+}
+.result table.md-table tbody tr:nth-child(even) {
+  background: rgba(139, 92, 246, 0.025);
+}
+.result table.md-table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.06);
+  transition: background 0.15s ease;
+}
+.result table.md-table tbody tr:last-child td { border-bottom: none; }
+.result table.md-table td strong { color: #b45309; }
+@media (max-width: 720px) {
+  .result table.md-table { font-size: 12.5px; }
+  .result table.md-table th, .result table.md-table td { padding: 8px 10px; }
+}
 .history-list { display: flex; flex-direction: column; gap: 10px; }
 .history-empty { color: var(--text-muted); text-align: center; padding: 20px; font-size: 13px; }
 .history-item {
@@ -1272,7 +1316,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.2.1</span>
+      <span class="app-version-tag">v1.3.0</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1464,7 +1508,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.2.1';
+const APP_VERSION = 'v1.3.0';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -1472,6 +1516,8 @@ const MODEL_KEY = 'claude_model_v1';
 const DB_NAME = 'stock_analyzer_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'analyses';
+// ★ Anthropic Web 検索の料金: $10 / 1,000 検索 = $0.01 / 検索
+const WEB_SEARCH_COST_USD = 0.01;
 
 // ヘッダーのバージョン表示を APP_VERSION / APP_VERSION_DATE と同期
 (function syncAppVersionBadge() {
@@ -1551,15 +1597,21 @@ const USD_TO_JPY = 155;
 
 function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, learningsCount }) {
   // phases: [{label, model, inputCost, outputCost, inputTokens, outputTokens}]
-  let totalCost = 0;
+  let tokenCost = 0;
   const phaseHtml = phases.map(p => {
     const cost = (p.inputTokens * (p.inputCost || 0) + p.outputTokens * (p.outputCost || 0)) / 1000000;
-    totalCost += cost;
+    tokenCost += cost;
     return `<div class="cost-detail-row">
       <span>${escapeHtml(p.label)}: 入力 ${p.inputTokens.toLocaleString()}tk + 出力 ${p.outputTokens.toLocaleString()}tk</span>
       <span><strong>$${cost.toFixed(3)}</strong></span>
     </div>`;
   }).join('');
+  // ★ Web 検索の料金($10/1,000検索)を別行で表示
+  const searchCost = (searchCount || 0) * WEB_SEARCH_COST_USD;
+  const totalCost = tokenCost + searchCost;
+  const searchCostHtml = searchCount
+    ? `<div class="cost-detail-row"><span>🔍 Web検索 ${searchCount}回 × $${WEB_SEARCH_COST_USD.toFixed(3)}</span><span><strong>$${searchCost.toFixed(3)}</strong></span></div>`
+    : '';
   const jpyAmount = Math.round(totalCost * USD_TO_JPY);
   costSummaryEl.innerHTML = `
     <div class="cost-header">💵 今回の API 使用料金(推定)</div>
@@ -1569,7 +1621,7 @@ function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, l
     </div>
     <div class="cost-detail">
       ${phaseHtml}
-      ${searchCount ? `<div class="cost-detail-row"><span>🔍 Web検索回数</span><span><strong>${searchCount}回</strong></span></div>` : ''}
+      ${searchCostHtml}
       ${learningsCount ? `<div class="cost-detail-row"><span>🎓 学習反映</span><span><strong>${learningsCount}件</strong></span></div>` : ''}
       <div class="cost-detail-row"><span>📦 モデル構成</span><span><strong>${escapeHtml(modelLabel)}</strong></span></div>
     </div>
@@ -2787,10 +2839,12 @@ ${stylePeriodsListItems}
           if (delta && delta.type === 'text_delta') {
             researchText += delta.text;
             updateLiveTicker('📝', `リサーチ生成中 (${researchText.length.toLocaleString()}字)`, tickerTail(researchText, 90));
-            // ★ Live cost estimate: actual input_tokens × rate + estimated output_tokens × rate
+            // ★ Live cost estimate: actual input_tokens × rate + estimated output_tokens × rate + search cost
             const _r = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
             const estOut = Math.max(phase1Out, estimateTokens(researchText));
-            updateRunningCost((phase1In * (_r.inputCost || 5) + estOut * (_r.outputCost || 25)) / 1000000);
+            const tokenCost = (phase1In * (_r.inputCost || 5) + estOut * (_r.outputCost || 25)) / 1000000;
+            const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+            updateRunningCost(tokenCost + searchCost);
             updateStats({ inputTokens: phase1In, outputTokens: estOut, chars: researchText.length });
           }
           if (delta && delta.type === 'input_json_delta' && parsed.index === phase1ToolIndex) {
@@ -2815,7 +2869,9 @@ ${stylePeriodsListItems}
         if (parsed.type === 'message_delta' && parsed.usage) {
           phase1Out = parsed.usage.output_tokens || phase1Out;
           const _r = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
-          updateRunningCost((phase1In * (_r.inputCost || 5) + phase1Out * (_r.outputCost || 25)) / 1000000);
+          const tokenCost = (phase1In * (_r.inputCost || 5) + phase1Out * (_r.outputCost || 25)) / 1000000;
+          const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+          updateRunningCost(tokenCost + searchCost);
           updateStats({ inputTokens: phase1In, outputTokens: phase1Out, chars: researchText.length });
         }
       }
@@ -2972,8 +3028,42 @@ ${learningsBlock}
 - リサーチデータの数値・事実を必ず正確に反映
 - 表現は中学生でも分かるよう例え話を多用
 - フレンドリーで楽しいトーンで
-- 必ず [CHART_DATA] [CALENDAR_DATA] [ANALYSIS_SUMMARY] [ANALYSIS_TITLE] の4つすべて含める
-- forecasts の period は必ず ${stylePeriodsCompact} を使用`;
+- forecasts の period は必ず ${stylePeriodsCompact} を使用
+
+★★★★★ 最重要・絶対厳守 ★★★★★
+出力の最後に必ず以下の4つのタグブロックをすべて含めること。
+これらが欠けていると分析結果としては「不完全」扱いになり、ユーザーに視覚化(折れ線グラフ・カレンダー)が表示されません。
+
+絶対ルール:
+- ★ コンパクト出力ルール(5,000文字制限)は本文のみに適用される。
+- ★ [CHART_DATA] / [CALENDAR_DATA] / [ANALYSIS_SUMMARY] / [ANALYSIS_TITLE] の4ブロックは文字数制限の外で、必ず別途出力すること。
+- ★ 各ブロックは [TAG_NAME] と [/TAG_NAME] で正確に挟む(角括弧を忘れない)。
+- ★ JSON は valid な JSON 形式で(末尾カンマ禁止、コメント禁止、ダブルクォート必須)。
+
+【必ず出力する4ブロック】
+
+1. [CHART_DATA]...[/CHART_DATA]
+   - 推奨銘柄すべて(3〜5銘柄)を含める
+   - 各銘柄に4ポイントの forecasts(${stylePeriodsCompact})を必ず含める
+   - 「予測価格データが無いから省略」は禁止。リサーチデータから推定して必ず数値を入れる
+
+2. [CALENDAR_DATA]...[/CALENDAR_DATA]
+   - 今後1〜3ヶ月の重要イベントを 3〜8 個含める
+   - FOMC・決算・経済指標発表など、推奨銘柄に影響しうるイベント
+   - 各イベントに date / type / importance / if_positive / if_negative を必ず
+
+3. [ANALYSIS_SUMMARY]...[/ANALYSIS_SUMMARY]
+   - 3〜4行で分析の要点を要約
+
+4. [ANALYSIS_TITLE]30文字以内のタイトル[/ANALYSIS_TITLE]
+
+【セルフチェックリスト — 出力前に確認】
+□ 本文(##セクション)はすべて書いた?
+□ [CHART_DATA]…[/CHART_DATA] を書いた? stocks 配列に推奨全銘柄入ってる?
+□ [CALENDAR_DATA]…[/CALENDAR_DATA] を書いた? events に3〜8個ある?
+□ [ANALYSIS_SUMMARY]…[/ANALYSIS_SUMMARY] を書いた?
+□ [ANALYSIS_TITLE]…[/ANALYSIS_TITLE] を書いた?
+全部YESになるまで出力を終わらせない!`;
 
     // ===== Phase 2: Haiku 4.5 Writing =====
     await streamFetch({
@@ -2998,15 +3088,16 @@ ${learningsBlock}
               setProgressPercent(50 + Math.floor(sec.pct / 2));
               addActivity(`📝 ${sec.name}`);
             }
-            // ★ Live ticker — show tail of generated text + live cost estimate
+            // ★ Live ticker — show tail of generated text + live cost estimate (tokens + search)
             const sectionLabel = currentSectionName || '本文生成中';
             updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
             const _r1Live = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
             const _r2Live = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
             const estPhase2Out = Math.max(phase2Out, estimateTokens(accumulatedText));
-            const liveCost = (phase1In * (_r1Live.inputCost || 5) + phase1Out * (_r1Live.outputCost || 25) +
+            const tokenCost = (phase1In * (_r1Live.inputCost || 5) + phase1Out * (_r1Live.outputCost || 25) +
                               phase2In * (_r2Live.inputCost || 1) + estPhase2Out * (_r2Live.outputCost || 5)) / 1000000;
-            updateRunningCost(liveCost);
+            const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+            updateRunningCost(tokenCost + searchCost);
             updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + estPhase2Out, chars: accumulatedText.length });
             const stockCount = countStocks(accumulatedText);
             if (stockCount !== lastStockCount && currentSectionName && currentSectionName.includes('銘柄')) {
@@ -3018,12 +3109,13 @@ ${learningsBlock}
         if (parsed.type === 'message_delta') {
           if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
           if (parsed.usage) phase2Out = parsed.usage.output_tokens || phase2Out;
-          // Update running cost (Phase1 + Phase2 combined) with actual tokens
+          // Update running cost (Phase1 + Phase2 combined + search cost) with actual tokens
           const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
-          const totalCost = (phase1In * (_r1.inputCost || 5) + phase1Out * (_r1.outputCost || 25) +
+          const tokenCost = (phase1In * (_r1.inputCost || 5) + phase1Out * (_r1.outputCost || 25) +
                               phase2In * (_r2.inputCost || 1) + phase2Out * (_r2.outputCost || 5)) / 1000000;
-          updateRunningCost(totalCost);
+          const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+          updateRunningCost(tokenCost + searchCost);
           updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + phase2Out, chars: accumulatedText.length });
         }
       }
@@ -3086,12 +3178,14 @@ ${learningsBlock}
         ensureResultActions(savedItem);
       }
 
-      // Cost: model-specific rates (input/output $ per 1M tokens)
+      // Cost: model-specific rates (input/output $ per 1M tokens) + web search cost
       const rates = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
       const writerRates = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
       const r1In = rates.inputCost || 5, r1Out = rates.outputCost || 25;
       const r2In = writerRates.inputCost || 1, r2Out = writerRates.outputCost || 5;
-      const cost = (phase1In * r1In + phase1Out * r1Out + phase2In * r2In + phase2Out * r2Out) / 1000000;
+      const tokenCost = (phase1In * r1In + phase1Out * r1Out + phase2In * r2In + phase2Out * r2Out) / 1000000;
+      const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+      const cost = tokenCost + searchCost;
       let chips = '';
       chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.18),rgba(16,185,129,0.18));color:#047857;font-weight:700">${hybridIcon} ${hybridLabel}</span>`;
       chips += `<span class="chip">🔍 検索 <span class="chip-value">${phase1Search}回</span></span>`;
@@ -4181,12 +4275,14 @@ ${stylePeriodsListItems}
               } else if (currentSectionName) {
                 phaseDetailEl.textContent = `${accumulatedText.length.toLocaleString()}文字生成済み`;
               }
-              // ★ Live ticker + cost estimate
+              // ★ Live ticker + cost estimate (tokens + search)
               const sectionLabel = currentSectionName || '本文生成中';
               updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
               const _rLive = MODELS[model] || { inputCost: 5, outputCost: 25 };
               const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
-              updateRunningCost((inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000);
+              const tokenCost = (inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000;
+              const searchCost = searchCount * WEB_SEARCH_COST_USD;
+              updateRunningCost(tokenCost + searchCost);
               updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
               const stockCount = countStocks(accumulatedText);
               if (stockCount !== lastStockCount && currentSectionName === '推奨銘柄を分析中') {
@@ -4221,9 +4317,11 @@ ${stylePeriodsListItems}
               if (parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
               if (parsed.usage.input_tokens !== undefined) inputTokens = parsed.usage.input_tokens;
             }
-            // ★ Real-time cost with actual tokens
+            // ★ Real-time cost with actual tokens + search
             const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
-            updateRunningCost((inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000);
+            const tokenCost = (inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000;
+            const searchCost = searchCount * WEB_SEARCH_COST_USD;
+            updateRunningCost(tokenCost + searchCost);
             updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
           }
           else if (parsed.type === 'message_stop') {
@@ -4683,11 +4781,33 @@ function renderMarkdown(text) {
     if (match.includes('data-num')) return '<ol>' + match.replace(/ data-num="[^"]+"/g, '') + '</ol>';
     return '<ul>' + match + '</ul>';
   });
+
+  // ★ Markdown tables — | h1 | h2 |\n|---|---|\n| c1 | c2 |
+  html = html.replace(/(?:^|\n)(\|[^\n]+\|)\n(\|[\s:|\-]+\|)\n((?:\|[^\n]+\|\n?)+)/g, (m, headerLine, separatorLine, bodyLines) => {
+    const headers = headerLine.split('|').slice(1, -1).map(s => s.trim());
+    const aligns = separatorLine.split('|').slice(1, -1).map(s => {
+      const t = s.trim();
+      if (t.startsWith(':') && t.endsWith(':')) return 'center';
+      if (t.endsWith(':')) return 'right';
+      return 'left';
+    });
+    const rows = bodyLines.trim().split('\n').map(line =>
+      line.split('|').slice(1, -1).map(s => s.trim())
+    );
+    const thead = '<thead><tr>' + headers.map((h, i) =>
+      `<th style="text-align:${aligns[i] || 'left'}">${h}</th>`
+    ).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + rows.map(row =>
+      '<tr>' + row.map((c, i) => `<td style="text-align:${aligns[i] || 'left'}">${c}</td>`).join('') + '</tr>'
+    ).join('') + '</tbody>';
+    return '\n\n<table class="md-table">' + thead + tbody + '</table>\n\n';
+  });
+
   const blocks = html.split(/\n\n+/);
   html = blocks.map(block => {
     block = block.trim();
     if (!block) return '';
-    if (/^<(h[1-6]|ul|ol|hr|pre|blockquote)/i.test(block)) return block;
+    if (/^<(h[1-6]|ul|ol|hr|pre|blockquote|table)/i.test(block)) return block;
     if (/^CHARTBLOCK\d+END$/.test(block) || block === 'CHARTLOADINGEND') return block;
     if (/^CALENDARBLOCK\d+END$/.test(block) || block === 'CALENDARLOADINGEND') return block;
     return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
