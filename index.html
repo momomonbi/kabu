@@ -1243,7 +1243,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.1.0</span>
+      <span class="app-version-tag">v1.1.1</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1439,7 +1439,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.1.1';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2677,6 +2677,8 @@ ${stylePeriodsListItems}
 【重要】
 - web_search を 10〜15回程度(上限15回)実施し、Phase A→B→C のストーリーで深く掘り下げる
 - 途中で打ち切らず、Phase B(深掘り 6〜12 回目)まで必ず到達してから Phase C(まとめ)へ移行する
+- ★★★ 検索が終わったら(または15回に達したら)、一切の追加検索・追加の熟考を行わず、直ちに上記の【出力形式】に従って結果テキストを書き始めること ★★★
+- 長時間「考える」のではなく、得られた検索結果を素早く構造化して出力する(モバイル環境では長時間アイドルだと接続が切れるため)
 - 数値は具体的に
 - 客観的データに徹し、感情表現は不要
 - これは中間データなので、構造化された簡潔な形式で出力`;
@@ -3043,7 +3045,7 @@ ${learningsBlock}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+    if (/overload|529|503|502|Load failed|Failed to fetch|NetworkError|network error/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
@@ -4233,7 +4235,7 @@ ${stylePeriodsListItems}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+    if (/overload|529|503|502|Load failed|Failed to fetch|NetworkError|network error/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
