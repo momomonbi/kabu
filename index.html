@@ -186,6 +186,7 @@ label {
   background: rgba(15, 23, 42, 0.04); border: 1.5px solid var(--border-glass);
   border-radius: 14px;
 }
+.segmented.segmented-4 { grid-template-columns: repeat(4, 1fr); }
 .segmented input { display: none; }
 .segmented label {
   display: flex; align-items: center; justify-content: center;
@@ -200,6 +201,21 @@ label {
 }
 .segmented label:hover { color: var(--text-primary); }
 .segmented input:checked + label:hover { color: white; }
+/* 🔥 EXTRA risk — danger gradient + pulse to make it clear this is extreme */
+.segmented label[for="risk-extra"] {
+  color: #c2410c;
+  font-weight: 700;
+}
+.segmented input#risk-extra:checked + label {
+  background: linear-gradient(135deg, #f59e0b, #ef4444, #dc2626);
+  color: white;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);
+  animation: extra-pulse 1.8s ease-in-out infinite;
+}
+@keyframes extra-pulse {
+  0%, 100% { box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35); }
+  50% { box-shadow: 0 6px 24px rgba(220, 38, 38, 0.6); }
+}
 .grid-2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
 @media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
 .notice {
@@ -1327,7 +1343,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.6.0</span>
+      <span class="app-version-tag">v1.7.0</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1414,13 +1430,15 @@ label {
 
       <div class="field">
         <label>リスク許容度</label>
-        <div class="segmented" role="radiogroup">
+        <div class="segmented segmented-4" role="radiogroup">
           <input type="radio" name="risk" id="risk-low" value="low">
           <label for="risk-low">🛡 低</label>
           <input type="radio" name="risk" id="risk-medium" value="medium" checked>
           <label for="risk-medium">⚖ 中</label>
           <input type="radio" name="risk" id="risk-high" value="high">
           <label for="risk-high">🚀 高</label>
+          <input type="radio" name="risk" id="risk-extra" value="extra">
+          <label for="risk-extra">🔥 EXTRA</label>
         </div>
       </div>
     </div>
@@ -1520,7 +1538,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.6.0';
+const APP_VERSION = 'v1.7.0';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2736,7 +2754,7 @@ async function analyzeStocksHybrid(ctx) {
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
+${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
 
 【調査項目】(web_search で取得)
 (A) 主要株価指数の数値・変動率(日経平均・TOPIX・S&P500・NASDAQ)
@@ -2916,7 +2934,7 @@ ${researchData}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 ${learningsBlock}
 
@@ -3468,7 +3486,12 @@ async function analyzeStocks(retryCount = 0) {
     both: '日本株と米国株', crypto: '暗号資産', etf: 'ETF・投資信託'
   };
   const styleLabels = { short: '短期(数日〜数週間)', mid: '中期(数ヶ月)', long: '長期(1年以上)' };
-  const riskLabels = { low: '低(保守的)', medium: '中(バランス型)', high: '高(積極的)' };
+  const riskLabels = {
+    low: '低(保守的)',
+    medium: '中(バランス型)',
+    high: '高(積極的)',
+    extra: '🔥 EXTRA(超ハイリスク・ハイリターン)'
+  };
   const amountLabels = {
     micro: '1,000〜10,000円(超少額・お試し)', small: '1〜10万円',
     medium: '10〜100万円', large: '100〜1,000万円', xlarge: '1,000万円以上'
@@ -3515,6 +3538,38 @@ async function analyzeStocks(retryCount = 0) {
 ★ 推奨理由は必ず「○○のニュース(日付)→ △△が変化 → 結果この銘柄が…」というニュース起点のストーリーで提示
 ★ 個別銘柄の業績好調・好材料のみを根拠にしない(あくまでニュース起点)
 ★ ニュースは具体的な日付・出典(報道社名)があれば併記
+` : '';
+
+  // 🔥 EXTRA リスクモード — ボラティリティ激しい銘柄のみ厳選
+  const extraRiskBlock = risk === 'extra' ? `
+
+【★★★ 🔥 EXTRA リスクモード(超ハイリスク・ハイリターン)★★★】
+通常モードではなく、★ 値動きが激しい銘柄のみ ★ を厳選してください。
+
+▼ 銘柄選定の絶対条件(以下を満たす銘柄のみ推奨)
+- 想定ボラティリティが高い: 過去 30〜90日の平均日次変動率 ±3% 以上、または β > 1.5
+- 期間内の予測価格レンジが現在価格の **±15% 以上**(投資スタイル「${styleLabels[style]}」の最終時点)
+- カタリスト多数(決算サプライズ、新薬、AI/半導体、テーマ株、地政学受益、需給逼迫等)
+- 例: 小型グロース・新興市場・AI半導体・バイオベンチャー・ミーム株・暗号資産関連株
+- ★ 安定配当株・ディフェンシブ・大型インフラ・公益事業は ★禁止★(値動きが穏やかなため)
+
+▼ 折れ線グラフ用 forecasts の設計(★最重要★)
+- 各銘柄の forecasts の price_low / price_high レンジは、現在価格に対して大幅な変動を反映する:
+  - 最初の時点(短期):±10〜15%
+  - 中間時点:±20〜30%
+  - 最終時点:±30〜50%(あるいはそれ以上)
+- 予測折れ線(low-high バンド)が画面上で大きく動いて見えるようにする
+- ただし数値は荒唐無稽ではなく、銘柄の実ボラティリティに整合する範囲で
+
+▼ 推奨理由・リスク開示
+- 推奨理由には ★ 上振れシナリオ ★ と ★ 下振れシナリオ ★ の両方を明記
+- 「○倍株を狙えるが、半値になる可能性も」のように振れ幅を強調
+- リスクは強めに記述(警告として目立つように)
+
+▼ お勧め度
+- 値動きの激しさが期待値より控えめなら ★ お勧め度を低めに ★(無理に上げない)
+
+★ ボラティリティが乏しい銘柄は推奨候補から除外し、別の高ボラ銘柄に差し替えること
 ` : '';
 
   const sbiBlock = market === 'sbi' ? `
@@ -3985,7 +4040,7 @@ ${learningsBlock}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 【★調査方針 — プロのアナリスト/機関投資家の手法に準拠★】
 推奨を出す前に必ず以下を web_search で調査し、複数手法を組み合わせること:
