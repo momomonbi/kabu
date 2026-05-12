@@ -1327,7 +1327,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.5.0</span>
+      <span class="app-version-tag">v1.6.0</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1391,6 +1391,7 @@ label {
         <option value="paypay" selected>💴 PayPay証券で買える銘柄(日米株)</option>
         <option value="sbi">🏦 SBI証券で買える銘柄(日米株・ETF・IPO 幅広く)</option>
         <option value="japan">🇯🇵 日本株(全銘柄)</option>
+        <option value="japan-news">📰 国内時事ニュース → 日本株を考察</option>
         <option value="us">🇺🇸 米国株(全銘柄)</option>
         <option value="both">🌐 日米両市場</option>
         <option value="crypto">🪙 暗号資産</option>
@@ -1519,7 +1520,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.5.0';
+const APP_VERSION = 'v1.6.0';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2735,7 +2736,7 @@ async function analyzeStocksHybrid(ctx) {
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
+${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
 
 【調査項目】(web_search で取得)
 (A) 主要株価指数の数値・変動率(日経平均・TOPIX・S&P500・NASDAQ)
@@ -2915,7 +2916,7 @@ ${researchData}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 ${learningsBlock}
 
@@ -3461,7 +3462,9 @@ async function analyzeStocks(retryCount = 0) {
   const marketLabels = {
     paypay: 'PayPay証券で取引可能な銘柄(日本株・米国株)',
     sbi: 'SBI証券で取引可能な銘柄(日本株・米国株・ETF・REIT・投資信託・IPO 等 幅広く)',
-    japan: '日本株(東証)', us: '米国株(NYSE/NASDAQ)',
+    japan: '日本株(東証)',
+    'japan-news': '日本株(国内時事ニュース起点で考察)',
+    us: '米国株(NYSE/NASDAQ)',
     both: '日本株と米国株', crypto: '暗号資産', etf: 'ETF・投資信託'
   };
   const styleLabels = { short: '短期(数日〜数週間)', mid: '中期(数ヶ月)', long: '長期(1年以上)' };
@@ -3489,6 +3492,30 @@ async function analyzeStocks(retryCount = 0) {
 - PayPay証券は日本株 約180銘柄・米国株 約200銘柄を扱う(端株対応、1,000円から購入可能)
 - 必ず web_search で「PayPay証券 取扱銘柄一覧 ${new Date().getFullYear()}」を検索して最新の取扱銘柄を確認
 - PayPay証券で取り扱っていない銘柄は推奨しないでください` : '';
+
+  // 📰 国内時事ニュース起点モード — 日本株を「世の中で起きていること」から考察
+  const japanNewsBlock = market === 'japan-news' ? `
+
+【★★★ 国内時事ニュース起点モード(${today})★★★】
+このモードでは「現在の国内時事ニュース」を起点として日本株の値動きを考察してください。
+通常モードのように「業績が良い銘柄を探す」のではなく、「ニュースから派生する受益者・被害者銘柄」を探す手法を採ります。
+
+▼ 必須調査(web_search で本日 ${today} の最新ニュースを取得)
+- 政治: 政権・国会・選挙・法案・予算・規制(食品・医療・テック・環境)
+- 経済: 経済指標・賃上げ・消費・財政・税制・金融政策
+- 社会: 事件・事故・天災・気候・流行・感染症・少子高齢化動向
+- 産業: 大企業ニュース・M&A・技術革新・IPO・規制対応・サプライチェーン
+- 国際: USD/JPY・地政学・貿易・対米/対中関係(日本企業への影響に絞る)
+
+▼ 出力構成
+1. 注目国内ニュース 3〜5件(タイトル・日付・1〜2行サマリ)
+2. 各ニュース → 影響セクター → 具体的恩恵/逆風銘柄 のチェーンで推論
+3. その推論から推奨銘柄 3〜5 を選定(東証上場のみ)
+
+★ 推奨理由は必ず「○○のニュース(日付)→ △△が変化 → 結果この銘柄が…」というニュース起点のストーリーで提示
+★ 個別銘柄の業績好調・好材料のみを根拠にしない(あくまでニュース起点)
+★ ニュースは具体的な日付・出典(報道社名)があれば併記
+` : '';
 
   const sbiBlock = market === 'sbi' ? `
 
@@ -3538,7 +3565,7 @@ async function analyzeStocks(retryCount = 0) {
 - ✅ もし他社と比較してメリット/デメリットがあれば触れる
 
 ${market === 'us' ? '- ' + userBroker + ' の米国株取引手順(為替手数料、住信SBIネット銀行との連携、外国税控除)も具体的に' : ''}
-${market === 'japan' || market === 'both' ? '- ' + userBroker + ' の単元未満株(S株)サービスや日経テレコン連携も活用可能' : ''}
+${market === 'japan' || market === 'japan-news' || market === 'both' ? '- ' + userBroker + ' の単元未満株(S株)サービスや日経テレコン連携も活用可能' : ''}
 - アプリ版(${userBroker === 'SBI証券' ? 'SBI証券 株アプリ' : 'PayPay証券アプリ'})とウェブ版どちらでも操作可能なように説明
 `;
 
@@ -3958,7 +3985,7 @@ ${learningsBlock}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 【★調査方針 — プロのアナリスト/機関投資家の手法に準拠★】
 推奨を出す前に必ず以下を web_search で調査し、複数手法を組み合わせること:
@@ -4844,7 +4871,7 @@ function renderCalendar(data) {
     election: '🗳', regulation: '📜', tech: '💻', energy: '⛽',
     pandemic: '🦠', war: '⚔', other: '📌'
   };
-  const monthShort = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthShort = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
   const weekdayShort = ['日','月','火','水','木','金','土'];
   const eventsHtml = events.map(ev => {
     const dateStr = ev.date || '';
