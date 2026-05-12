@@ -793,6 +793,17 @@ label {
   font-weight: 700;
   font-size: 12px;
 }
+/* ===== Result visuals shown FIRST (chart + calendar at top) ===== */
+.result-visuals-first {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px dashed rgba(139, 92, 246, 0.18);
+}
+.result-visuals-first > * { margin-top: 0; margin-bottom: 0; }
+
 /* ===== Prediction Chart ===== */
 .prediction-chart {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
@@ -1316,7 +1327,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.4.0</span>
+      <span class="app-version-tag">v1.5.0</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1508,7 +1519,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.4.0';
+const APP_VERSION = 'v1.5.0';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2855,7 +2866,9 @@ ${stylePeriodsListItems}
             const inp = JSON.parse(phase1ToolInput);
             if (inp.query) {
               addActivity(`🔎 クエリ: "${inp.query}"`);
-              const phaseLabel = phase1Search <= 5 ? 'Phase A' : phase1Search <= 12 ? 'Phase B 深掘り' : 'Phase C';
+              const phaseLabel = phase1Search <= 5 ? '🌱 Phase A 情報収集' : phase1Search <= 12 ? '🔍 Phase B 深掘り' : '🎯 Phase C まとめ';
+              // ★ メインのフェーズ表示にもクエリを表示(何を調べているか即座に見える)
+              setPhase('🔍', `${phaseLabel} - 検索 ${phase1Search}/15`, `${researchModelLabel}: "${inp.query}"`);
               updateLiveTicker('🔍', `${phaseLabel} 検索中 #${phase1Search}`, `"${inp.query}"`);
             }
           } catch {}
@@ -2879,18 +2892,22 @@ ${stylePeriodsListItems}
     setProgressPercent(50);
     if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
 
-    // ===== Writer Prompt (Phase 2) =====
-    const writerPrompt = `あなたは金融ライターです。以下は別 AI(リサーチャー)が web_search で集めた ★コンパクトなデータ点★ です。
+    // ===== Phase 2: Haiku writes + optional consult-back loop =====
+    const MAX_CONSULT_ROUNDS = 4;
+    let consultRound = 0;
+    let augmentedResearch = researchText;
+
+    const buildWriterPrompt = (researchData, currentRound) => `あなたは金融ライターです。以下は別 AI(リサーチャー)が web_search で集めた ★コンパクトなデータ点★ です。
 このデータを元に、初心者にもフレンドリーで楽しい銘柄分析を Markdown で展開してください。
 データは数値・固有名詞中心の短い箇条書きなので、あなたの役目は:
 - 数値・固有名詞・カタリスト・リスクを忠実に反映しつつ
 - 初心者にも分かる例え話・解説で肉付けし
 - ストーリー仕立てで読み物として展開すること
 ※ リサーチデータに無い数値・銘柄を勝手に追加するのは禁止(数値の事実は維持)
-
-【リサーチデータ】(コンパクト形式・要展開)
+${currentRound > 0 ? `\n★ これはラウンド ${currentRound}/${MAX_CONSULT_ROUNDS} の改訂です。新しい追加調査結果も踏まえて、完成版を最初から書いてください。\n` : ''}
+【リサーチデータ】(コンパクト形式・要展開${currentRound > 0 ? ` + ラウンド1〜${currentRound} の追加調査` : ''})
 ================================
-${researchText}
+${researchData}
 ================================
 
 【投資家プロフィール】
@@ -3064,18 +3081,53 @@ ${learningsBlock}
 □ [CALENDAR_DATA]…[/CALENDAR_DATA] を書いた? events に3〜8個ある?
 □ [ANALYSIS_SUMMARY]…[/ANALYSIS_SUMMARY] を書いた?
 □ [ANALYSIS_TITLE]…[/ANALYSIS_TITLE] を書いた?
-全部YESになるまで出力を終わらせない!`;
+全部YESになるまで出力を終わらせない!
 
-    // ===== Phase 2: Haiku 4.5 Writing =====
-    await streamFetch({
-      apiKey, model: writerModel, prompt: writerPrompt, useTools: false,
-      signal: currentAbortController ? currentAbortController.signal : undefined,
-      onEvent: (parsed) => {
-        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
-        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
-          phase2In = parsed.message.usage.input_tokens || 0;
-          addActivity(`📨 Phase2 応答開始 (入力 ${phase2In.toLocaleString()}tk)`);
-        }
+【★ 任意 — 追加調査を要請する場合 ★】
+記事を書く中で、リサーチデータに不足があり、もっと深い数値・最新情報・銘柄詳細を ${researchModelLabel} に追加で調べてほしいと判断した場合は、
+全タグブロックの後に以下を追加してください(2〜4個まで、各質問は具体的に):
+
+[FOLLOW_UP_QUESTIONS]
+1. [具体的な質問1 — 例: "NVDA の直近決算でガイダンスをどう示したか?具体的な数値"]
+2. [具体的な質問2 — 例: "トヨタの直近の自社株買い計画の規模"]
+[/FOLLOW_UP_QUESTIONS]
+
+${researchModelLabel} が web_search で調べて回答し、あなたが完成版に改訂します。
+追加調査は最大 4 ラウンドまでです。
+すでに記事が十分なクオリティで書けたなら、このブロックは ★省略★ してください(その場合は完成版扱い、追加調査は走りません)。
+※ 文章の見栄えや表現の調整のためだけに使わない(あくまで「データが足りない」場合のみ)。`;
+
+    // ===== Consult-back loop: Haiku writes → may ask follow-ups → research model answers → Haiku revises =====
+    while (true) {
+      const writerPrompt = buildWriterPrompt(augmentedResearch, consultRound);
+
+      // Reset draft state for fresh write
+      accumulatedText = '';
+      currentSectionName = null;
+      lastStockCount = 0;
+      renderMarkdown(''); // Clear previous draft if any
+
+      if (consultRound === 0) {
+        setPhase('✍️', 'Phase 2/2: Haiku 4.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
+      } else {
+        setPhase('✍️', `Haiku 4.5 改訂 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`, '追加調査を踏まえて記事を改訂中');
+        addActivity(`✍️ Haiku 4.5 改訂開始 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
+        updateLiveTicker('✍️', `Haiku 4.5 改訂 ラウンド${consultRound}`, '追加調査を踏まえて記事を書き直し中…');
+      }
+
+      // Track this Haiku iteration's token counts so we can accumulate
+      let thisIterIn = 0, thisIterOut = 0;
+
+      await streamFetch({
+        apiKey, model: writerModel, prompt: writerPrompt, useTools: false,
+        signal: currentAbortController ? currentAbortController.signal : undefined,
+        onEvent: (parsed) => {
+          if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+          if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+            thisIterIn = parsed.message.usage.input_tokens || 0;
+            phase2In += thisIterIn;
+            addActivity(`📨 Haiku 4.5 応答開始 (入力 ${thisIterIn.toLocaleString()}tk${consultRound > 0 ? `, ラウンド${consultRound}` : ''})`);
+          }
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
           if (delta && delta.type === 'text_delta') {
@@ -3085,9 +3137,10 @@ ${learningsBlock}
             const sec = detectCurrentSection(accumulatedText);
             if (sec && sec.name !== currentSectionName) {
               currentSectionName = sec.name;
-              setPhase(sec.icon, sec.name, `${accumulatedText.length.toLocaleString()}文字生成済み`);
+              // ★ Phase 2 では必ず「Haiku 4.5」と明示
+              setPhase(sec.icon, `Haiku 4.5: ${sec.name}`, `${accumulatedText.length.toLocaleString()}文字生成済み${consultRound > 0 ? ` (改訂 ${consultRound})` : ''}`);
               setProgressPercent(50 + Math.floor(sec.pct / 2));
-              addActivity(`📝 ${sec.name}`);
+              addActivity(`📝 Haiku 4.5: ${sec.name}`);
             }
             // ★ Live ticker — show tail of generated text + live cost estimate (tokens + search)
             const sectionLabel = currentSectionName || '本文生成中';
@@ -3109,20 +3162,136 @@ ${learningsBlock}
         }
         if (parsed.type === 'message_delta') {
           if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
-          if (parsed.usage) phase2Out = parsed.usage.output_tokens || phase2Out;
-          // Update running cost (Phase1 + Phase2 combined + search cost) with actual tokens
+          if (parsed.usage && parsed.usage.output_tokens !== undefined) {
+            thisIterOut = parsed.usage.output_tokens;
+            // phase2Out = sum of completed iterations (already in phase2Out before this iter) + this iter's progress
+            // We track via thisIterOut delta below
+          }
+          // Update running cost (Phase1 + Phase2 + search) with actual tokens so far
           const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
+          const phase2OutNow = phase2Out + thisIterOut; // committed total + this iter's progress
           const tokenCost = (phase1In * (_r1.inputCost || 5) + phase1Out * (_r1.outputCost || 25) +
-                              phase2In * (_r2.inputCost || 1) + phase2Out * (_r2.outputCost || 5)) / 1000000;
+                              phase2In * (_r2.inputCost || 1) + phase2OutNow * (_r2.outputCost || 5)) / 1000000;
           const searchCost = phase1Search * WEB_SEARCH_COST_USD;
           updateRunningCost(tokenCost + searchCost);
-          updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + phase2Out, chars: accumulatedText.length });
+          updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + phase2OutNow, chars: accumulatedText.length });
         }
       }
     });
 
-    addActivity(`✅ Phase 2 完了: ${accumulatedText.length.toLocaleString()}文字`);
+    // Commit this iteration's output to phase2Out total
+    phase2Out += thisIterOut;
+    addActivity(`✅ Haiku 4.5 ${consultRound === 0 ? '初稿' : `改訂${consultRound}`} 完了: ${accumulatedText.length.toLocaleString()}文字`);
+
+    // === Check for follow-up questions and run consult round if needed ===
+    const questionsMatch = accumulatedText.match(/\[FOLLOW_UP_QUESTIONS\]([\s\S]*?)\[\/FOLLOW_UP_QUESTIONS\]/);
+    if (!questionsMatch) {
+      // Haiku is satisfied with current data — finalize
+      break;
+    }
+    if (consultRound >= MAX_CONSULT_ROUNDS) {
+      addActivity(`⚠️ 追加調査上限 (${MAX_CONSULT_ROUNDS}ラウンド) に到達、これ以上は走らせません`);
+      break;
+    }
+
+    const questions = questionsMatch[1].trim();
+    consultRound++;
+    setPhase('🤔', `追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `Haiku 4.5 → ${researchModelLabel} へ追加質問`);
+    addActivity(`🤔 Haiku → ${researchModelLabel} へ追加質問 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
+    questions.split('\n').forEach(q => {
+      const t = q.trim();
+      if (t && t.length > 3) addActivity(`   ❓ ${t.slice(0, 100)}`);
+    });
+    updateLiveTicker('🤔', `Haiku → ${researchModelLabel} 追加質問送信`, tickerTail(questions.replace(/\n/g, ' '), 90));
+
+    // ===== Phase 3: Research model answers the follow-up questions with web_search =====
+    setPhase('🔎', `${researchModelLabel} 追加調査中 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`, 'web_search で追加情報を取得');
+
+    const consultPrompt = `あなたは ${researchModelLabel}、金融データの研究者です。
+記事執筆中の Haiku ライターから以下の追加質問が来ました。
+web_search を 1〜4 回使い、具体的な数値・固有名詞・最新情報で簡潔に答えてください。
+
+【Haiku からの質問(ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})】
+${questions}
+
+【出力形式】各質問に短い箇条書きで対応(全体 500〜800字以内):
+- 文章説明・例え話は禁止(Haiku が後で展開する)
+- 数値・固有名詞・日付に集中
+- 該当データが見つからない場合は「該当データなし」と明記
+- 検索後は熟考せず直ちに出力を書き始めること(モバイル接続切断を避けるため)`;
+
+    let consultAnswer = '';
+    let consultIterIn = 0, consultIterOut = 0;
+    let consultRoundSearches = 0;
+    let consultToolInput = '', consultToolIndex = null;
+
+    await streamFetch({
+      apiKey, model: researchModel, prompt: consultPrompt, useTools: true,
+      signal: currentAbortController ? currentAbortController.signal : undefined,
+      onEvent: (parsed) => {
+        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+          consultIterIn = parsed.message.usage.input_tokens || 0;
+          phase1In += consultIterIn;
+        }
+        if (parsed.type === 'content_block_start') {
+          const block = parsed.content_block;
+          if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+            consultRoundSearches++;
+            phase1Search++;
+            consultToolInput = ''; consultToolIndex = parsed.index;
+            stepSearchCount.textContent = `${phase1Search}回`;
+            updateSearchCounter(phase1Search, 15 + MAX_CONSULT_ROUNDS * 4);
+            setPhase('🔎', `${researchModelLabel} 追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `検索 #${consultRoundSearches} 開始`);
+            addActivity(`🔎 追加調査 検索 #${consultRoundSearches} 開始 (ラウンド ${consultRound})`);
+            updateLiveTicker('🔎', `追加調査 検索 #${consultRoundSearches}`, 'クエリ生成中…');
+          }
+        }
+        if (parsed.type === 'content_block_delta') {
+          const delta = parsed.delta;
+          if (delta && delta.type === 'text_delta') {
+            consultAnswer += delta.text;
+            updateLiveTicker('📝', `${researchModelLabel} 回答中 (${consultAnswer.length.toLocaleString()}字)`, tickerTail(consultAnswer, 90));
+          }
+          if (delta && delta.type === 'input_json_delta' && parsed.index === consultToolIndex) {
+            consultToolInput += delta.partial_json || '';
+            const pq = extractPartialQuery(consultToolInput);
+            if (pq) updateLiveTicker('🔎', `追加調査 検索 #${consultRoundSearches} クエリ生成中`, `"${pq}"`);
+          }
+        }
+        if (parsed.type === 'content_block_stop' && parsed.index === consultToolIndex && consultToolInput) {
+          try {
+            const inp = JSON.parse(consultToolInput);
+            if (inp.query) {
+              addActivity(`🔎 追加調査クエリ: "${inp.query}"`);
+              updateLiveTicker('🔍', `追加調査 検索中 #${consultRoundSearches}`, `"${inp.query}"`);
+            }
+          } catch {}
+          consultToolIndex = null; consultToolInput = '';
+        }
+        if (parsed.type === 'message_delta' && parsed.usage && parsed.usage.output_tokens !== undefined) {
+          consultIterOut = parsed.usage.output_tokens;
+          // Live cost: include the consult tokens (research model rates) + searches
+          const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
+          const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
+          const tokenCost = ((phase1In + 0) * (_r1.inputCost || 5) + (phase1Out + consultIterOut) * (_r1.outputCost || 25) +
+                              phase2In * (_r2.inputCost || 1) + phase2Out * (_r2.outputCost || 5)) / 1000000;
+          const searchCost = phase1Search * WEB_SEARCH_COST_USD;
+          updateRunningCost(tokenCost + searchCost);
+        }
+      }
+    });
+
+    phase1Out += consultIterOut;
+    addActivity(`✅ ${researchModelLabel} 追加調査ラウンド ${consultRound} 完了 (検索 ${consultRoundSearches}回, ${consultAnswer.length}字)`);
+
+      // Augment research with this round's answers and loop back for Haiku revision
+      augmentedResearch += `\n\n【★ 追加調査ラウンド ${consultRound} の結果 (${researchModelLabel})】\n${consultAnswer.trim()}`;
+    }
+    // === End consult-back loop ===
+
+    addActivity(`✅ Phase 2 完了: ${accumulatedText.length.toLocaleString()}文字 (改訂 ${consultRound}回)`);
 
     // ===== Save & Complete =====
     if (!accumulatedText.trim()) {
@@ -4743,6 +4912,10 @@ function renderMarkdown(text) {
   html = html.replace(/\[ANALYSIS_SUMMARY\][\s\S]*?\[\/ANALYSIS_SUMMARY\]/g, '');
   html = html.replace(/\[ANALYSIS_SUMMARY\][\s\S]*$/, '');
 
+  // ★ Strip [FOLLOW_UP_QUESTIONS]...[/FOLLOW_UP_QUESTIONS] — consult-back loop uses this internally
+  html = html.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*?\[\/FOLLOW_UP_QUESTIONS\]/g, '');
+  html = html.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*$/, '');
+
   // Extract calendar data
   const calendarPlaceholders = [];
   const addCalendar = (json) => {
@@ -4823,6 +4996,10 @@ function renderMarkdown(text) {
     return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
   }).join('\n');
 
+  // ★ Render charts and calendars, but collect them to PREPEND to the result
+  // (so they appear at the top instead of buried at the bottom of the article)
+  const renderedTopVisuals = [];
+
   // Replace calendar placeholders with actual calendar HTML
   calendarPlaceholders.forEach((json, i) => {
     let calHtml = '';
@@ -4841,7 +5018,9 @@ function renderMarkdown(text) {
     } else {
       calHtml = `<div class="chart-loading">📅 カレンダーデータの解析に失敗しました</div>`;
     }
-    html = html.replace(new RegExp(`(<p>)?CALENDARBLOCK${i}END(</p>)?`), calHtml);
+    // 元の位置の placeholder は除去し、後で先頭に挿入
+    html = html.replace(new RegExp(`(<p>)?CALENDARBLOCK${i}END(</p>)?`), '');
+    if (calHtml) renderedTopVisuals.push(calHtml);
   });
   html = html.replace(/(<p>)?CALENDARLOADINGEND(<\/p>)?/, '<div class="chart-loading">📅 重要イベント・カレンダーを準備中…</div>');
 
@@ -4870,10 +5049,18 @@ function renderMarkdown(text) {
     } else {
       chartHtml = `<div class="chart-loading">📊 チャートデータの解析に失敗しました。詳細はコンソール (F12) で確認</div>`;
     }
-    html = html.replace(new RegExp(`(<p>)?CHARTBLOCK${i}END(</p>)?`), chartHtml);
+    // 元の位置の placeholder は除去し、後で先頭に挿入
+    html = html.replace(new RegExp(`(<p>)?CHARTBLOCK${i}END(</p>)?`), '');
+    if (chartHtml) renderedTopVisuals.unshift(chartHtml); // チャートを先頭に(カレンダーより前)
   });
-  // Replace loading placeholder
+  // Replace loading placeholder (streaming中の表示は元の位置に残す)
   html = html.replace(/(<p>)?CHARTLOADINGEND(<\/p>)?/, '<div class="chart-loading">📊 推奨銘柄チャートを準備中…</div>');
+  html = html.replace(/(<p>)?CALENDARLOADINGEND(<\/p>)?/, '<div class="chart-loading">📅 重要イベント・カレンダーを準備中…</div>');
+
+  // ★ 先頭にチャート + カレンダーを表示
+  if (renderedTopVisuals.length > 0) {
+    html = `<div class="result-visuals-first">${renderedTopVisuals.join('\n')}</div>\n` + html;
+  }
 
   resultDiv.innerHTML = html;
 }
