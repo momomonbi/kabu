@@ -1387,10 +1387,11 @@ label {
     <div class="mode-toggle" role="radiogroup">
       <button type="button" class="mode-option active" data-mode="new">🆕 新規分析</button>
       <button type="button" class="mode-option" data-mode="review">🔄 保存済みから考察</button>
+      <button type="button" class="mode-option" data-mode="simplify">🧒 超かんたん要約</button>
     </div>
 
     <div class="review-notice" id="reviewNotice">
-      💡 <strong>考察モード:</strong> 下の「📚 保存された分析」から1〜3件を選択して「考察開始」を押してください。AIが過去の推奨銘柄のその後の動向、世界情勢の変化、新しい推奨アクション(買い増し/利確/損切り等)を考察します。
+      💡 <strong id="reviewNoticeTitle">考察モード:</strong> <span id="reviewNoticeText">下の「📚 保存された分析」から1〜3件を選択して「考察開始」を押してください。AIが過去の推奨銘柄のその後の動向、世界情勢の変化、新しい推奨アクション(買い増し/利確/損切り等)を考察します。</span>
     </div>
 
     <div class="learning-banner" id="learningBanner">
@@ -1544,7 +1545,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.8.0';
+const APP_VERSION = 'v1.9.0';
 const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -1860,7 +1861,10 @@ clearBtn.addEventListener('click', () => {
 
 // Initial visibility check on page load
 updateApiVisibility();
-analyzeBtn.addEventListener('click', () => analyzeStocks());
+analyzeBtn.addEventListener('click', () => {
+  if (currentMode === 'simplify' && !evaluatingItem) return analyzeSimplify();
+  return analyzeStocks();
+});
 
 // ===== Chip Guide (Haiku-powered request builder) =====
 const additionalTextarea = document.getElementById('additional');
@@ -2203,6 +2207,8 @@ function closeChipPanel() {
 }
 
 // Mode toggle
+const reviewNoticeTitle = document.getElementById('reviewNoticeTitle');
+const reviewNoticeText = document.getElementById('reviewNoticeText');
 document.querySelectorAll('.mode-option').forEach(opt => {
   opt.addEventListener('click', () => {
     document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
@@ -2211,8 +2217,14 @@ document.querySelectorAll('.mode-option').forEach(opt => {
     if (currentMode === 'new') {
       selectedHistoryIds.clear();
       reviewNotice.classList.remove('active');
+    } else if (currentMode === 'simplify') {
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '🧒 超かんたん要約モード:';
+      reviewNoticeText.textContent = '下の「📚 保存された分析」から1〜3件を選択して「要約開始」を押してください。Haiku 4.5 が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
     } else {
       reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '考察モード:';
+      reviewNoticeText.textContent = '下の「📚 保存された分析」から1〜3件を選択して「考察開始」を押してください。AIが過去の推奨銘柄のその後の動向、世界情勢の変化、新しい推奨アクション(買い増し/利確/損切り等)を考察します。';
     }
     renderHistory();
     updateAnalyzeButtonLabel();
@@ -2222,7 +2234,7 @@ document.querySelectorAll('.mode-option').forEach(opt => {
 
 function updateSelectionBadge() {
   const n = selectedHistoryIds.size;
-  if (currentMode === 'review' && n > 0) {
+  if ((currentMode === 'review' || currentMode === 'simplify') && n > 0) {
     selectedCountBadge.style.display = 'inline-flex';
     selectedCountBadge.textContent = `${n}件選択中`;
   } else {
@@ -2237,6 +2249,12 @@ function updateAnalyzeButtonLabel() {
       btnText.textContent = '⚠️ 過去の分析を選択してください';
     } else {
       btnText.textContent = `🔄 ${selectedHistoryIds.size}件の分析を元に考察開始`;
+    }
+  } else if (currentMode === 'simplify') {
+    if (selectedHistoryIds.size === 0) {
+      btnText.textContent = '⚠️ 要約する分析を選択してください';
+    } else {
+      btnText.textContent = `🧒 ${selectedHistoryIds.size}件をかんたん要約`;
     }
   } else {
     btnText.textContent = '🔍 最新情報を検索して分析開始';
@@ -2418,11 +2436,14 @@ async function renderHistory() {
       : escapeHtml(stripMd(item.result).slice(0, 150));
     const marketIcons = { paypay: '💴 PayPay', sbi: '🏦 SBI', japan: '🇯🇵 日本株', us: '🇺🇸 米国株', both: '🌐 日米', crypto: '🪙 暗号資産', etf: '📦 ETF' };
     const isReview = currentMode === 'review';
+    const isSimplify = currentMode === 'simplify';
+    const isSelectable = isReview || isSimplify;
     const isSelected = selectedHistoryIds.has(item.id);
-    const checkboxRow = isReview ? `
+    const selectVerb = isSimplify ? '要約対象' : '考察対象';
+    const checkboxRow = isSelectable ? `
       <div class="history-checkbox-row">
-        <input type="checkbox" class="history-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''} aria-label="この分析を考察対象に含める">
-        <label class="history-checkbox-label">${isSelected ? '✅ 考察対象として選択中' : '🔲 考察対象に含める'}</label>
+        <input type="checkbox" class="history-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''} aria-label="この分析を${selectVerb}に含める">
+        <label class="history-checkbox-label">${isSelected ? `✅ ${selectVerb}として選択中` : `🔲 ${selectVerb}に含める`}</label>
       </div>
     ` : '';
     // Title: use stored title, or extract from result (for old items), or fall back
@@ -2441,7 +2462,7 @@ async function renderHistory() {
       titleHtml = `<div class="history-title-fallback">📝 ${escapeHtml(fallback)}</div>`;
     }
     return `
-      <div class="history-item ${isReview ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
+      <div class="history-item ${isSelectable ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
         ${checkboxRow}
         ${titleHtml}
         <div class="history-meta">
@@ -2470,7 +2491,8 @@ historyList.addEventListener('change', (e) => {
   if (e.target.checked) {
     if (selectedHistoryIds.size >= MAX_REVIEW_SELECTION) {
       e.target.checked = false;
-      alert(`考察モードでは最大 ${MAX_REVIEW_SELECTION} 件まで選択できます（トークン消費を抑えるため）`);
+      const modeLabel = currentMode === 'simplify' ? '要約モード' : '考察モード';
+      alert(`${modeLabel}では最大 ${MAX_REVIEW_SELECTION} 件まで選択できます（トークン消費を抑えるため）`);
       return;
     }
     selectedHistoryIds.add(id);
@@ -3450,6 +3472,221 @@ ${questions}
   } finally {
     analyzeBtn.disabled = false;
     evaluatingItem = null;
+    currentAbortController = null;
+    hideRunningInfo();
+    updateAnalyzeButtonLabel();
+  }
+}
+
+// ===== 🧒 超かんたん要約モード =====
+// 保存済みの分析を 1〜3 件選び、Haiku 4.5 が小学生にも分かるレベルで要約。
+// web 検索なし・Phase 1 なし・Haiku 単体呼び出しのみ(低コスト)。
+async function analyzeSimplify() {
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  if (selectedHistoryIds.size === 0) {
+    showStatus('⚠️ 要約する保存済み分析を選択してください', 'error');
+    return;
+  }
+
+  const items = [];
+  for (const id of selectedHistoryIds) {
+    const it = await dbGet(id);
+    if (it) items.push(it);
+  }
+  if (items.length === 0) {
+    showStatus('⚠️ 選択された分析が見つかりませんでした', 'error');
+    return;
+  }
+
+  const SIMPLIFY_MODEL = 'claude-haiku-4-5';
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // UI setup
+  analyzeBtn.disabled = true;
+  analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>要約中...';
+  hideStatus();
+  resultDiv.innerHTML = ''; resultDiv.classList.remove('active');
+  hideCostSummary();
+  resetProgress(); showProgressPanel(); startElapsedTimer();
+  addActivity(`🧒 超かんたん要約モード開始 (${items.length}件)`);
+  setStep('connect', 'active');
+  setPhase('🧒', '超かんたん要約モード開始', 'Haiku 4.5 が分かりやすい言葉でまとめます...');
+  setProgressPercent(5);
+
+  const sourcesBlock = items.map((it, i) => {
+    const past = new Date(it.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+    const title = it.title || '(無題)';
+    return `--- 分析 ${i+1}: 「${title}」(実行日: ${past}) ---\n${it.result || ''}`;
+  }).join('\n\n');
+
+  const prompt = `あなたは初心者向けの超かんたん要約ライターです。
+以下の「保存済み分析」を読み、★ 小学生でも・株を全く知らない人でも・5分で本質が分かる ★ レベルの超かんたんな日本語に要約してください。
+
+【本日】${today}
+【要約対象 ${items.length}件】
+================================
+${sourcesBlock}
+================================
+
+【★★★ 必ず守るルール ★★★】
+- 専門用語は使わない(使ったら必ず 1 行の超かんたんな例え話で説明)
+- 難しい数値の羅列は禁止(本当に大事な数値だけ、それも「○○くらい」と感覚的に)
+- 1 文は 30 字以内 / 段落は 3 文まで
+- 絵文字を 1 行に 1〜2 個入れて視覚的に楽しく
+- 「〜なんだよ」「〜ってこと」「ねっ?」みたいなフレンドリーな話し言葉
+- 比喩・例え話を多用(株を全く知らない人を子供だと思って)
+
+【出力フォーマット】Markdown で:
+
+## 🧒 超かんたんサマリー
+${items.length === 1
+  ? '元の分析を 200 字くらいの 1 段落で一気に要約'
+  : '各分析を 1 行ずつ、最後に「3 件まとめると…」の 1 行で総括'}
+
+## 🤔 何が大事なの?(3 つだけ!)
+- ①: [一番大事なこと、子供にも分かる例えで]
+- ②: [2 つ目]
+- ③: [3 つ目]
+
+## 💡 だからどうすればいい?
+3〜5 行で「結局、私はどうすればいいか」を超かんたんに。
+「○○みたいに、まずは△△してみよう」のような行動アドバイス。
+
+## ⚠️ 気をつけたいこと
+2〜3 行で「失敗しないために覚えておくこと」を簡単に。
+
+## 📌 ひとこと
+最後に温かい一言で締めくくり(20〜40 字)。
+
+【出力長さ目標】全体で 700〜1,200 字。絶対に 1,500 字を超えない。
+コンパクト・親しみやすさ・分かりやすさを最優先。`;
+
+  let inputTokens = 0, outputTokens = 0;
+  let accumulatedText = '';
+  let stopReason = null;
+
+  try {
+    currentAbortController = new AbortController();
+    analysisStartTime = Date.now();
+    showRunningInfo();
+    setStep('connect', 'done');
+    setStep('generate', 'active');
+    setPhase('✍️', 'Haiku 4.5 が要約を生成中', '小学生でも分かる言葉でまとめています...');
+    if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+
+    await streamFetch({
+      apiKey, model: SIMPLIFY_MODEL, prompt, useTools: false,
+      maxTokens: 2000,
+      signal: currentAbortController.signal,
+      onEvent: (parsed) => {
+        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+          inputTokens = parsed.message.usage.input_tokens || 0;
+          addActivity(`📨 応答開始 (入力 ${inputTokens.toLocaleString()}tk)`);
+        }
+        if (parsed.type === 'content_block_delta') {
+          const delta = parsed.delta;
+          if (delta && delta.type === 'text_delta') {
+            accumulatedText += delta.text;
+            renderMarkdown(accumulatedText);
+            stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
+            updateLiveTicker('✍️', `要約生成中 (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
+            const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5 };
+            const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
+            updateRunningCost((inputTokens * (_r.inputCost || 1) + estOut * (_r.outputCost || 5)) / 1000000);
+            updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
+            setProgressPercent(20 + Math.min(75, Math.floor(accumulatedText.length / 15)));
+          }
+        }
+        if (parsed.type === 'message_delta') {
+          if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+          if (parsed.usage && parsed.usage.output_tokens !== undefined) {
+            outputTokens = parsed.usage.output_tokens;
+          }
+          const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5 };
+          updateRunningCost((inputTokens * (_r.inputCost || 1) + outputTokens * (_r.outputCost || 5)) / 1000000);
+          updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
+        }
+      }
+    });
+
+    setStep('generate', 'done');
+    setStep('complete', 'done');
+    setProgressPercent(100);
+    stopElapsedTimer();
+    setPhase('✅', '🧒 超かんたん要約 完了!', `${accumulatedText.length.toLocaleString()}文字で要約しました`);
+    addActivity(`✅ 要約完了 (${accumulatedText.length.toLocaleString()}文字)`);
+
+    // Save to history
+    const sourceIds = Array.from(selectedHistoryIds);
+    const titleSrc = items.length === 1 ? `🧒 かんたん要約: ${items[0].title || '保存済み分析'}` : `🧒 かんたん要約 (${items.length}件)`;
+    const savedItem = {
+      timestamp: Date.now(),
+      title: titleSrc.slice(0, 60),
+      summary: accumulatedText.split('\n').filter(l => l.trim() && !/^#/.test(l)).slice(0, 4).join(' ').slice(0, 300),
+      result: accumulatedText,
+      model: SIMPLIFY_MODEL,
+      market: items[0].market || 'paypay',
+      style: items[0].style || 'mid',
+      risk: items[0].risk || 'medium',
+      amount: items[0].amount || 'medium',
+      additional: '',
+      inputTokens, outputTokens, stopReason,
+      mode: 'simplify',
+      reviewSourceIds: sourceIds,
+      evaluateTargetId: null,
+      learningsApplied: 0,
+      hybridPhases: null
+    };
+    const newId = await dbSave(savedItem);
+    if (newId) {
+      savedItem.id = newId;
+      addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
+      await renderHistory();
+      ensureResultActions(savedItem);
+    }
+
+    const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5, name: SIMPLIFY_MODEL };
+    showCostSummary({
+      phases: [{
+        label: '🧒 Haiku 4.5 要約',
+        inputCost: _r.inputCost || 1, outputCost: _r.outputCost || 5,
+        inputTokens, outputTokens
+      }],
+      totalIn: inputTokens, totalOut: outputTokens,
+      modelLabel: '🧒 超かんたん要約 (Haiku 4.5)',
+      searchCount: 0, learningsCount: 0
+    });
+
+    let chips = '';
+    chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.18),rgba(236,72,153,0.18));color:#be185d;font-weight:700">🧒 かんたん要約</span>`;
+    chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
+    chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
+    chips += `<span class="chip">📚 参照 <span class="chip-value">${items.length}件</span></span>`;
+    chips += `<span class="chip">💾 自動保存済み</span>`;
+    setStatusHTML(`✅ <strong>超かんたん要約 完了!</strong> Haiku 4.5 が ${items.length}件を分かりやすくまとめました<div class="chips">${chips}</div>`, 'success');
+  } catch (error) {
+    console.error('Simplify mode error:', error);
+    const errStr = error.message || String(error);
+    if (error.name === 'AbortError' || /abort/i.test(errStr)) {
+      stopElapsedTimer();
+      setPhase('🛑', '要約を中止しました', 'ユーザーによる中止');
+      addActivity('🛑 ユーザーによる中止');
+      showStatus('🛑 要約を中止しました', 'error');
+      return;
+    }
+    stopElapsedTimer();
+    setPhase('❌', '要約モードでエラー', errStr);
+    addActivity(`❌ ${errStr}`);
+    let msg = '❌ 要約モードでエラー: ' + errStr;
+    if (/Load failed|Failed to fetch|NetworkError|network error/i.test(errStr)) {
+      msg += '\n\n💡 通信が切断されました。手動で再実行してください。';
+    } else if (errStr.includes('401')) msg += '\n\n💡 APIキーを確認してください。';
+    else if (errStr.includes('429')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
+    showStatus(msg, 'error');
+  } finally {
+    analyzeBtn.disabled = false;
     currentAbortController = null;
     hideRunningInfo();
     updateAnalyzeButtonLabel();
