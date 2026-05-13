@@ -1332,6 +1332,12 @@ label {
   .result { padding: 22px 18px; }
   .progress-panel { padding: 16px; }
   .segmented label { font-size: 12px; padding: 10px 4px; }
+  .segmented.segmented-4 label { font-size: 11px; padding: 10px 2px; }
+}
+@media (max-width: 360px) {
+  /* 超狭幅では 4列を 2x2 に折り返す */
+  .segmented.segmented-4 { grid-template-columns: repeat(2, 1fr); }
+  .segmented.segmented-4 label { font-size: 13px; padding: 10px 6px; }
 }
 </style>
 </head>
@@ -1343,8 +1349,8 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.7.1</span>
-      <span class="app-version-date">2026-05-12</span>
+      <span class="app-version-tag">…</span>
+      <span class="app-version-date">…</span>
     </div>
   </header>
 
@@ -1538,8 +1544,8 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.7.1';
-const APP_VERSION_DATE = '2026-05-12';
+const APP_VERSION = 'v1.7.2';
+const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
@@ -2638,7 +2644,7 @@ function countStocks(text) {
 }
 
 // ===== Reusable SSE streaming helper (used by hybrid mode) =====
-async function streamFetch({apiKey, model, prompt, useTools, onEvent, signal}) {
+async function streamFetch({apiKey, model, prompt, useTools, onEvent, signal, maxTokens = 16000}) {
   const tools = useTools ? [
     ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
       ? { type: 'web_search_20260209', name: 'web_search', max_uses: 15 }
@@ -2646,7 +2652,7 @@ async function streamFetch({apiKey, model, prompt, useTools, onEvent, signal}) {
   ] : undefined;
 
   const body = {
-    model, max_tokens: 16000, stream: true,
+    model, max_tokens: maxTokens, stream: true,
     messages: [{ role: 'user', content: prompt }]
   };
   if (tools) body.tools = tools;
@@ -2785,7 +2791,7 @@ ${stylePeriodsListItems}
 
 ## 1. 銘柄名 (TICKER)
 - 業種: [短く] / 時価総額: [数値]
-- 価格: ${marketLabels[market].includes('米国') ? '$' : '¥'}[現在価格]
+- 価格: ${market === 'us' ? '$' : '¥'}[現在価格] (米国株なら $、それ以外は ¥)
 - ファンダ: PER X / PBR X / ROE X% / 配当 X% / 利益率 X%
 - テクニカル: [トレンド方向] / RSI X / MA関係 [短く]
 - 需給: 機関 X% / 信用倍率 X / 空売り X%
@@ -2833,8 +2839,12 @@ ${stylePeriodsListItems}
 
   try {
     // ===== Phase 1: Research =====
+    // ★ max_tokens を 4000 に縮小: Phase 1 の出力目標は 1,500〜2,500 字(=約 1,000 tokens)。
+    // 16000 のままだとモデルが「まだ余裕がある」と長文を生成しがちで、
+    // iOS Safari の 2 分アイドル切断にも繋がりやすいため。
     await streamFetch({
       apiKey, model: researchModel, prompt: researchPrompt, useTools: true,
+      maxTokens: 4000,
       signal: currentAbortController.signal,
       onEvent: (parsed) => {
         if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
@@ -3249,6 +3259,7 @@ ${questions}
 
     await streamFetch({
       apiKey, model: researchModel, prompt: consultPrompt, useTools: true,
+      maxTokens: 4000,
       signal: currentAbortController ? currentAbortController.signal : undefined,
       onEvent: (parsed) => {
         if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
@@ -4918,7 +4929,9 @@ function extractAnalysisSummary(text) {
 
 function renderCalendar(data) {
   if (!data || !Array.isArray(data.events) || data.events.length === 0) return '';
-  const events = [...data.events].sort((a, b) => {
+  // ★ 上限ガード — 万一モデルが大量に出力しても UI を保護
+  const rawEvents = data.events.length > 100 ? data.events.slice(0, 100) : data.events;
+  const events = [...rawEvents].sort((a, b) => {
     const da = new Date((a.date || '') + 'T' + (a.time || '00:00'));
     const db = new Date((b.date || '') + 'T' + (b.time || '00:00'));
     return da - db;
