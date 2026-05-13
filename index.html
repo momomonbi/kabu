@@ -1545,7 +1545,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.9.0';
+const APP_VERSION = 'v1.9.1';
 const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -1814,6 +1814,8 @@ const selectedCountBadge = document.getElementById('selectedCount');
 let currentMode = 'new'; // 'new' | 'review'
 let selectedHistoryIds = new Set();
 const MAX_REVIEW_SELECTION = 3;
+// 🧒 要約モードは Haiku への単一プロンプトに全件結合するだけで安価なため、上限を緩く 20 件にする。
+const MAX_SIMPLIFY_SELECTION = 20;
 let evaluatingItem = null; // Item being evaluated (overrides mode if set)
 
 const savedKey = localStorage.getItem(STORAGE_KEY);
@@ -2220,7 +2222,7 @@ document.querySelectorAll('.mode-option').forEach(opt => {
     } else if (currentMode === 'simplify') {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '🧒 超かんたん要約モード:';
-      reviewNoticeText.textContent = '下の「📚 保存された分析」から1〜3件を選択して「要約開始」を押してください。Haiku 4.5 が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
+      reviewNoticeText.textContent = '下の「📚 保存された分析」から最大 20 件まで選択して「要約開始」を押してください。Haiku 4.5 が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
     } else {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '考察モード:';
@@ -2489,10 +2491,11 @@ historyList.addEventListener('change', (e) => {
   if (!e.target.classList.contains('history-checkbox')) return;
   const id = parseInt(e.target.dataset.id, 10);
   if (e.target.checked) {
-    if (selectedHistoryIds.size >= MAX_REVIEW_SELECTION) {
+    const cap = currentMode === 'simplify' ? MAX_SIMPLIFY_SELECTION : MAX_REVIEW_SELECTION;
+    if (selectedHistoryIds.size >= cap) {
       e.target.checked = false;
       const modeLabel = currentMode === 'simplify' ? '要約モード' : '考察モード';
-      alert(`${modeLabel}では最大 ${MAX_REVIEW_SELECTION} 件まで選択できます（トークン消費を抑えるため）`);
+      alert(`${modeLabel}では最大 ${cap} 件まで選択できます（トークン消費を抑えるため）`);
       return;
     }
     selectedHistoryIds.add(id);
