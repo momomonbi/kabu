@@ -750,9 +750,11 @@ label {
   border: 1.5px solid var(--border-glass);
   border-radius: 14px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 .mode-option {
-  flex: 1;
+  flex: 1 1 110px;
+  min-width: 110px;
   padding: 12px 8px;
   font-size: 13px;
   font-weight: 600;
@@ -764,6 +766,9 @@ label {
   border: none;
   transition: all 0.2s;
   font-family: inherit;
+}
+@media (max-width: 480px) {
+  .mode-option { font-size: 11.5px; padding: 10px 6px; min-width: 90px; flex-basis: 90px; }
 }
 .mode-option:hover { color: var(--text-primary); }
 .mode-option.active {
@@ -1388,6 +1393,7 @@ label {
       <button type="button" class="mode-option active" data-mode="new">🆕 新規分析</button>
       <button type="button" class="mode-option" data-mode="review">🔄 保存済みから考察</button>
       <button type="button" class="mode-option" data-mode="simplify">🧒 超かんたん要約</button>
+      <button type="button" class="mode-option" data-mode="news-digest">📰 ニュース収集</button>
     </div>
 
     <div class="review-notice" id="reviewNotice">
@@ -1545,7 +1551,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.9.1';
+const APP_VERSION = 'v1.10.0';
 const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -1865,6 +1871,7 @@ clearBtn.addEventListener('click', () => {
 updateApiVisibility();
 analyzeBtn.addEventListener('click', () => {
   if (currentMode === 'simplify' && !evaluatingItem) return analyzeSimplify();
+  if (currentMode === 'news-digest' && !evaluatingItem) return analyzeNewsDigest();
   return analyzeStocks();
 });
 
@@ -2223,6 +2230,11 @@ document.querySelectorAll('.mode-option').forEach(opt => {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '🧒 超かんたん要約モード:';
       reviewNoticeText.textContent = '下の「📚 保存された分析」から最大 20 件まで選択して「要約開始」を押してください。Haiku 4.5 が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
+    } else if (currentMode === 'news-digest') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '📰 ニュース収集モード:';
+      reviewNoticeText.textContent = '銘柄分析はせず、本日のローカル・国内・世界ニュースを集めるだけのモードです。「追加要望」欄で気になるテーマ(例: AI / 円安 / 米中関係)を指定可能。お選び済みのハイブリッドモデルでリサーチします。';
     } else {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '考察モード:';
@@ -2258,6 +2270,8 @@ function updateAnalyzeButtonLabel() {
     } else {
       btnText.textContent = `🧒 ${selectedHistoryIds.size}件をかんたん要約`;
     }
+  } else if (currentMode === 'news-digest') {
+    btnText.textContent = '📰 本日のニュースを収集';
   } else {
     btnText.textContent = '🔍 最新情報を検索して分析開始';
   }
@@ -3683,6 +3697,254 @@ ${items.length === 1
     setPhase('❌', '要約モードでエラー', errStr);
     addActivity(`❌ ${errStr}`);
     let msg = '❌ 要約モードでエラー: ' + errStr;
+    if (/Load failed|Failed to fetch|NetworkError|network error/i.test(errStr)) {
+      msg += '\n\n💡 通信が切断されました。手動で再実行してください。';
+    } else if (errStr.includes('401')) msg += '\n\n💡 APIキーを確認してください。';
+    else if (errStr.includes('429')) msg += '\n\n💡 レート制限です。少し待ってから再試行してください。';
+    showStatus(msg, 'error');
+  } finally {
+    analyzeBtn.disabled = false;
+    currentAbortController = null;
+    hideRunningInfo();
+    updateAnalyzeButtonLabel();
+  }
+}
+
+// ===== 📰 ニュース収集モード =====
+// 銘柄分析はせず、本日のローカル・国内・世界ニュースを集めて視覚的に整理。
+// ハイブリッドの research モデル(eco→Sonnet, premium→Opus)を単独で使用、Phase 2 なし。
+async function analyzeNewsDigest() {
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+
+  // 選択中ハイブリッドに応じて research モデルを決定(EXTRA 等の無関係な設定は無視)
+  const selectedModel = modelSelect.value;
+  const newsModel = selectedModel === 'eco-hybrid' ? 'claude-sonnet-4-6' : 'claude-opus-4-7';
+  const newsModelLabel = newsModel === 'claude-sonnet-4-6' ? 'Sonnet 4.6' : 'Opus 4.7';
+  const additional = document.getElementById('additional').value.trim();
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // UI setup
+  analyzeBtn.disabled = true;
+  analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>ニュース収集中...';
+  hideStatus();
+  resultDiv.innerHTML = ''; resultDiv.classList.remove('active');
+  hideCostSummary();
+  resetProgress(); showProgressPanel(); startElapsedTimer();
+  addActivity(`📰 ニュース収集モード開始 (${newsModelLabel})`);
+  setStep('connect', 'active');
+  setPhase('📰', 'ニュース収集モード開始', `${newsModelLabel} がローカル・国内・世界のニュースを集めます...`);
+  setProgressPercent(5);
+
+  const prompt = `あなたは ${today} 時点のニュース・キュレーターです。
+銘柄分析や投資推奨は行わず、★ 本日のニュースを集めて視覚的に整理する ★ ことだけが仕事です。
+
+【調査方針】
+- web_search を 10〜15 回(上限15回)実施
+- 政治的中立・事実報道を重視(主観・意見は最小限)
+- 複数の地域・トピックをカバー
+${additional ? `- ユーザー追加要望: ${additional} (このテーマを重点的に)` : ''}
+
+【出力フォーマット】(Markdown / 視覚的に絵文字と表を活用)
+
+# 📅 本日のニュースダイジェスト (${today})
+
+## 🇯🇵 国内主要ニュース
+3〜5 件。各件: **タイトル** / 日付 / 出典(報道社) / 1〜2 行サマリ。
+
+## 🏘 ローカル・地方ニュース
+3〜5 件。北海道・東北・関東・中部・関西・中国・四国・九州沖縄 から複数地域をカバー。
+- **地域名** [ニュースタイトル] (出典)
+  - 1〜2 行で内容
+
+## 🌍 世界ニュース
+3〜5 件。米国・欧州・中国・アジア・中東・新興国などから幅広く。
+
+## ☀️ 天気・気象
+- **全国概況**: 1〜2 行(今日・明日の傾向)
+- **主要地域別**: 表形式で 5〜7 地域
+
+| 地域 | 今日 | 明日 | 注意点 |
+|---|---|---|---|
+| 東京 | ☀️ 25°C | 🌧 22°C | 夕方雨 |
+| ... |
+
+## 💼 経済・金融市場
+3〜5 件。株価指数・為替・金利・コモディティの動き、企業ニュース。
+
+## 🌐 国際情勢・地政学
+3〜5 件。紛争・外交・経済安全保障・サプライチェーン等。
+
+## 🔬 サイエンス・技術
+2〜3 件。AI・宇宙・医療・気候変動など。
+
+## 🎯 今日のキーポイント (3 つだけ)
+- ①: [一番大事な動き]
+- ②: [二番目]
+- ③: [三番目]
+
+【★ 絶対ルール ★】
+- 銘柄推奨・投資判断は ★禁止★(このモードはニュース収集のみ)
+- 各ニュースに必ず日付と出典を併記
+- 政治的・宗教的バイアスを避け事実報道に徹する
+- ニュースが少ない分野は無理に埋めず「該当ニュースなし」と書く
+- 全体 2,000〜3,500 文字(絶対 4,500 字を超えない)
+- 視覚的に分かりやすく(絵文字・表・箇条書きを多用)
+- 検索が終わったら直ちに出力開始(熟考しない)`;
+
+  let inputTokens = 0, outputTokens = 0, searchCount = 0;
+  let accumulatedText = '';
+  let stopReason = null;
+  let toolInput = '', toolIndex = null;
+
+  try {
+    currentAbortController = new AbortController();
+    analysisStartTime = Date.now();
+    showRunningInfo();
+    setStep('connect', 'done');
+    setStep('search', 'active');
+
+    await streamFetch({
+      apiKey, model: newsModel, prompt, useTools: true,
+      maxTokens: 6000,
+      signal: currentAbortController.signal,
+      onEvent: (parsed) => {
+        if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
+          inputTokens = parsed.message.usage.input_tokens || 0;
+          addActivity(`📨 応答開始 (入力 ${inputTokens.toLocaleString()}tk)`);
+        }
+        if (parsed.type === 'content_block_start') {
+          const block = parsed.content_block;
+          if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+            searchCount++;
+            toolInput = ''; toolIndex = parsed.index;
+            stepSearchCount.textContent = `${searchCount}回`;
+            updateSearchCounter(searchCount, 15);
+            setProgressPercent(Math.min(50, 10 + searchCount * 3));
+            setPhase('🔍', `📰 ニュース収集 - 検索 ${searchCount}/15`, `${newsModelLabel} がニュースを集めています...`);
+            addActivity(`🔍 ニュース検索 #${searchCount}`);
+            updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリ生成中…');
+          } else if (block && block.type === 'web_search_tool_result') {
+            updateLiveTicker('📥', `検索 #${searchCount}`, '結果を受信、解析中…');
+          }
+        }
+        if (parsed.type === 'content_block_delta') {
+          const delta = parsed.delta;
+          if (delta && delta.type === 'text_delta') {
+            accumulatedText += delta.text;
+            renderMarkdown(accumulatedText);
+            stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
+            if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+            updateLiveTicker('📝', `ニュースまとめ中 (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
+            const _r = MODELS[newsModel] || { inputCost: 3, outputCost: 15 };
+            const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
+            const tokenCost = (inputTokens * (_r.inputCost || 3) + estOut * (_r.outputCost || 15)) / 1000000;
+            const searchCost = searchCount * WEB_SEARCH_COST_USD;
+            updateRunningCost(tokenCost + searchCost);
+            updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
+            setProgressPercent(50 + Math.min(45, Math.floor(accumulatedText.length / 60)));
+          }
+          if (delta && delta.type === 'input_json_delta' && parsed.index === toolIndex) {
+            toolInput += delta.partial_json || '';
+            const partialQuery = extractPartialQuery(toolInput);
+            if (partialQuery) {
+              updateLiveTicker('🔎', `検索 #${searchCount} クエリ生成中`, `"${partialQuery}"`);
+            }
+          }
+        }
+        if (parsed.type === 'content_block_stop' && parsed.index === toolIndex && toolInput) {
+          try {
+            const inp = JSON.parse(toolInput);
+            if (inp.query) {
+              addActivity(`🔎 クエリ: "${inp.query}"`);
+              updateLiveTicker('🔍', `検索中 #${searchCount}`, `"${inp.query}"`);
+            }
+          } catch {}
+          toolIndex = null; toolInput = '';
+        }
+        if (parsed.type === 'message_delta') {
+          if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+          if (parsed.usage && parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
+          const _r = MODELS[newsModel] || { inputCost: 3, outputCost: 15 };
+          const tokenCost = (inputTokens * (_r.inputCost || 3) + outputTokens * (_r.outputCost || 15)) / 1000000;
+          const searchCost = searchCount * WEB_SEARCH_COST_USD;
+          updateRunningCost(tokenCost + searchCost);
+          updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
+        }
+      }
+    });
+
+    setStep('search', 'done');
+    setStep('generate', 'done');
+    setStep('complete', 'done');
+    setProgressPercent(100);
+    stopElapsedTimer();
+    setPhase('✅', '📰 ニュース収集 完了!', `${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索`);
+    addActivity(`✅ ニュース収集完了 (${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索)`);
+
+    // Save to history
+    const firstLine = accumulatedText.split('\n').find(l => l.trim() && !/^#/.test(l)) || '';
+    const savedItem = {
+      timestamp: Date.now(),
+      title: `📰 ニュースダイジェスト (${new Date().toLocaleDateString('ja-JP')})`,
+      summary: firstLine.slice(0, 200) || accumulatedText.slice(0, 200),
+      result: accumulatedText,
+      model: newsModel,
+      market: 'news-digest',
+      style: '-',
+      risk: '-',
+      amount: '-',
+      additional,
+      inputTokens, outputTokens, stopReason,
+      mode: 'news-digest',
+      reviewSourceIds: [],
+      evaluateTargetId: null,
+      learningsApplied: 0,
+      searchCount,
+      hybridPhases: null
+    };
+    const newId = await dbSave(savedItem);
+    if (newId) {
+      savedItem.id = newId;
+      addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
+      await renderHistory();
+      ensureResultActions(savedItem);
+    }
+
+    const _r = MODELS[newsModel] || { inputCost: 3, outputCost: 15, name: newsModel };
+    showCostSummary({
+      phases: [{
+        label: `📰 ${newsModelLabel} ニュース収集`,
+        inputCost: _r.inputCost || 3, outputCost: _r.outputCost || 15,
+        inputTokens, outputTokens
+      }],
+      totalIn: inputTokens, totalOut: outputTokens,
+      modelLabel: `📰 ニュース収集 (${newsModelLabel})`,
+      searchCount, learningsCount: 0
+    });
+
+    let chips = '';
+    chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(59,130,246,0.18),rgba(99,102,241,0.18));color:#3730a3;font-weight:700">📰 ニュース収集</span>`;
+    chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
+    chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
+    chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
+    chips += `<span class="chip">💾 自動保存済み</span>`;
+    setStatusHTML(`✅ <strong>ニュース収集 完了!</strong> 本日のローカル・国内・世界ニュースをまとめました<div class="chips">${chips}</div>`, 'success');
+  } catch (error) {
+    console.error('News digest error:', error);
+    const errStr = error.message || String(error);
+    if (error.name === 'AbortError' || /abort/i.test(errStr)) {
+      stopElapsedTimer();
+      setPhase('🛑', 'ニュース収集を中止しました', 'ユーザーによる中止');
+      addActivity('🛑 ユーザーによる中止');
+      showStatus('🛑 ニュース収集を中止しました', 'error');
+      return;
+    }
+    stopElapsedTimer();
+    setPhase('❌', 'ニュース収集モードでエラー', errStr);
+    addActivity(`❌ ${errStr}`);
+    let msg = '❌ ニュース収集モードでエラー: ' + errStr;
     if (/Load failed|Failed to fetch|NetworkError|network error/i.test(errStr)) {
       msg += '\n\n💡 通信が切断されました。手動で再実行してください。';
     } else if (errStr.includes('401')) msg += '\n\n💡 APIキーを確認してください。';
