@@ -1343,7 +1343,7 @@ label {
   <header>
     <h1 class="app-title">銘柄分析推奨アプリ</h1>
     <div class="app-version" id="appVersion" title="プログラムのバージョン">
-      <span class="app-version-tag">v1.7.0</span>
+      <span class="app-version-tag">v1.7.1</span>
       <span class="app-version-date">2026-05-12</span>
     </div>
   </header>
@@ -1538,7 +1538,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.7.0';
+const APP_VERSION = 'v1.7.1';
 const APP_VERSION_DATE = '2026-05-12';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2710,7 +2710,7 @@ async function analyzeStocksHybrid(ctx) {
     researchModel = 'claude-opus-4-7', writerModel = 'claude-haiku-4-5', hybridMode = 'hybrid',
     market, style, risk, amount, additional,
     marketLabels, styleLabels, riskLabels, amountLabels,
-    paypayBlock, sbiBlock, shortTermTimingBlock, learningsBlock,
+    paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', shortTermTimingBlock, learningsBlock,
     brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
     stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
     pastLearnings, currentMode
@@ -2826,10 +2826,12 @@ ${stylePeriodsListItems}
   let currentSectionName = null;
   let lastStockCount = 0;
 
+  // ★ AbortController を早めに作成しておく(プロンプト構築が同期的に失敗しても停止できるように)
+  currentAbortController = new AbortController();
+  analysisStartTime = Date.now();
+  showRunningInfo();
+
   try {
-    currentAbortController = new AbortController();
-    analysisStartTime = Date.now();
-    showRunningInfo();
     // ===== Phase 1: Research =====
     await streamFetch({
       apiKey, model: researchModel, prompt: researchPrompt, useTools: true,
@@ -4013,7 +4015,7 @@ ${evalTarget.result}
       hybridMode: model,
       market, style, risk, amount, additional,
       marketLabels, styleLabels, riskLabels, amountLabels,
-      paypayBlock, sbiBlock, shortTermTimingBlock, learningsBlock,
+      paypayBlock, sbiBlock, japanNewsBlock, extraRiskBlock, shortTermTimingBlock, learningsBlock,
       brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
       stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
       pastLearnings, currentMode
