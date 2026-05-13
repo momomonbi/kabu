@@ -1579,7 +1579,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.12.0';
+const APP_VERSION = 'v1.12.1';
 const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -3904,10 +3904,13 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
     setStep('connect', 'done');
     setStep('search', 'active');
 
+    // ニュース収集の検索上限(将来 UI でユーザー指定可能にする想定。現在は固定 8)
+    const _newsMaxSearches = 8;
+
     await streamFetch({
       apiKey, model: newsModel, prompt, useTools: true,
       maxTokens: 6000,
-      maxSearchUses: 8,
+      maxSearchUses: _newsMaxSearches,
       signal: currentAbortController.signal,
       onEvent: (parsed) => {
         if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
@@ -3918,21 +3921,32 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
         if (parsed.type === 'content_block_start') {
           const block = parsed.content_block;
           if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+            stopHeartbeat();
             searchCount++;
             toolInput = ''; toolIndex = parsed.index;
             stepSearchCount.textContent = `${searchCount}回`;
-            updateSearchCounter(searchCount, 8);
-            setProgressPercent(Math.min(50, 10 + searchCount * 6));
-            setPhase('🔍', `📰 ニュース収集 - 検索 ${searchCount}/15`, `${newsModelLabel} がニュースを集めています...`);
+            updateSearchCounter(searchCount, _newsMaxSearches);
+            setProgressPercent(Math.min(50, 10 + searchCount * Math.floor(40 / _newsMaxSearches)));
+            setPhase('🔍', `📰 ニュース収集 - 検索 ${searchCount}/${_newsMaxSearches}`, `${newsModelLabel} がニュースを集めています...`);
             addActivity(`🔍 ニュース検索 #${searchCount}`);
             updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリ生成中…');
           } else if (block && block.type === 'web_search_tool_result') {
+            stopHeartbeat();
+            // ★ 検索結果が返ってきた瞬間。フェーズ表示を更新して固まらないように。
+            const remaining = Math.max(0, _newsMaxSearches - searchCount);
+            setPhase('📥', `📰 ニュース収集 - 検索 ${searchCount}/${_newsMaxSearches} 完了`, `${newsModelLabel} が結果を解析中(残り ${remaining} 回検索可能)`);
             updateLiveTicker('📥', `検索 #${searchCount}`, '結果を受信、解析中…');
+          } else if (block && block.type === 'text') {
+            // ★ テキスト生成が始まる瞬間
+            stopHeartbeat();
+            setPhase('✍️', 'ニュースまとめ生成中', `${newsModelLabel} が ${searchCount} 件の検索結果を整理し、ダイジェストを出力中`);
+            updateLiveTicker('✍️', 'まとめ生成開始', 'ダイジェストを出力中…');
           }
         }
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
           if (delta && delta.type === 'text_delta') {
+            stopHeartbeat();
             accumulatedText += delta.text;
             renderMarkdown(accumulatedText);
             stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
@@ -3959,12 +3973,22 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
             const inp = JSON.parse(toolInput);
             if (inp.query) {
               addActivity(`🔎 クエリ: "${inp.query}"`);
+              setPhase('🔍', `📰 ニュース収集 - 検索 ${searchCount}/${_newsMaxSearches}`, `${newsModelLabel}: "${inp.query}"`);
               updateLiveTicker('🔍', `検索中 #${searchCount}`, `"${inp.query}"`);
             }
           } catch {}
           toolIndex = null; toolInput = '';
         }
+        // ★ content_block_stop (非 tool) = モデルが結果読み込み&思考開始の瞬間。ハートビート開始。
+        if (parsed.type === 'content_block_stop' && parsed.index !== toolIndex) {
+          if (searchCount >= _newsMaxSearches) {
+            startHeartbeat('🧠', 'ダイジェストをまとめ中', `${newsModelLabel} が ${searchCount} 件の検索結果を整理し、出力を準備中`);
+          } else if (searchCount > 0 && accumulatedText.length === 0) {
+            startHeartbeat('🧠', '次の検索 or 出力を準備中', `${newsModelLabel} が次のアクションを決定中`);
+          }
+        }
         if (parsed.type === 'message_delta') {
+          stopHeartbeat();
           if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
           if (parsed.usage && parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
           const _r = MODELS[newsModel] || { inputCost: 3, outputCost: 15 };
