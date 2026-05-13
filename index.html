@@ -1579,7 +1579,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.12.1';
+const APP_VERSION = 'v1.12.2';
 const APP_VERSION_DATE = '2026-05-13';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -5170,6 +5170,7 @@ ${stylePeriodsListItems}
             const block = parsed.content_block;
             if (block) receivedBlockTypes.push(block.type);
             if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+              stopHeartbeat();
               searchCount++;
               pendingToolInput = ''; pendingToolIndex = parsed.index;
               setStep('connect', 'done'); setStep('search', 'active');
@@ -5179,10 +5180,12 @@ ${stylePeriodsListItems}
               addActivity(`🔍 Web検索 #${searchCount} を実行中`);
               updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリを生成中…');
             } else if (block && block.type === 'web_search_tool_result') {
+              stopHeartbeat();
               setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
               addActivity(`📥 検索結果 #${searchCount} を取得`);
               updateLiveTicker('📥', `検索結果 #${searchCount}`, '受信完了、解析開始…');
             } else if (block && block.type === 'text') {
+              stopHeartbeat();
               setStep('search', 'done'); setStep('generate', 'active');
               setProgressPercent(30);
               setPhase('✍️', '分析テキストを生成中', 'AIが結果を文書化しています');
@@ -5190,6 +5193,7 @@ ${stylePeriodsListItems}
               if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
               updateLiveTicker('✍️', '本文生成中', '出力を開始…');
             } else if (block && block.type === 'thinking') {
+              stopHeartbeat();
               setPhase('🧠', 'AI が思考中', '入力情報を整理し、分析方針を組み立てています');
               addActivity('🧠 思考ブロック開始');
               updateLiveTicker('🧠', '思考中', '分析方針を組み立て中…');
@@ -5198,6 +5202,7 @@ ${stylePeriodsListItems}
           else if (parsed.type === 'content_block_delta') {
             const delta = parsed.delta;
             if (delta && delta.type === 'text_delta') {
+              stopHeartbeat();
               accumulatedText += delta.text;
               renderMarkdown(accumulatedText);
               stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
@@ -5226,6 +5231,7 @@ ${stylePeriodsListItems}
                 phaseDetailEl.textContent = `${stockCount}件目を分析中 / ${accumulatedText.length.toLocaleString()}文字`;
               }
             } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
+              stopHeartbeat();
               pendingToolInput += delta.partial_json || '';
               const partialQuery = extractPartialQuery(pendingToolInput);
               if (partialQuery) {
@@ -5244,9 +5250,19 @@ ${stylePeriodsListItems}
                 }
               } catch {}
               pendingToolIndex = null; pendingToolInput = '';
+            } else {
+              // ★ 非 tool ブロックの停止 = モデルが結果を読み込んで考え始める瞬間。
+              // テキスト生成や次の検索が来るまでハートビートで生存を示す。
+              if (searchCount > 0 && accumulatedText.length === 0) {
+                startHeartbeat('🧠', '結果を整理中', `AI が ${searchCount} 件の検索結果を読み込み、出力を準備中`);
+              } else if (accumulatedText.length > 0) {
+                // 本文生成中の沈黙(モデルが次のセクションを考え中など)
+                startHeartbeat('💭', '次の文章を考え中', `本文 ${accumulatedText.length.toLocaleString()}字まで生成済み`);
+              }
             }
           }
           else if (parsed.type === 'message_delta') {
+            stopHeartbeat();
             if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
             if (parsed.usage) {
               if (parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
