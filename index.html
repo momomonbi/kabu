@@ -1581,11 +1581,11 @@ label {
     </div>
 
     <div class="mode-toggle" role="radiogroup">
+      <button type="button" class="mode-option" data-mode="news-digest">📰 ニュース収集</button>
       <button type="button" class="mode-option active" data-mode="new">🆕 新規分析</button>
       <button type="button" class="mode-option" data-mode="ultra-short">⚡ 超短期1点絞り</button>
       <button type="button" class="mode-option" data-mode="review">🔄 保存済みから考察</button>
       <button type="button" class="mode-option" data-mode="simplify">🧒 超かんたん要約</button>
-      <button type="button" class="mode-option" data-mode="news-digest">📰 ニュース収集</button>
     </div>
 
     <div class="review-notice" id="reviewNotice">
@@ -1768,7 +1768,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.6';
+const APP_VERSION = 'v1.16.7';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2799,6 +2799,62 @@ ${rows}
 `;
 }
 
+// ===== 📰 ローカルニュース API (Google News RSS 経由、CORS プロキシ) =====
+// AI が web_search で出典 URL を捏造する問題を避けるため、ローカル深掘り対象の
+// ニュースを事前に RSS から実取得し、プロンプトに URL 付きで注入する。
+async function fetchLocalNewsRSS(query, opts) {
+  opts = opts || {};
+  const maxItems = opts.maxItems || 8;
+  const rss = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ja&gl=JP&ceid=JP:ja`;
+  const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(rss)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(rss)}`
+  ];
+  for (const url of proxies) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined });
+      if (!res.ok) continue;
+      const xml = await res.text();
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      if (doc.querySelector('parsererror')) continue;
+      const items = Array.from(doc.querySelectorAll('item')).slice(0, maxItems).map(it => {
+        const title = (it.querySelector('title') && it.querySelector('title').textContent || '').trim();
+        const link = (it.querySelector('link') && it.querySelector('link').textContent || '').trim();
+        const pubDate = (it.querySelector('pubDate') && it.querySelector('pubDate').textContent || '').trim();
+        const source = (it.querySelector('source') && it.querySelector('source').textContent || '').trim();
+        return { title, link, pubDate, source };
+      }).filter(x => x.title && x.link);
+      if (items.length > 0) return items;
+    } catch (e) { /* try next */ }
+  }
+  return [];
+}
+
+function buildLocalNewsPromptBlock(groups) {
+  const haveAny = groups.some(g => g.items && g.items.length > 0);
+  if (!haveAny) return '';
+  const sections = groups.map(g => {
+    if (!g.items || g.items.length === 0) {
+      return `─── ${g.label} ───\n(RSS取得なし。web_search でフォローしてください)`;
+    }
+    const lines = g.items.map((it, i) => {
+      const dt = it.pubDate ? ` | ${it.pubDate}` : '';
+      const src = it.source ? ` | 出典: ${it.source}` : '';
+      return `${i + 1}. ${it.title}${src}${dt}\n   URL: ${it.link}`;
+    }).join('\n');
+    return `─── ${g.label} (${g.items.length}件) ───\n${lines}`;
+  }).join('\n\n');
+  return `
+
+【★ 事前取得済みローカルニュース (Google News RSS API 直接取得、URL は実データ) ★】
+${sections}
+
+★ 上記の URL は実際に RSS から取得した本物。出力時は必ず [タイトル](URL) の markdown リンク形式で記載すること。
+★ URL を一切捏造しないこと。上記から選んで使うか、追加で web_search した結果の URL を使うこと。
+★ 上記件数が少なくても、追加で web_search してさらに掘り下げてよい(その場合も実 URL を使用)。
+`;
+}
+
 // ===== 📉 Stooq 株価チャート (無料・無認証・画像URL直接埋込) =====
 // 過去6ヶ月のリアル株価チャートを <img> 埋込で表示(CORS問題なし、APIキー不要)
 function formatStooqTicker(ticker) {
@@ -3078,6 +3134,12 @@ function renderDataSources(savedItem) {
     lines.push(`<li>🌦 <strong>全国天気予報</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo API</a> — 無料・無認証 (${cities}都市の今日・明日の予報。Anthropic web_search を使わずに直接 API から取得して節約)</li>`);
   } else if (ds.weather && ds.weather.failed) {
     lines.push(`<li>🌦 <strong>天気予報 API</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 取得失敗 (${escapeHtml(ds.weather.error || '不明')}) — フォールバックで web_search を使用</li>`);
+  }
+  // Google News RSS (ローカル深掘り)
+  if (ds.localNews && ds.localNews.used) {
+    lines.push(`<li>📡 <strong>ローカルニュース RSS</strong>: <a href="https://news.google.com/" target="_blank" rel="noopener">Google News RSS</a> 経由で野田市・三沢市付近の見出し ${ds.localNews.items} 件を事前取得(corsproxy.io 経由・無料・URL捏造防止)</li>`);
+  } else if (ds.localNews && ds.localNews.failed) {
+    lines.push(`<li>📡 <strong>ローカルニュース RSS</strong>: <a href="https://news.google.com/" target="_blank" rel="noopener">Google News RSS</a> 取得失敗 (${escapeHtml(ds.localNews.error || '不明')}) — フォールバックで web_search を使用</li>`);
   }
   // Stooq 株価チャート + Yahoo Finance 検証
   if (ds.stooq && ds.stooq.count > 0) {
@@ -4622,7 +4684,9 @@ async function analyzeNewsDigest() {
   // 📰 ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
   // 🔧 v1.16.4: Haiku 4.5 固定でコストが低いため検索回数を拡大
   //             通常 10→18, 超節約 15→25 (Sonnet/Opus 比で約 1/3 コストなので深掘り可能)
-  const _newsMaxSearches = isUltraEcoMode() ? 25 : 18;
+  // 🔧 v1.16.7: ローカル深掘り(千葉県野田市 / 青森県三沢市)用に追加クエリ枠を確保
+  //             通常 18→24, 超節約 25→32
+  const _newsMaxSearches = isUltraEcoMode() ? 32 : 24;
 
   // 🌦 v1.16.0: Open-Meteo API で天気を事前取得 → プロンプトに注入することで
   //             モデルが天気を web_search する必要なし(1〜2 検索分のコスト節約)
@@ -4641,13 +4705,43 @@ async function analyzeNewsDigest() {
     addActivity(`⚠️ 天気API取得失敗、web_search にフォールバック: ${e.message}`);
   }
 
+  // 🔧 v1.16.7: ローカル深掘り対象(千葉県野田市付近 / 青森県三沢市付近)を
+  //             Google News RSS から事前取得。AI が出典 URL を捏造する問題を回避。
+  let localNewsBlock = '';
+  let localNewsUsage = { used: false, queries: 0, items: 0, failed: false, error: '' };
+  try {
+    addActivity('📡 Google News RSS から野田市・三沢市付近のローカルニュース取得中...');
+    const [nodaArr, misawaArr] = await Promise.all([
+      fetchLocalNewsRSS('千葉県 野田市 OR 流山市 OR 柏市 OR 我孫子市', { maxItems: 8 }),
+      fetchLocalNewsRSS('青森県 三沢市 OR 八戸市 OR 十和田市 OR おいらせ町', { maxItems: 8 })
+    ]);
+    localNewsBlock = buildLocalNewsPromptBlock([
+      { label: '🏘 千葉県野田市付近 (野田市・流山市・柏市・我孫子市)', items: nodaArr },
+      { label: '🏘 青森県三沢市付近 (三沢市・八戸市・十和田市・おいらせ町)', items: misawaArr }
+    ]);
+    const total = nodaArr.length + misawaArr.length;
+    localNewsUsage = { used: total > 0, queries: 2, items: total, failed: total === 0, error: total === 0 ? 'RSS取得0件' : '' };
+    addActivity(`✅ ローカルRSS取得 (野田 ${nodaArr.length} 件 / 三沢 ${misawaArr.length} 件)`);
+  } catch (e) {
+    console.warn('Local news RSS fetch failed:', e);
+    localNewsUsage = { used: false, queries: 2, items: 0, failed: true, error: e.message };
+    addActivity(`⚠️ ローカルRSS取得失敗、web_search にフォールバック: ${e.message}`);
+  }
+
   const prompt = `あなたは ${today} 時点のニュース・キュレーターです。
 銘柄分析や投資推奨は行わず、★ 本日のニュースを集めて視覚的に整理する ★ ことだけが仕事です。
-${weatherBlock}
+${weatherBlock}${localNewsBlock}
+【★★★ 出典 URL リンク必須 ★★★】
+- すべてのニュース項目に必ず実在の出典 URL を [タイトル](URL) の markdown リンク形式で記載
+- URL を捏造禁止。Google News RSS 事前取得分の URL、または web_search の結果から取得した実 URL のみ使用
+- 形式例: \`- **野田市** [野田市が新しい○○を発表](https://news.google.com/...) - 出典: NHK千葉 2026/05/14\`
+- リンク表記が無いニュース項目は無効として扱われる(必ず1件1リンク以上)
+
 【調査方針】
 - web_search を ★ 最大 ${_newsMaxSearches} 回 ★ まで実施(上限に達したら直ちに出力開始)
 - 政治的中立・事実報道を重視(主観・意見は最小限)
 - 複数の地域・トピックを ★ 広く ★ カバーする
+- ★ ローカル深掘り (千葉県野田市付近 / 青森県三沢市付近) は web_search でも追加で深く掘り下げてよい(各エリア 5〜8 件目標)
 ${isUltraEcoMode() ? `
 ★★★ 🌱 超節約モード(広く浅く) ★★★
 - 検索は ★ できる限り多く・幅広く ★ (15 回フルに使う): 政治・経済・社会・産業・国際・地方・天気・スポーツ・科学 など多様なクエリ
@@ -4665,9 +4759,23 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
 ## 🇯🇵 国内主要ニュース
 3〜5 件。各件: **タイトル** / 日付 / 出典(報道社) / 1〜2 行サマリ。
 
-## 🏘 ローカル・地方ニュース
-3〜5 件。北海道・東北・関東・中部・関西・中国・四国・九州沖縄 から複数地域をカバー。
-- **地域名** [ニュースタイトル] (出典)
+## 🏘 ローカル深掘り (千葉県野田市付近 / 青森県三沢市付近)
+★ 重点エリア ★ 各エリア 5〜8 件、できるだけ最新の地域ニュース。
+すべての項目に [タイトル](URL) の markdown リンク必須。
+
+### 🏯 千葉県野田市付近 (野田市・流山市・柏市・我孫子市・松戸市・川間・関宿)
+- **野田市** [ニュースタイトル](実URL)
+  - 1〜2 行サマリ + (出典: 媒体名 / 日付)
+- (5〜8 件)
+
+### ✈️ 青森県三沢市付近 (三沢市・八戸市・十和田市・おいらせ町・東北町)
+- **三沢市** [ニュースタイトル](実URL)
+  - 1〜2 行サマリ + (出典: 媒体名 / 日付)
+- (5〜8 件)
+
+## 🏘 その他ローカル・地方ニュース
+2〜3 件。北海道・東北・関東・中部・関西・中国・四国・九州沖縄 から多様にカバー。
+- **地域名** [ニュースタイトル](実URL)
   - 1〜2 行で内容
 
 ## 🌍 世界ニュース
@@ -4702,9 +4810,10 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
 - 各ニュースに必ず日付と出典を併記
 - 政治的・宗教的バイアスを避け事実報道に徹する
 - ニュースが少ない分野は無理に埋めず「該当ニュースなし」と書く
-- 全体 2,000〜3,500 文字(絶対 4,500 字を超えない)
+- 全体 2,500〜4,500 文字(絶対 5,500 字を超えない / ローカル深掘りで増えた分を見込み)
 - 視覚的に分かりやすく(絵文字・表・箇条書きを多用)
-- 検索が終わったら直ちに出力開始(熟考しない)`;
+- 検索が終わったら直ちに出力開始(熟考しない)
+- ★ ニュース項目は必ず [タイトル](URL) の markdown リンクで(URL捏造禁止)`;
 
   let inputTokens = 0, outputTokens = 0, searchCount = 0;
   let accumulatedText = '';
@@ -4839,7 +4948,7 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       inputTokens, outputTokens, stopReason,
       mode: 'news-digest',
       // 🔧 v1.16.2: 使用したAPI情報を保存(結果末尾パネル表示用)
-      dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: 0 } },
+      dataSources: { weather: weatherUsage, localNews: localNewsUsage, webSearchCount: searchCount, stooq: { count: 0 } },
       reviewSourceIds: [],
       evaluateTargetId: null,
       learningsApplied: 0,
