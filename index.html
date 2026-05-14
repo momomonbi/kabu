@@ -1509,6 +1509,10 @@ label {
       <select id="model">
         <option value="eco-hybrid" selected>🌱 エコ・ハイブリッド (Sonnet研究 → Haiku執筆) — 最適節約★★★★★</option>
         <option value="hybrid">💎 プレミアム・ハイブリッド (Opus研究 → Haiku執筆) — 最高品質</option>
+        <option value="claude-haiku-4-5">⚡ Haiku 4.5 単体 — 低コスト・高速</option>
+        <option value="claude-sonnet-4-6">⚖ Sonnet 4.6 単体 — バランス型</option>
+        <option value="claude-opus-4-7">🌟 Opus 4.7 単体 — 最高品質</option>
+        <option value="claude-opus-4-6">✨ Opus 4.6 単体 — 高品質(旧)</option>
       </select>
       <div class="model-info" id="modelInfo"></div>
     </div>
@@ -1664,7 +1668,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.0';
+const APP_VERSION = 'v1.16.1';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2439,10 +2443,12 @@ function isUltraEcoMode() {
 
 // 各フェーズの max_tokens を depth に応じて返す
 // 超節約モードでは出力トークンも大幅圧縮(本文短め・CHART/CALENDAR は最小限)
+// 🔧 v1.16.1: 超節約モードの writer を 4000→6000 に増量(本文+CHART_DATA+CALENDAR+SUMMARY+TITLE
+//             が 4000 tokens に収まらず CHART_DATA が切れて折れ線グラフが出ない問題を修正)
 function getMaxTokensFor(phase) {
   const eco = isUltraEcoMode();
   const defaults = { research: 4000, writer: 10000, news: 6000, simplify: 2000 };
-  const ecoOverride = { research: 1500, writer: 4000, news: 2500, simplify: 1500 };
+  const ecoOverride = { research: 1500, writer: 6000, news: 2500, simplify: 1500 };
   return eco ? (ecoOverride[phase] || defaults[phase]) : (defaults[phase] || 4000);
 }
 
@@ -4534,13 +4540,25 @@ async function analyzeStocks(retryCount = 0) {
 
   // 🌦 v1.16.0: japan-news モードでは Open-Meteo API から天気を事前取得し、プロンプトに注入
   //             → 天気を web_search する必要なく、1〜2 検索分のコスト($0.01〜0.02)節約
+  // 🔧 v1.16.1: ユーザーに見える形で進捗を表示 — 進捗パネルを先に出す
   let prefetchedWeatherBlock = '';
+  let prefetchedWeatherCount = 0;
   if (market === 'japan-news' && !isEvaluating && currentMode !== 'review') {
+    if (retryCount === 0) {
+      resetProgress(); showProgressPanel(); startElapsedTimer();
+      setPhase('🌦', 'Open-Meteo API から全国天気予報を取得中...', '無料API・APIキー不要');
+      addActivity('🌦 Open-Meteo API から全国天気予報を取得中(無料・無認証)...');
+      setProgressPercent(2);
+    }
     try {
       const weather = await fetchJapanWeather();
       prefetchedWeatherBlock = buildWeatherPromptBlock(weather);
+      prefetchedWeatherCount = weather.length;
+      addActivity(`✅ 天気データ取得成功 (${prefetchedWeatherCount}都市・Open-Meteo)`);
+      setPhase('🌦', `天気データ取得完了 (${prefetchedWeatherCount}都市)`, 'プロンプトに注入し、web_search 不要に');
     } catch (e) {
       console.warn('Weather prefetch failed:', e);
+      addActivity(`⚠️ 天気API取得失敗、web_search にフォールバック: ${e.message}`);
     }
   }
 
@@ -6043,14 +6061,19 @@ function extractAnalysisSummary(text) {
 }
 
 // 🔧 v1.16.0: 評価レポートから「総合評価: ★★★★☆」を抽出 → 元記事に統合するため
+// 🔧 v1.16.1: Markdown bold (**総合評価**), 全角コロン(：), 改行を頑健に処理
 function extractEvaluationRating(text) {
   if (!text) return null;
-  // ① "総合評価: ★★★★☆" や "総合評価: ★★★★" を最優先で探す
-  const m1 = text.match(/総合評価[\s::]*[*\s]*(★{1,5})/);
-  if (m1) return m1[1].length;
-  // ② "★★★★☆" 形式の連続(評価サマリーの近く)
-  const top = text.slice(0, 2500);
-  const m2 = top.match(/(★{1,5})(?:☆|\s|$|\(|\[)/);
+  // ① "総合評価" を含む行を探し、近傍 80 字以内の ★ 連続を抽出
+  const idx = text.search(/総合評価/);
+  if (idx >= 0) {
+    const window = text.slice(idx, idx + 120);
+    const m = window.match(/(★{1,5})(?!★)/); // ★ の連続を最大限取得(直後が ★ でないところまで)
+    if (m) return m[1].length;
+  }
+  // ② テキスト先頭 3000 字から最初の ★{1,5} を探す(評価サマリーが冒頭にある想定)
+  const top = text.slice(0, 3000);
+  const m2 = top.match(/(★{1,5})(?!★)/);
   if (m2) return m2[1].length;
   // ③ "(5/5)" や "(4/5)" のような分数表記
   const m3 = top.match(/[(（](\d)\s*\/\s*5[)）]/);
@@ -6061,11 +6084,11 @@ function extractEvaluationRating(text) {
 function extractEvaluationComment(text) {
   if (!text) return '';
   // "一行コメント" の後の本文を取得
-  const m = text.match(/一行コメント[\s\S]{0,5}[::]\s*([^\n]{5,200})/);
-  if (m) return m[1].trim().replace(/^[「『"']|[」』"']$/g, '').slice(0, 160);
-  // フォールバック: 「総合評価」のすぐ後の文章
-  const m2 = text.match(/総合評価[^\n]{0,80}\n+([^\n]{20,200})/);
-  if (m2) return m2[1].trim().slice(0, 160);
+  const m = text.match(/一行コメント[\s\S]{0,10}[:：]\s*([^\n]{5,200})/);
+  if (m) return m[1].trim().replace(/^[「『"'\*]+|[」』"'\*]+$/g, '').slice(0, 160);
+  // フォールバック: 「総合評価」のすぐ後の改行後の文章
+  const m2 = text.match(/総合評価[^\n]{0,120}\n+([^\n#]{20,200})/);
+  if (m2) return m2[1].trim().replace(/^[「『"'\*\-\s]+|[」』"'\*\s]+$/g, '').slice(0, 160);
   return '';
 }
 
