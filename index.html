@@ -1023,6 +1023,47 @@ label {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
 .eval-rating-banner .eval-stars { font-size: 1.4rem; letter-spacing: 1px; }
+
+/* ===== Data Sources Panel (どの API を使ったか可視化) ===== */
+.data-sources-panel {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin: 28px 0 16px;
+}
+.data-sources-panel h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 0; border: none; background: none;
+  -webkit-text-fill-color: var(--text-primary);
+}
+.data-sources-list {
+  margin: 0; padding: 0; list-style: none;
+}
+.data-sources-list li {
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.data-sources-list li a {
+  color: #4f46e5;
+  text-decoration: none;
+  font-weight: 600;
+}
+.data-sources-list li a:hover { text-decoration: underline; }
+.data-sources-disclaimer {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
 .eval-rating-banner .eval-text { font-size: 13px; color: var(--text-primary); }
 .eval-rating-banner .eval-date { font-size: 11px; color: var(--text-muted); margin-left: auto; }
 
@@ -1668,7 +1709,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.1';
+const APP_VERSION = 'v1.16.2';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2713,6 +2754,19 @@ function formatStooqTicker(ticker) {
   if (/^[A-Z]+$/.test(t)) return `${t}.us`;
   return t.toLowerCase();
 }
+// 🔧 v1.16.2: CHART_DATA から Stooq チャートを描画した銘柄数をカウント
+function countStooqStocksInResult(text) {
+  if (!text) return 0;
+  const m = text.match(/\[CHART_DATA\]([\s\S]*?)\[\/CHART_DATA\]/);
+  if (!m) return 0;
+  try {
+    const cleaned = m[1].replace(/,(\s*[}\]])/g, '$1').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const data = JSON.parse(cleaned);
+    if (!data || !Array.isArray(data.stocks)) return 0;
+    return data.stocks.filter(s => formatStooqTicker(s && s.ticker)).length;
+  } catch { return 0; }
+}
+
 function renderHistoricalCharts(data) {
   if (!data || !Array.isArray(data.stocks) || data.stocks.length === 0) return '';
   const items = data.stocks.slice(0, 8).map(s => ({
@@ -2742,6 +2796,55 @@ function renderHistoricalCharts(data) {
     <div class="historical-charts-grid">${cards}</div>
     <div class="chart-disclaimer">※ Stooq は遅延データ提供。画像をタップで TradingView へ。</div>
   </div>`;
+}
+
+// ===== 📚 Data Sources Panel — どの API を使ったかを結果末尾に表示 =====
+function renderDataSources(savedItem) {
+  // 既存パネルを除去
+  const existing = document.getElementById('dataSourcesPanel');
+  if (existing) existing.remove();
+  if (!savedItem) return;
+  const ds = savedItem.dataSources || {};
+  const lines = [];
+  // Anthropic Claude モデル(必ず利用)
+  const modelInfo = MODELS[savedItem.model];
+  const modelName = modelInfo ? modelInfo.name : savedItem.model || 'Claude';
+  lines.push(`<li>🤖 <strong>AI モデル</strong>: <a href="https://www.anthropic.com" target="_blank" rel="noopener">Anthropic ${escapeHtml(modelName)}</a> — このレポートを生成</li>`);
+  // Anthropic web_search
+  const wsCount = savedItem.searchCount || ds.webSearchCount || 0;
+  if (wsCount > 0) {
+    const costStr = (wsCount * 0.01).toFixed(2);
+    lines.push(`<li>🔍 <strong>リアルタイム情報</strong>: <a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use/web-search-tool" target="_blank" rel="noopener">Anthropic web_search ツール</a> — ${wsCount} 回検索 (${costStr} USD)</li>`);
+  }
+  // Open-Meteo 天気予報
+  if (ds.weather && ds.weather.used) {
+    const cities = ds.weather.cities || 0;
+    lines.push(`<li>🌦 <strong>全国天気予報</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo API</a> — 無料・無認証 (${cities}都市の今日・明日の予報。Anthropic web_search を使わずに直接 API から取得して節約)</li>`);
+  } else if (ds.weather && ds.weather.failed) {
+    lines.push(`<li>🌦 <strong>天気予報 API</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 取得失敗 (${escapeHtml(ds.weather.error || '不明')}) — フォールバックで web_search を使用</li>`);
+  }
+  // Stooq 株価チャート
+  if (ds.stooq && ds.stooq.count > 0) {
+    lines.push(`<li>📉 <strong>株価チャート画像</strong>: <a href="https://stooq.com" target="_blank" rel="noopener">Stooq.com</a> — 過去6ヶ月の実際の値動き (${ds.stooq.count} 銘柄ぶん、無料・画像直接埋込)</li>`);
+  } else if (savedItem.mode !== 'news-digest' && savedItem.mode !== 'simplify' && savedItem.mode !== 'evaluate') {
+    // 通常分析モード(new/review)で CHART_DATA が含まれなかった場合の警告
+    const hasChartTag = /\[CHART_DATA\]/.test(savedItem.result || '');
+    if (!hasChartTag) {
+      lines.push(`<li>⚠️ <strong>チャート出力なし</strong>: 今回 AI が CHART_DATA タグを出力しなかったため折れ線グラフ・Stooq 過去チャートが表示されません。再実行をお試しください</li>`);
+    } else {
+      lines.push(`<li>⚠️ <strong>チャート解析失敗</strong>: CHART_DATA タグはあるものの JSON 解析に失敗しました(F12 コンソールで詳細確認可能)</li>`);
+    }
+  }
+  if (lines.length === 0) return;
+  const div = document.createElement('div');
+  div.id = 'dataSourcesPanel';
+  div.className = 'data-sources-panel';
+  div.innerHTML = `
+    <h3>📚 このレポートのデータ取得元・API出典</h3>
+    <ul class="data-sources-list">${lines.join('')}</ul>
+    <div class="data-sources-disclaimer">※ このレポートは上記APIから取得した公開情報を AI が分析・整理したもので、投資助言ではありません。各種データには遅延がある場合があります。</div>
+  `;
+  resultDiv.appendChild(div);
 }
 
 async function updateLearningBanner() {
@@ -2966,6 +3069,9 @@ function ensureResultActions(currentItem) {
       };
     }
   }
+
+  // 🔧 v1.16.2: 結果末尾に「使用した API・データ取得元」パネルを表示
+  renderDataSources(currentItem);
 }
 
 // ===== Progress tracking =====
@@ -3122,7 +3228,8 @@ async function analyzeStocksHybrid(ctx) {
     paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', ultraShortBlock = '', shortTermTimingBlock, learningsBlock,
     brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
     stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-    pastLearnings, currentMode
+    pastLearnings, currentMode,
+    weatherUsage = { used: false, cities: 0, failed: false, error: '' } // 🔧 v1.16.2
   } = ctx;
   const isEcoHybrid = hybridMode === 'eco-hybrid';
   const researchModelLabel = isEcoHybrid ? 'Sonnet 4.6' : 'Opus 4.7';
@@ -3833,6 +3940,8 @@ ${questions}
 
       const extractedTitle = extractAnalysisTitle(accumulatedText);
       const extractedSummary = extractAnalysisSummary(accumulatedText);
+      // 🔧 v1.16.2: 使用したAPI情報を tracking して保存
+      const stooqCount = countStooqStocksInResult(accumulatedText);
       const savedItem = {
         timestamp: Date.now(),
         model: hybridMode, market, style, risk, amount, additional,
@@ -3850,7 +3959,8 @@ ${questions}
         hybridPhases: {
           phase1: { model: researchModel, input: phase1In, output: phase1Out, search: phase1Search },
           phase2: { model: writerModel, input: phase2In, output: phase2Out }
-        }
+        },
+        dataSources: { weather: weatherUsage, webSearchCount: phase1Search, stooq: { count: stooqCount } }
       };
 
       const newId = await dbSave(savedItem);
@@ -4196,14 +4306,18 @@ async function analyzeNewsDigest() {
 
   // 🌦 v1.16.0: Open-Meteo API で天気を事前取得 → プロンプトに注入することで
   //             モデルが天気を web_search する必要なし(1〜2 検索分のコスト節約)
+  // 🔧 v1.16.2: 取得結果を tracking して savedItem.dataSources に乗せる
   let weatherBlock = '';
+  let weatherUsage = { used: false, cities: 0, failed: false, error: '' };
   try {
     addActivity('🌦 Open-Meteo API から全国天気予報を取得中...');
     const weather = await fetchJapanWeather();
     weatherBlock = buildWeatherPromptBlock(weather);
+    weatherUsage = { used: true, cities: weather.length, failed: false, error: '' };
     addActivity(`✅ 天気データ取得 (${weather.length}都市・無料API)`);
   } catch (e) {
     console.warn('Weather fetch failed:', e);
+    weatherUsage = { used: false, cities: 0, failed: true, error: e.message };
     addActivity(`⚠️ 天気API取得失敗、web_search にフォールバック: ${e.message}`);
   }
 
@@ -4404,6 +4518,8 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       additional,
       inputTokens, outputTokens, stopReason,
       mode: 'news-digest',
+      // 🔧 v1.16.2: 使用したAPI情報を保存(結果末尾パネル表示用)
+      dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: 0 } },
       reviewSourceIds: [],
       evaluateTargetId: null,
       learningsApplied: 0,
@@ -4541,8 +4657,9 @@ async function analyzeStocks(retryCount = 0) {
   // 🌦 v1.16.0: japan-news モードでは Open-Meteo API から天気を事前取得し、プロンプトに注入
   //             → 天気を web_search する必要なく、1〜2 検索分のコスト($0.01〜0.02)節約
   // 🔧 v1.16.1: ユーザーに見える形で進捗を表示 — 進捗パネルを先に出す
+  // 🔧 v1.16.2: weatherUsage を analyzeStocks スコープで保持し、savedItem に乗せる
   let prefetchedWeatherBlock = '';
-  let prefetchedWeatherCount = 0;
+  let weatherUsage = { used: false, cities: 0, failed: false, error: '' };
   if (market === 'japan-news' && !isEvaluating && currentMode !== 'review') {
     if (retryCount === 0) {
       resetProgress(); showProgressPanel(); startElapsedTimer();
@@ -4553,11 +4670,12 @@ async function analyzeStocks(retryCount = 0) {
     try {
       const weather = await fetchJapanWeather();
       prefetchedWeatherBlock = buildWeatherPromptBlock(weather);
-      prefetchedWeatherCount = weather.length;
-      addActivity(`✅ 天気データ取得成功 (${prefetchedWeatherCount}都市・Open-Meteo)`);
-      setPhase('🌦', `天気データ取得完了 (${prefetchedWeatherCount}都市)`, 'プロンプトに注入し、web_search 不要に');
+      weatherUsage = { used: true, cities: weather.length, failed: false, error: '' };
+      addActivity(`✅ 天気データ取得成功 (${weather.length}都市・Open-Meteo)`);
+      setPhase('🌦', `天気データ取得完了 (${weather.length}都市)`, 'プロンプトに注入し、web_search 不要に');
     } catch (e) {
       console.warn('Weather prefetch failed:', e);
+      weatherUsage = { used: false, cities: 0, failed: true, error: e.message };
       addActivity(`⚠️ 天気API取得失敗、web_search にフォールバック: ${e.message}`);
     }
   }
@@ -5121,7 +5239,8 @@ ${evalTarget.result}
       paypayBlock, sbiBlock, japanNewsBlock, extraRiskBlock, ultraShortBlock, shortTermTimingBlock, learningsBlock,
       brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
       stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-      pastLearnings, currentMode
+      pastLearnings, currentMode,
+      weatherUsage // 🔧 v1.16.2: 天気API使用情報をhybridに引き継ぐ
     });
   }
 
@@ -5531,7 +5650,7 @@ ${stylePeriodsListItems}
       signal: currentAbortController.signal,
       body: JSON.stringify({
         model: model,
-        max_tokens: 8000,
+        max_tokens: 12000, // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
         stream: true,
         tools: [
           // 🔧 v1.16.0: Haiku 4.5 は web_search_20260209 (動的フィルタリング版) 非対応のため、
@@ -5764,6 +5883,8 @@ ${stylePeriodsListItems}
       // Auto-save to IndexedDB
       const extractedTitle = extractAnalysisTitle(accumulatedText);
       const extractedSummary = extractAnalysisSummary(accumulatedText);
+      // 🔧 v1.16.2: 使用したAPI情報を tracking して保存
+      const stooqCount = countStooqStocksInResult(accumulatedText);
       const savedItem = {
         timestamp: Date.now(),
         model, market, style, risk, amount, additional,
@@ -5774,7 +5895,8 @@ ${stylePeriodsListItems}
         mode: isEvaluating ? 'evaluate' : currentMode,
         reviewSourceIds: currentMode === 'review' && !isEvaluating ? Array.from(selectedHistoryIds) : [],
         evaluateTargetId: isEvaluating ? evalTarget.id : null,
-        learningsApplied: pastLearnings.length
+        learningsApplied: pastLearnings.length,
+        dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: stooqCount } }
       };
       const newId = await dbSave(savedItem);
       if (newId) {
