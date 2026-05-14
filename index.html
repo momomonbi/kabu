@@ -1024,6 +1024,46 @@ label {
 }
 .eval-rating-banner .eval-stars { font-size: 1.4rem; letter-spacing: 1px; }
 
+/* ===== Price Verification (AI提示価格 vs Yahoo Finance) ===== */
+.price-verification {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(99, 102, 241, 0.05));
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 16px;
+  padding: 18px 22px;
+  margin: 18px 0;
+}
+.price-verification.has-warn {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.06));
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.price-verification h3.chart-title {
+  margin: 0 0 6px 0;
+  padding: 0; border: none; background: none;
+  -webkit-text-fill-color: var(--text-primary);
+  display: block; font-size: 1.05rem; font-weight: 700;
+}
+.verification-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+.verification-table th { padding: 8px 6px; border-bottom: 2px solid var(--border-glass); text-align: left; font-weight: 700; color: var(--text-secondary); font-size: 12px; }
+.verification-table td { padding: 8px 6px; border-bottom: 1px solid var(--border-glass); }
+.verification-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.verification-table tr.big-warn { background: rgba(239,68,68,0.1); }
+.verification-table tr.mild-warn { background: rgba(245,158,11,0.06); }
+.verification-table tr.row-ok td:last-child { color: #059669; font-weight: 700; }
+.verification-table tr.big-warn td:last-child { color: #b91c1c; font-weight: 700; }
+.verification-table tr.mild-warn td:last-child { color: #b45309; font-weight: 700; }
+.verification-table tr.row-na td { color: var(--text-muted); font-style: italic; }
+.ticker-sm { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+.price-verification-loading {
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 14px 18px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 16px 0;
+}
+
 /* ===== Data Sources Panel (どの API を使ったか可視化) ===== */
 .data-sources-panel {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05));
@@ -1696,6 +1736,13 @@ label {
       <span>保存された分析</span>
       <span class="count-badge" id="historyCount">0件</span>
     </div>
+    <div id="evalLegacyToggleWrap" style="display:none;margin:8px 0;font-size:12px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--text-secondary)">
+        <input type="checkbox" id="showLegacyEvals">
+        <span>過去の独立した評価レポート(<span id="legacyEvalCount">0</span>件)も表示する</span>
+      </label>
+      <button class="history-btn" id="cleanupLegacyEvals" style="margin-left:10px;font-size:11px;padding:4px 10px">🧹 過去の評価を元記事にまとめて削除</button>
+    </div>
     <div id="historyList" class="history-list">
       <div class="history-empty">まだ保存された分析がありません。分析を実行すると自動保存されます。</div>
     </div>
@@ -1709,7 +1756,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.2';
+const APP_VERSION = 'v1.16.4';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2754,6 +2801,93 @@ function formatStooqTicker(ticker) {
   if (/^[A-Z]+$/.test(t)) return `${t}.us`;
   return t.toLowerCase();
 }
+// ===== 💰 株価検証 API: AI提示価格 vs 実際の市場価格の乖離チェック =====
+// 🔧 v1.16.4: Yahoo Finance v8 API (CORS-friendly な場合あり、ダメなら corsproxy.io 経由)
+async function fetchVerificationPrice(rawTicker) {
+  const t = String(rawTicker || '').trim().toUpperCase().replace(/[^\w.]/g, '');
+  if (!t) return null;
+  // Yahoo Finance のシンボル形式に変換
+  let yahoo;
+  if (/\.(JP|T)$/i.test(t)) yahoo = t.replace(/\.JP$/i, '.T');
+  else if (/^\d{4}$/.test(t)) yahoo = t + '.T';
+  else if (/\.US$/i.test(t)) yahoo = t.replace(/\.US$/i, '');
+  else yahoo = t;
+  const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=2d&interval=1d`;
+  // 直接 → corsproxy.io → allorigins の順でフォールバック
+  const urls = [
+    baseUrl,
+    `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const result = data && data.chart && Array.isArray(data.chart.result) && data.chart.result[0];
+      if (!result || !result.meta || typeof result.meta.regularMarketPrice !== 'number') continue;
+      return {
+        price: result.meta.regularMarketPrice,
+        previousClose: result.meta.chartPreviousClose,
+        currency: result.meta.currency,
+        symbol: result.meta.symbol,
+        sourceUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(yahoo)}`
+      };
+    } catch (e) { /* try next */ }
+  }
+  return null;
+}
+
+async function verifyChartDataPrices(chartData) {
+  if (!chartData || !Array.isArray(chartData.stocks) || chartData.stocks.length === 0) return [];
+  // 並列 fetch (最大8銘柄)
+  const promises = chartData.stocks.slice(0, 8).map(async s => {
+    const aiPrice = Number(s.current_price);
+    if (!isFinite(aiPrice) || aiPrice <= 0) return null;
+    const v = await fetchVerificationPrice(s.ticker);
+    if (!v || !isFinite(v.price)) return { name: s.name || s.ticker, ticker: s.ticker, aiPrice, actualPrice: null, diffPct: null, currency: s.currency || '', error: '取得失敗' };
+    const diffPct = ((v.price - aiPrice) / aiPrice) * 100;
+    return {
+      name: s.name || s.ticker, ticker: s.ticker,
+      aiPrice, actualPrice: v.price, currency: v.currency || s.currency || '',
+      diffPct, yahooSymbol: v.symbol, yahooUrl: v.sourceUrl
+    };
+  });
+  const results = await Promise.all(promises);
+  return results.filter(Boolean);
+}
+
+function renderPriceVerification(results) {
+  if (!Array.isArray(results) || results.length === 0) return '';
+  const rows = results.map(r => {
+    const cur = escapeHtml(r.currency || '');
+    if (r.actualPrice === null || r.diffPct === null) {
+      return `<tr class="row-na"><td>${escapeHtml(r.name)} <span class="ticker-sm">${escapeHtml(r.ticker)}</span></td><td class="num">${cur}${(r.aiPrice||0).toLocaleString()}</td><td class="num" colspan="2">— (${escapeHtml(r.error || '取得失敗')})</td></tr>`;
+    }
+    const absD = Math.abs(r.diffPct);
+    const cls = absD > 15 ? 'big-warn' : absD > 5 ? 'mild-warn' : 'row-ok';
+    const icon = absD > 15 ? '🚨' : absD > 5 ? '⚠️' : '✅';
+    const sign = r.diffPct >= 0 ? '+' : '';
+    const yahooLink = r.yahooUrl ? ` <a href="${escapeHtml(r.yahooUrl)}" target="_blank" rel="noopener" title="Yahoo Finance で詳細">↗</a>` : '';
+    return `<tr class="${cls}">
+      <td>${escapeHtml(r.name)} <span class="ticker-sm">${escapeHtml(r.ticker)}</span></td>
+      <td class="num">${cur}${r.aiPrice.toLocaleString()}</td>
+      <td class="num">${cur}${r.actualPrice.toLocaleString()}${yahooLink}</td>
+      <td class="num">${icon} ${sign}${r.diffPct.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+  const hasWarn = results.some(r => r.diffPct !== null && Math.abs(r.diffPct) > 15);
+  return `<div class="price-verification ${hasWarn ? 'has-warn' : ''}">
+    <h3 class="chart-title">💰 株価データ検証 (AI提示価格 vs Yahoo Finance 最新)</h3>
+    <div class="chart-subtitle">AI が web_search で取得した価格と、Yahoo Finance の最新値を比較。乖離 ±15% 超は再分析を推奨。</div>
+    <table class="verification-table">
+      <thead><tr><th>銘柄</th><th>AI 提示価格</th><th>実際 (Yahoo)</th><th>乖離</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="chart-disclaimer">※ Yahoo Finance のデータには遅延(15〜30分)あり。乖離 ±5% 以内は正常範囲</div>
+  </div>`;
+}
+
 // 🔧 v1.16.2: CHART_DATA から Stooq チャートを描画した銘柄数をカウント
 function countStooqStocksInResult(text) {
   if (!text) return 0;
@@ -2823,9 +2957,10 @@ function renderDataSources(savedItem) {
   } else if (ds.weather && ds.weather.failed) {
     lines.push(`<li>🌦 <strong>天気予報 API</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 取得失敗 (${escapeHtml(ds.weather.error || '不明')}) — フォールバックで web_search を使用</li>`);
   }
-  // Stooq 株価チャート
+  // Stooq 株価チャート + Yahoo Finance 検証
   if (ds.stooq && ds.stooq.count > 0) {
     lines.push(`<li>📉 <strong>株価チャート画像</strong>: <a href="https://stooq.com" target="_blank" rel="noopener">Stooq.com</a> — 過去6ヶ月の実際の値動き (${ds.stooq.count} 銘柄ぶん、無料・画像直接埋込)</li>`);
+    lines.push(`<li>💰 <strong>株価検証</strong>: <a href="https://finance.yahoo.com" target="_blank" rel="noopener">Yahoo Finance v8 API</a> — AI 提示価格と実際の市場価格の乖離をチェック(検証結果はチャート下のテーブルに表示)</li>`);
   } else if (savedItem.mode !== 'news-digest' && savedItem.mode !== 'simplify' && savedItem.mode !== 'evaluate') {
     // 通常分析モード(new/review)で CHART_DATA が含まれなかった場合の警告
     const hasChartTag = /\[CHART_DATA\]/.test(savedItem.result || '');
@@ -2860,8 +2995,23 @@ async function updateLearningBanner() {
 }
 
 async function renderHistory() {
-  const items = await dbList();
-  historyCount.textContent = `${items.length}件`;
+  const allItems = await dbList();
+  // 🔧 v1.16.3: 既存の独立した評価レポート(mode='evaluate')を既定で非表示。
+  //             新規評価は元記事に統合されるが、過去に保存された分は残るため。
+  const legacyEvals = allItems.filter(it => it.mode === 'evaluate');
+  const showLegacy = document.getElementById('showLegacyEvals') && document.getElementById('showLegacyEvals').checked;
+  const items = showLegacy ? allItems : allItems.filter(it => it.mode !== 'evaluate');
+  const evalToggleWrap = document.getElementById('evalLegacyToggleWrap');
+  if (evalToggleWrap) {
+    if (legacyEvals.length > 0) {
+      evalToggleWrap.style.display = 'block';
+      const countEl = document.getElementById('legacyEvalCount');
+      if (countEl) countEl.textContent = legacyEvals.length;
+    } else {
+      evalToggleWrap.style.display = 'none';
+    }
+  }
+  historyCount.textContent = `${items.length}件${(!showLegacy && legacyEvals.length > 0) ? ` (評価${legacyEvals.length}件は非表示)` : ''}`;
   historyClearAllWrap.style.display = items.length > 0 ? 'block' : 'none';
   await updateLearningBanner();
   if (items.length === 0) {
@@ -2992,6 +3142,54 @@ document.getElementById('clearAllHistory').addEventListener('click', async () =>
     await renderHistory();
   }
 });
+
+// 🔧 v1.16.3: 評価レポート表示トグル
+const showLegacyEvalsCheckbox = document.getElementById('showLegacyEvals');
+if (showLegacyEvalsCheckbox) {
+  showLegacyEvalsCheckbox.addEventListener('change', () => renderHistory());
+}
+
+// 🔧 v1.16.3: 過去の独立した評価レポートを元記事にまとめて統合し、評価レポートは削除
+const cleanupBtn = document.getElementById('cleanupLegacyEvals');
+if (cleanupBtn) {
+  cleanupBtn.addEventListener('click', async () => {
+    const all = await dbList();
+    const legacyEvals = all.filter(it => it.mode === 'evaluate' && it.evaluateTargetId);
+    if (legacyEvals.length === 0) { alert('整理対象の評価レポートはありません'); return; }
+    if (!confirm(`${legacyEvals.length} 件の評価レポートを元記事に統合し、評価レポート自体は削除します。よろしいですか?`)) return;
+    let merged = 0, skipped = 0;
+    for (const evalItem of legacyEvals) {
+      try {
+        const original = await dbGet(evalItem.evaluateTargetId);
+        if (!original) { skipped++; continue; }
+        const rating = evalItem.evaluationRating || extractEvaluationRating(evalItem.result);
+        const evalDateStr = new Date(evalItem.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+        // 既に同じセクションがあるか簡易チェック
+        const sectionHeader = `## 📊 評価レポート (${evalDateStr}`;
+        if (original.result && original.result.includes(sectionHeader)) { skipped++; await dbDelete(evalItem.id); continue; }
+        const ratingStr = rating ? ` — 総合評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}` : '';
+        const evalSection = `\n\n---\n\n${sectionHeader}${ratingStr})\n\n${evalItem.result || ''}`;
+        original.result = (original.result || '') + evalSection;
+        if (rating) {
+          original.evaluationRating = rating;
+        }
+        original.evaluationDate = evalItem.timestamp;
+        original.evaluationHistory = original.evaluationHistory || [];
+        original.evaluationHistory.push({
+          date: evalItem.timestamp, rating,
+          comment: extractEvaluationComment(evalItem.result || ''),
+          searchCount: evalItem.searchCount, inputTokens: evalItem.inputTokens, outputTokens: evalItem.outputTokens,
+          evalLength: (evalItem.result || '').length
+        });
+        await dbPut(original);
+        await dbDelete(evalItem.id);
+        merged++;
+      } catch (e) { console.warn('Cleanup failed for eval', evalItem.id, e); skipped++; }
+    }
+    await renderHistory();
+    alert(`整理完了: ${merged} 件を元記事に統合、${skipped} 件はスキップ(元記事不在 or 統合済み)`);
+  });
+}
 
 function downloadAnalysis(item) {
   const m = MODELS[item.model] || { name: item.model };
@@ -4300,9 +4498,9 @@ async function analyzeNewsDigest() {
   setProgressPercent(5);
 
   // 📰 ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
-  // 超節約モードではさらに検索数を増やし(15)、出力 max_tokens は極端に絞る(2,500)
-  // 🔧 v1.16.0: 元コードは prompt 構築後に宣言していた TDZ バグ。先に宣言。
-  const _newsMaxSearches = isUltraEcoMode() ? 15 : 10;
+  // 🔧 v1.16.4: Haiku 4.5 固定でコストが低いため検索回数を拡大
+  //             通常 10→18, 超節約 15→25 (Sonnet/Opus 比で約 1/3 コストなので深掘り可能)
+  const _newsMaxSearches = isUltraEcoMode() ? 25 : 18;
 
   // 🌦 v1.16.0: Open-Meteo API で天気を事前取得 → プロンプトに注入することで
   //             モデルが天気を web_search する必要なし(1〜2 検索分のコスト節約)
@@ -5885,6 +6083,67 @@ ${stylePeriodsListItems}
       const extractedSummary = extractAnalysisSummary(accumulatedText);
       // 🔧 v1.16.2: 使用したAPI情報を tracking して保存
       const stooqCount = countStooqStocksInResult(accumulatedText);
+
+      // 🔧 v1.16.3: 評価モードは別アイテムを保存せず、元記事に「評価レポート」セクションを
+      //             追記する形で統合する(アーカイブの肥大化防止)。
+      if (isEvaluating && evalTarget && evalTarget.id) {
+        const rating = extractEvaluationRating(accumulatedText);
+        const comment = extractEvaluationComment(accumulatedText);
+        const evalDate = new Date();
+        const evalDateStr = evalDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+        let mergedItem = null;
+        try {
+          const original = await dbGet(evalTarget.id);
+          if (!original) throw new Error('元記事 (ID:' + evalTarget.id + ') が見つかりません');
+          // 評価セクションを元記事末尾に追記
+          const ratingStr = rating ? ` — 総合評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}` : ' — 評価レーティング未抽出';
+          const evalSection = `\n\n---\n\n## 📊 評価レポート (${evalDateStr}${ratingStr})\n\n${accumulatedText}`;
+          original.result = (original.result || '') + evalSection;
+          if (rating) {
+            original.evaluationRating = rating;
+            original.evaluationComment = comment || '';
+          }
+          original.evaluationDate = Date.now();
+          original.evaluationHistory = original.evaluationHistory || [];
+          original.evaluationHistory.push({
+            date: Date.now(), rating, comment,
+            searchCount, inputTokens, outputTokens,
+            evalLength: accumulatedText.length
+          });
+          await dbPut(original);
+          mergedItem = original;
+          addActivity(`✅ 元記事 (ID:${evalTarget.id}) に評価レポートを統合しました${rating ? ` ★${rating}/5` : ' (★抽出失敗・本文のみ統合)'}`);
+          await renderHistory();
+          // 統合後の元記事を表示
+          renderMarkdown(original.result);
+          ensureResultActions(original);
+        } catch (e) {
+          console.error('Eval merge failed:', e);
+          addActivity(`❌ 評価の統合に失敗: ${e.message}`);
+        }
+
+        // 評価モード時は別 savedItem を作らないので、ここで cost summary 等を表示してから return
+        let chips = '';
+        if (searchCount > 0) chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
+        if (inputTokens > 0) chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
+        if (outputTokens > 0) chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
+        chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード(統合済) <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}の分析を評価</span></span>`;
+        const mInfo = MODELS[model] || {};
+        showCostSummary({
+          phases: [{ label: mInfo.name || model, inputCost: mInfo.inputCost || 0, outputCost: mInfo.outputCost || 0, inputTokens, outputTokens }],
+          totalIn: inputTokens, totalOut: outputTokens,
+          modelLabel: mInfo.name || model, searchCount, learningsCount: 0
+        });
+        setStatusHTML(`✅ <strong>評価レポートを元記事に統合しました</strong><div class="chips">${chips}</div>`, 'success');
+        // 早期return: 通常の savedItem 保存はスキップ
+        analyzeBtn.disabled = false;
+        evaluatingItem = null;
+        currentAbortController = null;
+        hideRunningInfo();
+        updateAnalyzeButtonLabel();
+        return;
+      }
+
       const savedItem = {
         timestamp: Date.now(),
         model, market, style, risk, amount, additional,
@@ -5892,9 +6151,9 @@ ${stylePeriodsListItems}
         title: extractedTitle,
         summary: extractedSummary,
         searchCount, inputTokens, outputTokens, stopReason,
-        mode: isEvaluating ? 'evaluate' : currentMode,
-        reviewSourceIds: currentMode === 'review' && !isEvaluating ? Array.from(selectedHistoryIds) : [],
-        evaluateTargetId: isEvaluating ? evalTarget.id : null,
+        mode: currentMode,
+        reviewSourceIds: currentMode === 'review' ? Array.from(selectedHistoryIds) : [],
+        evaluateTargetId: null,
         learningsApplied: pastLearnings.length,
         dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: stooqCount } }
       };
@@ -5903,28 +6162,6 @@ ${stylePeriodsListItems}
         savedItem.id = newId;
         if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
         addActivity(`💾 IndexedDB に保存しました (ID: ${newId})`);
-
-        // 🔧 v1.16.0: 評価モードなら元記事に ★レベルを付与して統合保存
-        if (isEvaluating && evalTarget && evalTarget.id) {
-          const rating = extractEvaluationRating(accumulatedText);
-          const comment = extractEvaluationComment(accumulatedText);
-          if (rating) {
-            try {
-              const original = await dbGet(evalTarget.id);
-              if (original) {
-                original.evaluationRating = rating;
-                original.evaluationComment = comment || '';
-                original.evaluationDate = Date.now();
-                original.evaluationId = newId;
-                await dbPut(original);
-                addActivity(`⭐ 元記事 (ID:${evalTarget.id}) に評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)} を統合しました`);
-              }
-            } catch (e) { console.warn('Failed to merge rating into original:', e); }
-          } else {
-            addActivity('⚠️ 評価レポートから★レーティングを抽出できませんでした');
-          }
-        }
-
         await renderHistory();
         ensureResultActions(savedItem);
       }
@@ -6182,24 +6419,35 @@ function extractAnalysisSummary(text) {
   return m[1].trim().slice(0, 400);
 }
 
-// 🔧 v1.16.0: 評価レポートから「総合評価: ★★★★☆」を抽出 → 元記事に統合するため
-// 🔧 v1.16.1: Markdown bold (**総合評価**), 全角コロン(：), 改行を頑健に処理
+// 🔧 v1.16.3: 評価レポートからレーティングを抽出 → 大幅に頑健化(多くのパターン許容)
 function extractEvaluationRating(text) {
   if (!text) return null;
-  // ① "総合評価" を含む行を探し、近傍 80 字以内の ★ 連続を抽出
-  const idx = text.search(/総合評価/);
-  if (idx >= 0) {
-    const window = text.slice(idx, idx + 120);
-    const m = window.match(/(★{1,5})(?!★)/); // ★ の連続を最大限取得(直後が ★ でないところまで)
-    if (m) return m[1].length;
+
+  // パターン1: ★ シンボルの連続(最大長)を探す
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/総合評価|総合\s*スコア|総合\s*ランク|総合点/.test(line)) {
+      // この行+次の2行を窓として検査
+      const window = lines.slice(i, i + 3).join(' ');
+      // ① ★連続
+      const m = window.match(/★+/);
+      if (m && m[0].length >= 1 && m[0].length <= 5) return m[0].length;
+      // ② "X/5" or "X 段階中" or "X 点"
+      const nm = window.match(/(\d+)\s*(?:\/\s*5|段階|点|stars?|\s*星)/i);
+      if (nm) { const n = parseInt(nm[1], 10); if (n >= 1 && n <= 5) return n; }
+    }
   }
-  // ② テキスト先頭 3000 字から最初の ★{1,5} を探す(評価サマリーが冒頭にある想定)
-  const top = text.slice(0, 3000);
-  const m2 = top.match(/(★{1,5})(?!★)/);
-  if (m2) return m2[1].length;
-  // ③ "(5/5)" や "(4/5)" のような分数表記
-  const m3 = top.match(/[(（](\d)\s*\/\s*5[)）]/);
-  if (m3) { const n = parseInt(m3[1], 10); if (n >= 1 && n <= 5) return n; }
+
+  // パターン2: テキスト全体の最初の ★ 連続(評価サマリーが冒頭にある想定、本文より上)
+  const top = text.slice(0, 4000);
+  const m = top.match(/★+/);
+  if (m && m[0].length >= 1 && m[0].length <= 5) return m[0].length;
+
+  // パターン3: 先頭 3000 字の "X/5" or "(X/5)"
+  const m2 = top.match(/(?:^|[\s(（])(\d+)\s*\/\s*5(?=[\s)）]|$)/m);
+  if (m2) { const n = parseInt(m2[1], 10); if (n >= 1 && n <= 5) return n; }
+
   return null;
 }
 // 評価レポートから「一行コメント」を抽出(元記事のバナー表示用)
@@ -6430,6 +6678,29 @@ function renderMarkdown(text) {
       // ★ v1.16.0: 予測チャートに加えて Stooq.com の実際の過去6ヶ月チャートも表示
       const histHtml = renderHistoricalCharts(parsedData);
       if (histHtml) chartHtml = (chartHtml || '') + histHtml;
+      // 🔧 v1.16.4: 株価検証(AI提示価格 vs Yahoo Finance 最新)を非同期で追加
+      if (parsedData.stocks && parsedData.stocks.length > 0) {
+        const verifyId = `priceVerify-${i}-${Date.now()}`;
+        chartHtml = (chartHtml || '') + `<div class="price-verification-loading" id="${verifyId}">💰 株価検証中... (Yahoo Finance API で AI 提示価格と実際の値の乖離をチェック)</div>`;
+        // 結果を非同期で差し替え(レンダリングをブロックしない)
+        setTimeout(async () => {
+          try {
+            const results = await verifyChartDataPrices(parsedData);
+            const el = document.getElementById(verifyId);
+            if (!el) return;
+            if (results && results.length > 0) {
+              const successCount = results.filter(r => r.actualPrice !== null).length;
+              if (successCount > 0) {
+                el.outerHTML = renderPriceVerification(results);
+              } else {
+                el.outerHTML = `<div class="price-verification-loading">⚠️ 株価検証API取得失敗(無料プロキシ経由のため不安定)。Stooq のチャート画像は上に表示済み</div>`;
+              }
+            } else {
+              el.outerHTML = '';
+            }
+          } catch (e) { console.warn('Price verification error:', e); }
+        }, 50);
+      }
       if (!chartHtml) {
         chartHtml = `<div class="chart-loading">📊 チャートデータが空または不正な形式です</div>`;
       }
