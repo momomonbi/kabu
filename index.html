@@ -943,6 +943,89 @@ label {
   margin: 16px 0;
 }
 
+/* ===== Historical Charts (Stooq.com 過去6ヶ月チャート) ===== */
+.historical-charts {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(6, 182, 212, 0.05));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 18px 0 24px;
+}
+.historical-charts h3.chart-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  padding: 0; border: none; background: none;
+  -webkit-text-fill-color: var(--text-primary);
+  display: block;
+}
+.historical-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.historical-chart-card {
+  background: white;
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-glass);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.historical-chart-header {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px;
+  padding: 0 2px;
+}
+.historical-chart-name { font-weight: 700; color: var(--text-primary); }
+.historical-chart-ticker { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+.historical-chart-img {
+  display: block; width: 100%; height: auto;
+  border-radius: 8px;
+  background: #f8fafc;
+  min-height: 80px;
+}
+.historical-chart-fallback {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 10px;
+  background: rgba(245, 158, 11, 0.05);
+  border-radius: 8px;
+  text-align: center;
+}
+.chart-disclaimer {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  text-align: right;
+}
+
+/* ===== Evaluation Rating Badge on history items ===== */
+.history-item-eval-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  margin-left: 6px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(236, 72, 153, 0.15));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  letter-spacing: 0.5px;
+}
+.eval-rating-banner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(236, 72, 153, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 16px 0;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.eval-rating-banner .eval-stars { font-size: 1.4rem; letter-spacing: 1px; }
+.eval-rating-banner .eval-text { font-size: 13px; color: var(--text-primary); }
+.eval-rating-banner .eval-date { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+
 /* ===== Chip Guide (Haiku-powered request builder) ===== */
 .chip-guide-actions {
   display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
@@ -1581,7 +1664,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.15.0';
+const APP_VERSION = 'v1.16.0';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2393,6 +2476,19 @@ async function dbSave(analysis) {
     });
   } catch (e) { console.error('DB save failed', e); return null; }
 }
+// 🔧 v1.16.0: 既存レコードの上書き更新用 (評価レーティングを元記事に統合するため)
+async function dbPut(item) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(item);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) { console.error('DB put failed', e); return null; }
+}
 async function dbList() {
   try {
     const db = await openDB();
@@ -2504,6 +2600,144 @@ function stripMd(text) {
 }
 function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
 
+// ===== 🌦 Open-Meteo 天気予報 API (無料・無認証・CORS対応) =====
+// web_search で天気を調べる代わりに直接 API から取得 → 1〜2 検索ぶんのコスト($0.01〜0.02)を節約
+const JAPAN_WEATHER_CITIES = [
+  { name: '青森',   emoji: '🍎', lat: 40.82, lon: 140.74 },
+  { name: '札幌',   emoji: '❄️', lat: 43.07, lon: 141.35 },
+  { name: '仙台',   emoji: '🌾', lat: 38.27, lon: 140.87 },
+  { name: '東京',   emoji: '🗼', lat: 35.68, lon: 139.69 },
+  { name: '名古屋', emoji: '🏯', lat: 35.18, lon: 136.91 },
+  { name: '大阪',   emoji: '🐙', lat: 34.69, lon: 135.50 },
+  { name: '広島',   emoji: '🕊', lat: 34.39, lon: 132.46 },
+  { name: '福岡',   emoji: '🍜', lat: 33.59, lon: 130.40 },
+  { name: '那覇',   emoji: '🌺', lat: 26.21, lon: 127.68 }
+];
+// WMO weather codes → 絵文字 + ラベル
+const WMO_WEATHER_CODES = {
+  0: ['☀️','快晴'],  1: ['🌤','晴れ'],  2: ['⛅','一部曇'], 3: ['☁️','曇り'],
+  45:['🌫','霧'],   48:['🌫','霧氷'],
+  51:['🌦','小雨'], 53:['🌧','雨'],   55:['🌧','強い雨'],
+  56:['🌧','凍雨'], 57:['🌧','凍雨'],
+  61:['🌧','雨'],   63:['🌧','雨'],   65:['🌧','大雨'],
+  66:['🌨','凍雨'], 67:['🌨','凍雨'],
+  71:['❄️','小雪'], 73:['❄️','雪'],   75:['❄️','大雪'],
+  77:['🌨','霰'],
+  80:['🌦','にわか雨'], 81:['🌧','強雨'], 82:['⛈','豪雨'],
+  85:['🌨','にわか雪'], 86:['❄️','吹雪'],
+  95:['⛈','雷雨'], 96:['⛈','雷雨+雹'], 99:['⛈','雷雨+雹']
+};
+function wmoToEmoji(code) {
+  const e = WMO_WEATHER_CODES[code];
+  return e ? { emoji: e[0], label: e[1] } : { emoji: '🌡', label: '?' };
+}
+async function fetchJapanWeather() {
+  // Open-Meteo は緯度経度をカンマ区切りで複数指定可能。1リクエストで全都市取得。
+  const lats = JAPAN_WEATHER_CITIES.map(c => c.lat).join(',');
+  const lons = JAPAN_WEATHER_CITIES.map(c => c.lon).join(',');
+  const params = new URLSearchParams({
+    latitude: lats,
+    longitude: lons,
+    current: 'temperature_2m,weather_code',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum',
+    timezone: 'Asia/Tokyo',
+    forecast_days: '3'
+  });
+  const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  const data = await res.json();
+  // 複数座標時は配列、単一時はオブジェクトで返る
+  const arr = Array.isArray(data) ? data : [data];
+  return JAPAN_WEATHER_CITIES.map((city, i) => {
+    const d = arr[i] || {};
+    const cur = d.current || {};
+    const daily = d.daily || {};
+    const tMax = daily.temperature_2m_max || [];
+    const tMin = daily.temperature_2m_min || [];
+    const wCode = daily.weather_code || [];
+    const precip = daily.precipitation_sum || [];
+    const td = wmoToEmoji(wCode[0]);
+    const tm = wmoToEmoji(wCode[1]);
+    return {
+      city: city.name, emoji: city.emoji,
+      current_c: typeof cur.temperature_2m === 'number' ? cur.temperature_2m : null,
+      today:    { emoji: td.emoji, label: td.label, max: tMax[0], min: tMin[0], precip: precip[0] },
+      tomorrow: { emoji: tm.emoji, label: tm.label, max: tMax[1], min: tMin[1], precip: precip[1] }
+    };
+  });
+}
+function buildWeatherPromptBlock(weather) {
+  if (!Array.isArray(weather) || weather.length === 0) return '';
+  const fmt = (v) => (typeof v === 'number' ? v.toFixed(0) : '?');
+  const rows = weather.map(w => {
+    const t = w.today, tm = w.tomorrow;
+    const cur = typeof w.current_c === 'number' ? ` (現在${fmt(w.current_c)}°C)` : '';
+    const tPrecip = (typeof t.precip === 'number' && t.precip > 0) ? ` 降水${fmt(t.precip)}mm` : '';
+    const mPrecip = (typeof tm.precip === 'number' && tm.precip > 0) ? ` 降水${fmt(tm.precip)}mm` : '';
+    return `- **${w.city}** ${w.emoji}: 今日 ${t.emoji}${t.label} ${fmt(t.min)}〜${fmt(t.max)}°C${tPrecip} / 明日 ${tm.emoji}${tm.label} ${fmt(tm.min)}〜${fmt(tm.max)}°C${mPrecip}${cur}`;
+  }).join('\n');
+  return `
+
+【★ 全国天気予報 (Open-Meteo API 自動取得・最新) ★】
+※ この天気データは API で取得済みです。weather を web_search で再検索する必要はありません(コスト節約)。
+
+${rows}
+
+▼ 天気・気象 → 株価チェーン参考:
+- 猛暑(30°C超): 電力/エアコン/飲料/アイス/ビール
+- 寒波(0°C以下): ガス/暖房/衣料
+- 大雨(降水量30mm超): 損保/建設/物流影響
+- 雪: スキー/除雪/暖房関連
+- 干ばつ/不作: 食品/商社
+`;
+}
+
+// ===== 📉 Stooq 株価チャート (無料・無認証・画像URL直接埋込) =====
+// 過去6ヶ月のリアル株価チャートを <img> 埋込で表示(CORS問題なし、APIキー不要)
+function formatStooqTicker(ticker) {
+  if (!ticker) return null;
+  let t = String(ticker).trim().toUpperCase().replace(/[^\w.]/g, '');
+  if (!t) return null;
+  // 既に Stooq 形式 (e.g. 7203.JP, AAPL.US)
+  if (/\.(JP|US|UK|DE|FR|HK|AU)$/i.test(t)) return t.toLowerCase();
+  // 4桁数字 → 日本株
+  if (/^\d{4}$/.test(t)) return `${t}.jp`;
+  // 英字のみ → 米国株
+  if (/^[A-Z]+$/.test(t)) return `${t}.us`;
+  return t.toLowerCase();
+}
+function renderHistoricalCharts(data) {
+  if (!data || !Array.isArray(data.stocks) || data.stocks.length === 0) return '';
+  const items = data.stocks.slice(0, 8).map(s => ({
+    name: s.name || s.ticker || '',
+    ticker: String(s.ticker || ''),
+    stooq: formatStooqTicker(s.ticker)
+  })).filter(s => s.stooq);
+  if (items.length === 0) return '';
+  const cards = items.map(s => {
+    const url = `https://stooq.com/c/?s=${encodeURIComponent(s.stooq)}&c=6m&t=l&a=lg&b=0&i=g`;
+    const tvFallback = `https://www.tradingview.com/symbols/${encodeURIComponent(s.ticker)}/`;
+    return `<div class="historical-chart-card">
+      <div class="historical-chart-header">
+        <span class="historical-chart-name">${escapeHtml(s.name)}</span>
+        <span class="historical-chart-ticker">${escapeHtml(s.ticker)}</span>
+      </div>
+      <a href="${tvFallback}" target="_blank" rel="noopener" title="TradingView で詳細を開く">
+        <img src="${url}" alt="${escapeHtml(s.name)} 6ヶ月チャート" class="historical-chart-img" loading="lazy"
+             onerror="this.style.display='none';var el=this.parentElement.nextElementSibling;if(el)el.style.display='block'">
+      </a>
+      <div class="historical-chart-fallback" style="display:none">⚠️ チャート画像を取得できませんでした (${escapeHtml(s.stooq)})。<a href="${tvFallback}" target="_blank" rel="noopener">TradingView で見る →</a></div>
+    </div>`;
+  }).join('');
+  return `<div class="historical-charts">
+    <h3 class="chart-title">📉 過去6ヶ月の実際の株価チャート</h3>
+    <div class="chart-subtitle">AI の予測折れ線(上)と、実際の値動き(下)を見比べてください。データ提供: Stooq.com</div>
+    <div class="historical-charts-grid">${cards}</div>
+    <div class="chart-disclaimer">※ Stooq は遅延データ提供。画像をタップで TradingView へ。</div>
+  </div>`;
+}
+
 async function updateLearningBanner() {
   const learnings = await getEvaluationLearnings();
   const banner = document.getElementById('learningBanner');
@@ -2546,17 +2780,22 @@ async function renderHistory() {
     // Title: use stored title, or extract from result (for old items), or fall back
     let titleText = item.title || extractAnalysisTitle(item.result || '');
     let titleHtml;
+    // 🔧 v1.16.0: 評価済み元記事には ★レベルバッジを表示
+    const evalBadge = (typeof item.evaluationRating === 'number' && item.evaluationRating >= 1)
+      ? `<span class="history-item-eval-badge" title="評価済み: ${item.evaluationComment ? escapeHtml(item.evaluationComment) : ''}">${'★'.repeat(item.evaluationRating)}${'☆'.repeat(5 - item.evaluationRating)} 評価済</span>`
+      : '';
     if (titleText) {
       const modeIcon = item.mode === 'evaluate' ? '📊' : item.mode === 'review' ? '🔄' : '💡';
       titleHtml = `<div class="history-title">
         <span class="history-title-icon">${modeIcon}</span>
         <span class="history-title-text">${escapeHtml(titleText)}</span>
+        ${evalBadge}
       </div>`;
     } else {
       // Fallback: try to extract first H2 heading from result
       const h2 = (item.result || '').match(/##\s*[^\n]+/);
       const fallback = h2 ? stripMd(h2[0]).slice(0, 60) : '(タイトル未設定の旧分析)';
-      titleHtml = `<div class="history-title-fallback">📝 ${escapeHtml(fallback)}</div>`;
+      titleHtml = `<div class="history-title-fallback">📝 ${escapeHtml(fallback)} ${evalBadge}</div>`;
     }
     return `
       <div class="history-item ${isSelectable ? 'selectable' : ''} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
@@ -2685,6 +2924,42 @@ function ensureResultActions(currentItem) {
       setTimeout(() => { btn.textContent = '📋 クリップボードにコピー'; }, 2000);
     } catch { alert('コピーに失敗しました'); }
   };
+
+  // 🔧 v1.16.0: 評価済み元記事を開いた時、★レベルと評価コメントをバナー表示
+  let existingBanner = document.getElementById('evalRatingBanner');
+  if (existingBanner) existingBanner.remove();
+  if (currentItem && typeof currentItem.evaluationRating === 'number' && currentItem.evaluationRating >= 1) {
+    const banner = document.createElement('div');
+    banner.id = 'evalRatingBanner';
+    banner.className = 'eval-rating-banner';
+    const r = currentItem.evaluationRating;
+    const stars = '★'.repeat(r) + '☆'.repeat(5 - r);
+    const dateStr = currentItem.evaluationDate ? new Date(currentItem.evaluationDate).toLocaleDateString('ja-JP') : '';
+    const comment = currentItem.evaluationComment ? escapeHtml(currentItem.evaluationComment) : '評価レポートで予測精度をチェックしました';
+    const linkBtn = currentItem.evaluationId
+      ? `<button class="result-btn" data-eval-open="${currentItem.evaluationId}" style="margin-left:8px">📊 評価レポートを開く</button>`
+      : '';
+    banner.innerHTML = `
+      <span class="eval-stars" title="${r}/5">${stars}</span>
+      <span class="eval-text"><strong>評価済み</strong>: ${comment}</span>
+      <span class="eval-date">${dateStr}</span>
+      ${linkBtn}
+    `;
+    actionsBar.parentNode.insertBefore(banner, actionsBar.nextSibling);
+    // 評価レポートへのリンクハンドラ
+    const evalOpenBtn = banner.querySelector('[data-eval-open]');
+    if (evalOpenBtn) {
+      evalOpenBtn.onclick = async () => {
+        const evalId = parseInt(evalOpenBtn.getAttribute('data-eval-open'), 10);
+        const evalItem = await dbGet(evalId);
+        if (evalItem) {
+          renderMarkdown(evalItem.result);
+          ensureResultActions(evalItem);
+          resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+      };
+    }
+  }
 }
 
 // ===== Progress tracking =====
@@ -2764,11 +3039,13 @@ function countStocks(text) {
 }
 
 // ===== Reusable SSE streaming helper (used by hybrid mode) =====
-async function streamFetch({apiKey, model, prompt, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15}) {
+// 🔧 v1.16.0: Haiku 4.5 では web_search_20260209 (動的フィルタリング版) が非対応のため、
+//             基本版 web_search_20250305 に切替。Opus/Sonnet は動的フィルタリングを継続利用してトークン削減。
+async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15}) {
   const tools = useTools ? [
     ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
       ? { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearchUses }
-      : { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearchUses, allowed_callers: ['direct'] }
+      : { type: 'web_search_20250305', name: 'web_search', max_uses: maxSearchUses }
   ] : undefined;
 
   const body = {
@@ -3071,6 +3348,9 @@ ${stylePeriodsListItems}
         if (parsed.type === 'message_delta' && parsed.usage) {
           stopHeartbeat();
           phase1Out = parsed.usage.output_tokens || phase1Out;
+          // 🔧 v1.16.0: web_search 結果が input に追加された分を取り込む (cost 過小計上の修正)
+          //             message_start の input_tokens は初期入力のみ。message_delta は web_search 結果込みの最終値。
+          if (typeof parsed.usage.input_tokens === 'number') phase1In = Math.max(phase1In, parsed.usage.input_tokens);
           const _r = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const tokenCost = (phase1In * (_r.inputCost || 5) + phase1Out * (_r.outputCost || 25)) / 1000000;
           const searchCost = phase1Search * WEB_SEARCH_COST_USD;
@@ -3380,6 +3660,12 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
             // phase2Out = sum of completed iterations (already in phase2Out before this iter) + this iter's progress
             // We track via thisIterOut delta below
           }
+          // 🔧 v1.16.0: Phase 2 (Haiku) は web_search を使わないため input は固定だが、
+          //             万一サーバ側で追加トークン計上があれば取り込む(cost 過小計上の修正)
+          if (parsed.usage && typeof parsed.usage.input_tokens === 'number') {
+            const updated = Math.max(thisIterIn, parsed.usage.input_tokens);
+            if (updated > thisIterIn) { phase2In += (updated - thisIterIn); thisIterIn = updated; }
+          }
           // Update running cost (Phase1 + Phase2 + search) with actual tokens so far
           const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
@@ -3489,6 +3775,11 @@ ${questions}
         }
         if (parsed.type === 'message_delta' && parsed.usage && parsed.usage.output_tokens !== undefined) {
           consultIterOut = parsed.usage.output_tokens;
+          // 🔧 v1.16.0: 追加調査の web_search 結果も input に計上(cost 過小計上の修正)
+          if (typeof parsed.usage.input_tokens === 'number') {
+            const updated = Math.max(consultIterIn, parsed.usage.input_tokens);
+            if (updated > consultIterIn) { phase1In += (updated - consultIterIn); consultIterIn = updated; }
+          }
           // Live cost: include the consult tokens (research model rates) + searches
           const _r1 = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
           const _r2 = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
@@ -3771,6 +4062,10 @@ ${items.length === 1
           if (parsed.usage && parsed.usage.output_tokens !== undefined) {
             outputTokens = parsed.usage.output_tokens;
           }
+          // 🔧 v1.16.0: 最終 input_tokens を取り込む(simplify は web_search なしだが将来のキャッシュ対応も兼ねる)
+          if (parsed.usage && typeof parsed.usage.input_tokens === 'number') {
+            inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
+          }
           const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5 };
           updateRunningCost((inputTokens * (_r.inputCost || 1) + outputTokens * (_r.outputCost || 5)) / 1000000);
           updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
@@ -3888,9 +4183,27 @@ async function analyzeNewsDigest() {
   setPhase('📰', 'ニュース収集モード開始', `${newsModelLabel} がローカル・国内・世界のニュースを集めます...`);
   setProgressPercent(5);
 
+  // 📰 ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
+  // 超節約モードではさらに検索数を増やし(15)、出力 max_tokens は極端に絞る(2,500)
+  // 🔧 v1.16.0: 元コードは prompt 構築後に宣言していた TDZ バグ。先に宣言。
+  const _newsMaxSearches = isUltraEcoMode() ? 15 : 10;
+
+  // 🌦 v1.16.0: Open-Meteo API で天気を事前取得 → プロンプトに注入することで
+  //             モデルが天気を web_search する必要なし(1〜2 検索分のコスト節約)
+  let weatherBlock = '';
+  try {
+    addActivity('🌦 Open-Meteo API から全国天気予報を取得中...');
+    const weather = await fetchJapanWeather();
+    weatherBlock = buildWeatherPromptBlock(weather);
+    addActivity(`✅ 天気データ取得 (${weather.length}都市・無料API)`);
+  } catch (e) {
+    console.warn('Weather fetch failed:', e);
+    addActivity(`⚠️ 天気API取得失敗、web_search にフォールバック: ${e.message}`);
+  }
+
   const prompt = `あなたは ${today} 時点のニュース・キュレーターです。
 銘柄分析や投資推奨は行わず、★ 本日のニュースを集めて視覚的に整理する ★ ことだけが仕事です。
-
+${weatherBlock}
 【調査方針】
 - web_search を ★ 最大 ${_newsMaxSearches} 回 ★ まで実施(上限に達したら直ちに出力開始)
 - 政治的中立・事実報道を重視(主観・意見は最小限)
@@ -3964,10 +4277,6 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
     showRunningInfo();
     setStep('connect', 'done');
     setStep('search', 'active');
-
-    // ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
-    // 超節約モードではさらに検索数を増やし(15)、出力 max_tokens は極端に絞る(2,500)
-    const _newsMaxSearches = isUltraEcoMode() ? 15 : 10;
 
     await streamFetch({
       apiKey, model: newsModel, prompt, useTools: true,
@@ -4053,6 +4362,10 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
           stopHeartbeat();
           if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
           if (parsed.usage && parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
+          // 🔧 v1.16.0: web_search 結果が input に追加された分を取り込む(cost 過小計上の修正)
+          if (parsed.usage && typeof parsed.usage.input_tokens === 'number') {
+            inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
+          }
           const _r = MODELS[newsModel] || { inputCost: 1, outputCost: 5 };
           const tokenCost = (inputTokens * (_r.inputCost || 3) + outputTokens * (_r.outputCost || 15)) / 1000000;
           const searchCost = searchCount * WEB_SEARCH_COST_USD;
@@ -4219,8 +4532,20 @@ async function analyzeStocks(retryCount = 0) {
 - 必ず web_search で「PayPay証券 取扱銘柄一覧 ${new Date().getFullYear()}」を検索して最新の取扱銘柄を確認
 - PayPay証券で取り扱っていない銘柄は推奨しないでください` : '';
 
+  // 🌦 v1.16.0: japan-news モードでは Open-Meteo API から天気を事前取得し、プロンプトに注入
+  //             → 天気を web_search する必要なく、1〜2 検索分のコスト($0.01〜0.02)節約
+  let prefetchedWeatherBlock = '';
+  if (market === 'japan-news' && !isEvaluating && currentMode !== 'review') {
+    try {
+      const weather = await fetchJapanWeather();
+      prefetchedWeatherBlock = buildWeatherPromptBlock(weather);
+    } catch (e) {
+      console.warn('Weather prefetch failed:', e);
+    }
+  }
+
   // 📰 国内時事ニュース起点モード — 日本株を「世の中で起きていること」から考察
-  const japanNewsBlock = market === 'japan-news' ? `
+  const japanNewsBlock = market === 'japan-news' ? `${prefetchedWeatherBlock}
 
 【★★★ 国内時事ニュース起点モード(${today})★★★】
 このモードでは ★ 現在の国内時事ニュース・全国の天気予報 ★ を起点として日本株の値動きを考察してください。
@@ -5191,11 +5516,12 @@ ${stylePeriodsListItems}
         max_tokens: 8000,
         stream: true,
         tools: [
-          // Haiku 4.5 はプログラマティックツール呼び出し(PTC)未対応のため allowed_callers: ['direct'] を明示
-          // Opus 4.7/4.6, Sonnet 4.6 は PTC 対応で動的フィルタリングが有効になる
+          // 🔧 v1.16.0: Haiku 4.5 は web_search_20260209 (動的フィルタリング版) 非対応のため、
+          //             基本版 web_search_20250305 を使用。allowed_callers: ['direct'] は ZDR workaround 用なので不要。
+          //             Opus 4.7/4.6, Sonnet 4.6 は動的フィルタリングでトークン削減できる 20260209 を使用。
           ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
             ? { type: 'web_search_20260209', name: 'web_search', max_uses: getSearchDepth() }
-            : { type: 'web_search_20260209', name: 'web_search', max_uses: getSearchDepth(), allowed_callers: ['direct'] }
+            : { type: 'web_search_20250305', name: 'web_search', max_uses: getSearchDepth() }
         ],
         messages: [{ role: 'user', content: prompt }]
       })
@@ -5350,8 +5676,9 @@ ${stylePeriodsListItems}
             stopHeartbeat();
             if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
             if (parsed.usage) {
-              if (parsed.usage.output_tokens !== undefined) outputTokens = parsed.usage.output_tokens;
-              if (parsed.usage.input_tokens !== undefined) inputTokens = parsed.usage.input_tokens;
+              // 🔧 v1.16.0: 単調増加保証(過小計上防止)。web_search 結果込みの最終値を取り込む。
+              if (parsed.usage.output_tokens !== undefined) outputTokens = Math.max(outputTokens, parsed.usage.output_tokens);
+              if (parsed.usage.input_tokens !== undefined) inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
             }
             // ★ Real-time cost with actual tokens + search
             const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
@@ -5436,6 +5763,28 @@ ${stylePeriodsListItems}
         savedItem.id = newId;
         if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
         addActivity(`💾 IndexedDB に保存しました (ID: ${newId})`);
+
+        // 🔧 v1.16.0: 評価モードなら元記事に ★レベルを付与して統合保存
+        if (isEvaluating && evalTarget && evalTarget.id) {
+          const rating = extractEvaluationRating(accumulatedText);
+          const comment = extractEvaluationComment(accumulatedText);
+          if (rating) {
+            try {
+              const original = await dbGet(evalTarget.id);
+              if (original) {
+                original.evaluationRating = rating;
+                original.evaluationComment = comment || '';
+                original.evaluationDate = Date.now();
+                original.evaluationId = newId;
+                await dbPut(original);
+                addActivity(`⭐ 元記事 (ID:${evalTarget.id}) に評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)} を統合しました`);
+              }
+            } catch (e) { console.warn('Failed to merge rating into original:', e); }
+          } else {
+            addActivity('⚠️ 評価レポートから★レーティングを抽出できませんでした');
+          }
+        }
+
         await renderHistory();
         ensureResultActions(savedItem);
       }
@@ -5693,6 +6042,33 @@ function extractAnalysisSummary(text) {
   return m[1].trim().slice(0, 400);
 }
 
+// 🔧 v1.16.0: 評価レポートから「総合評価: ★★★★☆」を抽出 → 元記事に統合するため
+function extractEvaluationRating(text) {
+  if (!text) return null;
+  // ① "総合評価: ★★★★☆" や "総合評価: ★★★★" を最優先で探す
+  const m1 = text.match(/総合評価[\s::]*[*\s]*(★{1,5})/);
+  if (m1) return m1[1].length;
+  // ② "★★★★☆" 形式の連続(評価サマリーの近く)
+  const top = text.slice(0, 2500);
+  const m2 = top.match(/(★{1,5})(?:☆|\s|$|\(|\[)/);
+  if (m2) return m2[1].length;
+  // ③ "(5/5)" や "(4/5)" のような分数表記
+  const m3 = top.match(/[(（](\d)\s*\/\s*5[)）]/);
+  if (m3) { const n = parseInt(m3[1], 10); if (n >= 1 && n <= 5) return n; }
+  return null;
+}
+// 評価レポートから「一行コメント」を抽出(元記事のバナー表示用)
+function extractEvaluationComment(text) {
+  if (!text) return '';
+  // "一行コメント" の後の本文を取得
+  const m = text.match(/一行コメント[\s\S]{0,5}[::]\s*([^\n]{5,200})/);
+  if (m) return m[1].trim().replace(/^[「『"']|[」』"']$/g, '').slice(0, 160);
+  // フォールバック: 「総合評価」のすぐ後の文章
+  const m2 = text.match(/総合評価[^\n]{0,80}\n+([^\n]{20,200})/);
+  if (m2) return m2[1].trim().slice(0, 160);
+  return '';
+}
+
 function renderCalendar(data) {
   if (!data || !Array.isArray(data.events) || data.events.length === 0) return '';
   // ★ 上限ガード — 万一モデルが大量に出力しても UI を保護
@@ -5906,6 +6282,9 @@ function renderMarkdown(text) {
     }
     if (parsedData) {
       chartHtml = renderChart(parsedData);
+      // ★ v1.16.0: 予測チャートに加えて Stooq.com の実際の過去6ヶ月チャートも表示
+      const histHtml = renderHistoricalCharts(parsedData);
+      if (histHtml) chartHtml = (chartHtml || '') + histHtml;
       if (!chartHtml) {
         chartHtml = `<div class="chart-loading">📊 チャートデータが空または不正な形式です</div>`;
       }
