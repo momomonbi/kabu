@@ -2795,8 +2795,8 @@ function formatStooqTicker(ticker) {
   if (!t) return null;
   // 既に Stooq 形式 (e.g. 7203.JP, AAPL.US)
   if (/\.(JP|US|UK|DE|FR|HK|AU)$/i.test(t)) return t.toLowerCase();
-  // 4桁数字 → 日本株
-  if (/^\d{4}$/.test(t)) return `${t}.jp`;
+  // 4文字日本株コード: 先頭数字 + 残り英数字 (e.g. 7203, 285A, 130A, 167A)
+  if (/^\d[0-9A-Z]{3}$/.test(t)) return (t + '.jp').toLowerCase();
   // 英字のみ → 米国株
   if (/^[A-Z]+$/.test(t)) return `${t}.us`;
   return t.toLowerCase();
@@ -2809,7 +2809,7 @@ async function fetchVerificationPrice(rawTicker) {
   // Yahoo Finance のシンボル形式に変換
   let yahoo;
   if (/\.(JP|T)$/i.test(t)) yahoo = t.replace(/\.JP$/i, '.T');
-  else if (/^\d{4}$/.test(t)) yahoo = t + '.T';
+  else if (/^\d[0-9A-Z]{3}$/.test(t)) yahoo = t + '.T';
   else if (/\.US$/i.test(t)) yahoo = t.replace(/\.US$/i, '');
   else yahoo = t;
   const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=2d&interval=1d`;
