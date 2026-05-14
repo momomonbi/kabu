@@ -994,6 +994,18 @@ label {
   border-radius: 8px;
   text-align: center;
 }
+.yahoo-spark-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 24px 8px;
+  text-align: center;
+}
+.yahoo-spark-wrap { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.yahoo-spark-svg { width: 100%; height: auto; display: block; background: #f8fafc; border-radius: 8px; }
+.yahoo-spark-attr {
+  font-size: 10.5px; color: var(--text-muted); padding: 4px 4px 0; text-align: right;
+}
+.yahoo-spark-attr a { color: var(--text-secondary); text-decoration: underline; }
 .chart-disclaimer {
   font-size: 11px;
   color: var(--text-muted);
@@ -1756,7 +1768,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.5';
+const APP_VERSION = 'v1.16.6';
 const APP_VERSION_DATE = '2026-05-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -2838,6 +2850,116 @@ async function fetchVerificationPrice(rawTicker) {
   return null;
 }
 
+// ===== 📈 Yahoo Finance 過去6ヶ月チャート (Stooq 画像が失敗した銘柄用 SVG フォールバック) =====
+async function fetchYahooHistory(rawTicker) {
+  const t = String(rawTicker || '').trim().toUpperCase().replace(/[^\w.]/g, '');
+  if (!t) return null;
+  let yahoo;
+  if (/\.(JP|T)$/i.test(t)) yahoo = t.replace(/\.JP$/i, '.T');
+  else if (/^\d[0-9A-Z]{3}$/.test(t)) yahoo = t + '.T';
+  else if (/\.US$/i.test(t)) yahoo = t.replace(/\.US$/i, '');
+  else yahoo = t;
+  const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=6mo&interval=1d`;
+  const urls = [
+    baseUrl,
+    `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(baseUrl)}`
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const result = data && data.chart && Array.isArray(data.chart.result) && data.chart.result[0];
+      if (!result || !Array.isArray(result.timestamp) || !result.indicators || !Array.isArray(result.indicators.quote)) continue;
+      const closes = result.indicators.quote[0] && result.indicators.quote[0].close;
+      if (!Array.isArray(closes) || closes.length < 2) continue;
+      const points = [];
+      for (let i = 0; i < closes.length && i < result.timestamp.length; i++) {
+        if (typeof closes[i] === 'number' && isFinite(closes[i])) {
+          points.push({ t: result.timestamp[i] * 1000, c: closes[i] });
+        }
+      }
+      if (points.length < 2) continue;
+      return {
+        symbol: (result.meta && result.meta.symbol) || yahoo,
+        currency: (result.meta && result.meta.currency) || '',
+        yahooUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(yahoo)}`,
+        points
+      };
+    } catch (e) { /* try next */ }
+  }
+  return null;
+}
+
+function buildSparklineSVG(points, opts) {
+  const w = 600, h = 200, padL = 56, padR = 12, padT = 14, padB = 22;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const closes = points.map(p => p.c);
+  const min = Math.min.apply(null, closes);
+  const max = Math.max.apply(null, closes);
+  const range = (max - min) || 1;
+  const t0 = points[0].t;
+  const tN = points[points.length - 1].t;
+  const tRange = (tN - t0) || 1;
+  const xOf = p => padL + ((p.t - t0) / tRange) * innerW;
+  const yOf = p => padT + (1 - (p.c - min) / range) * innerH;
+  let path = '';
+  for (let i = 0; i < points.length; i++) {
+    path += (i === 0 ? 'M' : 'L') + xOf(points[i]).toFixed(1) + ',' + yOf(points[i]).toFixed(1) + ' ';
+  }
+  let area = 'M' + xOf(points[0]).toFixed(1) + ',' + (padT + innerH).toFixed(1) + ' ';
+  for (let i = 0; i < points.length; i++) area += 'L' + xOf(points[i]).toFixed(1) + ',' + yOf(points[i]).toFixed(1) + ' ';
+  area += 'L' + xOf(points[points.length - 1]).toFixed(1) + ',' + (padT + innerH).toFixed(1) + ' Z';
+  const first = closes[0], last = closes[closes.length - 1];
+  const up = last >= first;
+  const lineColor = up ? '#16a34a' : '#dc2626';
+  const fillColor = up ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)';
+  const cur = opts.currency || '';
+  const fmtPrice = v => `${cur}${Math.round(v).toLocaleString()}`;
+  const fmtDate = ms => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const pct = (((last - first) / first) * 100);
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" class="yahoo-spark-svg" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(opts.alt || '6ヶ月チャート')}">
+    <line x1="${padL}" y1="${padT.toFixed(1)}" x2="${(padL + innerW).toFixed(1)}" y2="${padT.toFixed(1)}" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="${padL}" y1="${(padT + innerH).toFixed(1)}" x2="${(padL + innerW).toFixed(1)}" y2="${(padT + innerH).toFixed(1)}" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="${(padL - 4).toFixed(1)}" y="${(padT + 4).toFixed(1)}" font-size="10" fill="#6b7280" text-anchor="end">${escapeHtml(fmtPrice(max))}</text>
+    <text x="${(padL - 4).toFixed(1)}" y="${(padT + innerH + 3).toFixed(1)}" font-size="10" fill="#6b7280" text-anchor="end">${escapeHtml(fmtPrice(min))}</text>
+    <path d="${area}" fill="${fillColor}"/>
+    <path d="${path.trim()}" fill="none" stroke="${lineColor}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="${padL.toFixed(1)}" y="${(h - 6).toFixed(1)}" font-size="10" fill="#6b7280">${escapeHtml(fmtDate(t0))}</text>
+    <text x="${(padL + innerW).toFixed(1)}" y="${(h - 6).toFixed(1)}" font-size="10" fill="#6b7280" text-anchor="end">${escapeHtml(fmtDate(tN))}</text>
+    <text x="${(padL + innerW).toFixed(1)}" y="${(padT + 11).toFixed(1)}" font-size="11" fill="${lineColor}" font-weight="700" text-anchor="end">${escapeHtml(fmtPrice(last))} (${up ? '+' : ''}${pct.toFixed(1)}%)</text>
+  </svg>`;
+}
+
+window.__handleStooqImageError = async function(imgEl) {
+  if (!imgEl || imgEl.dataset.fallbackTriggered === '1') return;
+  imgEl.dataset.fallbackTriggered = '1';
+  imgEl.style.display = 'none';
+  let card = imgEl.parentElement;
+  while (card && !card.classList.contains('historical-chart-card')) card = card.parentElement;
+  if (!card) return;
+  const fallback = card.querySelector('.historical-chart-fallback');
+  if (!fallback) return;
+  const ticker = card.dataset.ticker || '';
+  const stooq = card.dataset.stooq || '';
+  const tv = card.dataset.tv || '';
+  fallback.innerHTML = '<div class="yahoo-spark-loading">📡 Stooq に画像なし。Yahoo Finance から過去6ヶ月データ取得中...</div>';
+  fallback.style.display = 'block';
+  try {
+    const data = await fetchYahooHistory(ticker);
+    if (!data || !data.points || data.points.length < 2) throw new Error('no data');
+    const svg = buildSparklineSVG(data.points, { currency: data.currency, alt: `${ticker} 6ヶ月チャート (Yahoo Finance)` });
+    fallback.innerHTML = `<div class="yahoo-spark-wrap">${svg}<div class="yahoo-spark-attr">📊 Yahoo Finance データで描画 (${escapeHtml(data.symbol)}) — <a href="${escapeHtml(data.yahooUrl)}" target="_blank" rel="noopener">Yahoo</a> / <a href="${escapeHtml(tv)}" target="_blank" rel="noopener">TradingView</a></div></div>`;
+  } catch (e) {
+    fallback.innerHTML = `⚠️ チャート画像を取得できませんでした (${escapeHtml(stooq)})。<a href="${escapeHtml(tv)}" target="_blank" rel="noopener">TradingView で見る →</a>`;
+  }
+};
+
 async function verifyChartDataPrices(chartData) {
   if (!chartData || !Array.isArray(chartData.stocks) || chartData.stocks.length === 0) return [];
   // 並列 fetch (最大8銘柄)
@@ -2912,16 +3034,16 @@ function renderHistoricalCharts(data) {
   const cards = items.map(s => {
     const url = `https://stooq.com/c/?s=${encodeURIComponent(s.stooq)}&c=6m&t=l&a=lg&b=0&i=g`;
     const tvFallback = `https://www.tradingview.com/symbols/${encodeURIComponent(s.ticker)}/`;
-    return `<div class="historical-chart-card">
+    return `<div class="historical-chart-card" data-ticker="${escapeHtml(s.ticker)}" data-stooq="${escapeHtml(s.stooq)}" data-tv="${escapeHtml(tvFallback)}">
       <div class="historical-chart-header">
         <span class="historical-chart-name">${escapeHtml(s.name)}</span>
         <span class="historical-chart-ticker">${escapeHtml(s.ticker)}</span>
       </div>
       <a href="${tvFallback}" target="_blank" rel="noopener" title="TradingView で詳細を開く">
         <img src="${url}" alt="${escapeHtml(s.name)} 6ヶ月チャート" class="historical-chart-img" loading="lazy"
-             onerror="this.style.display='none';var el=this.parentElement.nextElementSibling;if(el)el.style.display='block'">
+             onerror="window.__handleStooqImageError && window.__handleStooqImageError(this)">
       </a>
-      <div class="historical-chart-fallback" style="display:none">⚠️ チャート画像を取得できませんでした (${escapeHtml(s.stooq)})。<a href="${tvFallback}" target="_blank" rel="noopener">TradingView で見る →</a></div>
+      <div class="historical-chart-fallback" style="display:none"></div>
     </div>`;
   }).join('');
   return `<div class="historical-charts">
