@@ -1647,6 +1647,62 @@ label {
 .fact-check-highlight.fc-uncertain { background: linear-gradient(transparent 60%, rgba(245, 158, 11, 0.30) 60%); }
 .fact-check-strike { text-decoration: line-through; color: #b91c1c; opacity: 0.7; }
 .fact-check-corrected { color: #047857; font-weight: 700; }
+
+/* 再構築済みブロックの indicator */
+.fact-check-rebuilt {
+  position: relative;
+  background: linear-gradient(rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.02));
+  border-left: 3px solid var(--accent-green);
+  padding-left: 12px;
+  margin-left: -15px;
+  border-radius: 0 6px 6px 0;
+}
+.fact-check-rebuilt::before {
+  content: '🔄 再構築済み';
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 2px 8px;
+  border-radius: 100px;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* 全体見直しの結果パネル */
+.fc-review-panel {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(239, 68, 68, 0.04));
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+.fc-review-panel .fc-review-title {
+  font-size: 14px; font-weight: 700;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+  color: #92400e;
+}
+.fc-review-panel .fc-review-finding {
+  background: white;
+  border: 1px solid var(--border-glass);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.fc-review-panel .fc-review-finding .fc-snippet { display:inline-block; background: rgba(15,23,42,0.05); padding: 2px 8px; border-radius: 6px; font-size: 12px; }
+.fc-review-panel .fc-review-empty { color: var(--text-secondary); font-size: 13px; padding: 6px 0; }
+
+/* 結果アクションバーの "全体見直し" バッジ */
+.result-btn .fc-count-badge {
+  display: inline-block;
+  margin-left: 6px; padding: 1px 7px;
+  font-size: 11px; font-weight: 700;
+  background: rgba(245, 158, 11, 0.18); color: #b45309;
+  border-radius: 100px;
+}
 </style>
 </head>
 <body>
@@ -1884,7 +1940,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.17.0';
+const APP_VERSION = 'v1.18.0';
 const APP_VERSION_DATE = '2026-05-15';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -3459,6 +3515,7 @@ function ensureResultActions(currentItem) {
   actionsBar.innerHTML = `
     <button class="result-btn primary" id="downloadCurrent">📥 Markdownでダウンロード</button>
     <button class="result-btn" id="copyCurrent">📋 クリップボードにコピー</button>
+    <button class="result-btn" id="factCheckGlobalReviewBtn" disabled title="個別の修正を1件以上適用すると有効化されます">🧹 全体を見直す</button>
   `;
   document.getElementById('downloadCurrent').onclick = () => downloadAnalysis(currentItem);
   document.getElementById('copyCurrent').onclick = async () => {
@@ -3469,6 +3526,11 @@ function ensureResultActions(currentItem) {
       setTimeout(() => { btn.textContent = '📋 クリップボードにコピー'; }, 2000);
     } catch { alert('コピーに失敗しました'); }
   };
+  document.getElementById('factCheckGlobalReviewBtn').onclick = () => {
+    if (typeof window.__runGlobalReview === 'function') window.__runGlobalReview();
+  };
+  // 既存の修正履歴があればバッジを更新
+  if (typeof window.__updateGlobalReviewBadge === 'function') window.__updateGlobalReviewBadge();
 
   // 🔧 v1.16.0: 評価済み元記事を開いた時、★レベルと評価コメントをバナー表示
   let existingBanner = document.getElementById('evalRatingBanner');
@@ -7302,8 +7364,17 @@ JSON以外の文字を一切出力しないこと。`;
       ? `<div class="fc-row"><span class="fc-label">置換案</span><span class="fc-snippet">${escapeHtml(replacement)}</span></div>`
       : '';
 
+    // verdict=wrong の時、ブロック種別を判定して再構築ボタンのラベルを切り替える
+    const parentInfo = (verdict === 'wrong' && replacement) ? findParentBlock(span) : null;
+    const rebuildLabel = parentInfo
+      ? (parentInfo.kind === 'table' ? '🔄 表ごと再構築' : '🔄 段落ごと再構築')
+      : '';
+
     const applyBtn = (verdict === 'wrong' && replacement)
-      ? `<button class="fc-btn primary" id="fcApplyBtn" type="button">✏️ 本文を修正</button>`
+      ? `<button class="fc-btn primary" id="fcApplyBtn" type="button">✏️ 値だけ修正</button>`
+      : '';
+    const rebuildBtn = (verdict === 'wrong' && replacement && parentInfo)
+      ? `<button class="fc-btn primary" id="fcRebuildBtn" type="button">${rebuildLabel}</button>`
       : '';
 
     popover.innerHTML = `
@@ -7318,6 +7389,7 @@ JSON以外の文字を一切出力しないこと。`;
       ${sourcesHtml}
       <div class="fc-actions">
         ${applyBtn}
+        ${rebuildBtn}
         <button class="fc-btn" id="fcKeepBtn" type="button">閉じる</button>
         <button class="fc-btn danger-ghost" id="fcRevertBtn" type="button">ハイライト解除</button>
       </div>`;
@@ -7331,12 +7403,362 @@ JSON以外の文字を一切出力しないこと。`;
       applied = true;
       apply.disabled = true;
       apply.textContent = '✅ 反映済み';
+      const rb = popover.querySelector('#fcRebuildBtn');
+      if (rb) rb.disabled = true;
+      registerCorrection(originalText, replacement);
+    };
+    const rebuild = popover.querySelector('#fcRebuildBtn');
+    if (rebuild) rebuild.onclick = async () => {
+      const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
+      if (!apiKey) { alert('APIキーが設定されていません'); return; }
+      rebuild.disabled = true;
+      rebuild.textContent = '🔄 再構築中…';
+      if (apply) apply.disabled = true;
+      try {
+        await rebuildBlock(apiKey, originalText, replacement, parentInfo);
+        applied = true;
+        registerCorrection(originalText, replacement);
+        rebuild.textContent = '✅ 再構築完了';
+        // 再構築完了通知を本文にスクロール
+        if (parentInfo.element && parentInfo.element.scrollIntoView) {
+          parentInfo.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (err) {
+        console.warn('[FactCheck] rebuild failed:', err);
+        rebuild.textContent = '⚠️ 再構築失敗';
+        rebuild.disabled = false;
+        if (apply) apply.disabled = false;
+        alert('再構築に失敗しました: ' + ((err && err.message) || String(err)));
+      }
     };
 
     // 内容変化後にポップオーバー位置を再調整
     if (activeSpan) {
       const r = activeSpan.getBoundingClientRect();
       positionElementNear(r, popover, true);
+    }
+  }
+
+  // ===== ブロック再構築 (Phase 1) =====
+  function findParentBlock(node) {
+    let el = node && node.nodeType === 3 ? node.parentElement : node;
+    if (!el) return null;
+    // 表のセル内なら表全体を対象に
+    const table = el.closest('table');
+    if (table && resultDiv.contains(table)) return { kind: 'table', element: table };
+    const blockTags = new Set(['P', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE']);
+    while (el && el !== resultDiv && !blockTags.has(el.tagName)) {
+      el = el.parentElement;
+    }
+    if (!el || el === resultDiv) return null;
+    return { kind: el.tagName.toLowerCase(), element: el };
+  }
+
+  function tableToMarkdown(tableEl) {
+    const headers = [];
+    const aligns = [];
+    const ths = tableEl.querySelectorAll('thead th');
+    ths.forEach(th => {
+      headers.push((th.textContent || '').trim());
+      const a = (th.style && th.style.textAlign) || 'left';
+      aligns.push(a);
+    });
+    if (headers.length === 0) {
+      const firstRow = tableEl.querySelector('tr');
+      if (firstRow) firstRow.querySelectorAll('th, td').forEach(c => {
+        headers.push((c.textContent || '').trim());
+        aligns.push('left');
+      });
+    }
+    const rows = [];
+    tableEl.querySelectorAll('tbody tr').forEach(tr => {
+      const cells = [];
+      tr.querySelectorAll('td').forEach(td => cells.push((td.textContent || '').trim()));
+      if (cells.length > 0) rows.push(cells);
+    });
+    const sepRow = aligns.map(a => a === 'center' ? ':---:' : a === 'right' ? '---:' : '---').join(' | ');
+    let md = '| ' + headers.join(' | ') + ' |\n';
+    md += '| ' + sepRow + ' |\n';
+    rows.forEach(r => md += '| ' + r.join(' | ') + ' |\n');
+    return md;
+  }
+
+  function markdownTableToHtml(md) {
+    const lines = md.trim().split('\n').map(l => l.trim()).filter(l => l.startsWith('|'));
+    if (lines.length < 3) return null;
+    const splitRow = (line) => line.split('|').slice(1, -1).map(s => s.trim());
+    const header = splitRow(lines[0]);
+    const sepCells = splitRow(lines[1]);
+    const aligns = sepCells.map(s => {
+      if (s.startsWith(':') && s.endsWith(':')) return 'center';
+      if (s.endsWith(':')) return 'right';
+      return 'left';
+    });
+    const rows = lines.slice(2).map(splitRow);
+    const thead = '<thead><tr>' + header.map((h, i) =>
+      `<th style="text-align:${aligns[i] || 'left'}">${escapeHtml(h)}</th>`
+    ).join('') + '</tr></thead>';
+    const tbody = '<tbody>' + rows.map(r =>
+      '<tr>' + r.map((c, i) =>
+        `<td style="text-align:${aligns[i] || 'left'}">${escapeHtml(c)}</td>`
+      ).join('') + '</tr>'
+    ).join('') + '</tbody>';
+    return '<table class="md-table">' + thead + tbody + '</table>';
+  }
+
+  async function rebuildBlock(apiKey, originalText, replacement, parentInfo) {
+    const today = new Date().toISOString().slice(0, 10);
+    const isTable = parentInfo.kind === 'table';
+    let blockText, prompt, instruction;
+
+    if (isTable) {
+      blockText = tableToMarkdown(parentInfo.element);
+      instruction = `あなたは投資・株式分析の編集者です。以下のマークダウン表に事実誤りが見つかり、特定セルを修正しました。修正値と整合するよう、表全体を書き直してください。
+
+【今日の日付】 ${today}
+【誤った値】 "${originalText}"
+【正しい値】 "${replacement}"
+【元の表(マークダウン形式)】
+${blockText}
+
+【書き直しルール】
+- 修正値に基づいて関連する派生値・合計・比率・順位等を再計算する
+- 元の列構造・行数・列見出しは維持する
+- 不明な値は web_search を1〜2回使って再確認(特に株価・指数・財務指標)
+- マークダウン表形式 (\`| ヘッダ | ... |\\n| --- | ... |\\n| 値 | ... |\`) のみを返す
+- 前置き・説明・コードフェンス禁止。表のみを返すこと`;
+    } else {
+      blockText = (parentInfo.element.textContent || '').trim();
+      instruction = `あなたは投資・株式分析の編集者です。以下の段落に事実誤りが見つかり、特定箇所を修正しました。修正値と整合するよう、段落全体を書き直してください。
+
+【今日の日付】 ${today}
+【誤った値】 "${originalText}"
+【正しい値】 "${replacement}"
+【元の段落】
+"""
+${blockText}
+"""
+
+【書き直しルール】
+- 修正値に基づいて、関連する派生値(成長率・前月比・割合・比較値など)も再計算する
+- 元の文体・トーン・段落の長さを維持する
+- 不明な数値は web_search を1〜2回使って再確認するか、「約」「程度」等のぼかし表現にする
+- 段落のテキストのみを返す。マークダウン記法 (\`**\` / \`##\` / \`-\` 等) は元の段落に無ければ使わない
+- 前置き・説明・引用符・コードフェンス禁止。書き直した段落のみを返すこと`;
+    }
+    prompt = instruction;
+
+    const body = {
+      model: FACT_CHECK_MODEL,
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }]
+    };
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = `APIエラー (${res.status})`;
+      try { const j = JSON.parse(errText); if (j.error && j.error.message) msg += ': ' + j.error.message; }
+      catch { msg += ': ' + errText.slice(0, 200); }
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    const text = (data.content || [])
+      .filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
+    if (!text) throw new Error('モデルがテキスト応答を返しませんでした');
+
+    if (isTable) {
+      // マークダウン表を抽出 (前後の余計な行を除去)
+      const tableMatch = text.match(/\|[\s\S]+?\|\s*\n\|[\s:|\-]+\|[\s\S]*/);
+      const md = tableMatch ? tableMatch[0] : text;
+      const html = markdownTableToHtml(md);
+      if (!html) throw new Error('表として解析できませんでした');
+      // 既存の表を新しい表で置換
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      const newTable = wrapper.querySelector('table');
+      if (!newTable) throw new Error('解析後に table が見つかりません');
+      newTable.classList.add('fact-check-rebuilt');
+      parentInfo.element.replaceWith(newTable);
+      parentInfo.element = newTable;
+    } else {
+      // 段落のテキストを置換 (高度な markdown は使わない前提)
+      // 念のため、" や ``` で囲まれていたら除去
+      let cleaned = text.replace(/^["「]+|["」]+$/g, '').replace(/^```[\s\S]*?\n|\n```$/g, '').trim();
+      // 元のタグ (P/LI/H*/BLOCKQUOTE) を維持して中身を入れ替える
+      parentInfo.element.textContent = cleaned;
+      parentInfo.element.classList.add('fact-check-rebuilt');
+    }
+    activeSpan = null; // 元の span は消えた
+  }
+
+  // ===== 修正履歴の蓄積 (Phase 2 用) =====
+  function registerCorrection(original, replacement) {
+    if (!window.__factCheckCorrections) window.__factCheckCorrections = [];
+    window.__factCheckCorrections.push({
+      original, replacement, ts: Date.now()
+    });
+    updateGlobalReviewBadge();
+  }
+  function updateGlobalReviewBadge() {
+    const btn = document.getElementById('factCheckGlobalReviewBtn');
+    if (!btn) return;
+    const n = (window.__factCheckCorrections || []).length;
+    if (n > 0) {
+      btn.disabled = false;
+      btn.innerHTML = `🧹 全体を見直す<span class="fc-count-badge">${n}件の修正</span>`;
+    }
+  }
+  // 公開: ensureResultActions から呼べるように
+  window.__updateGlobalReviewBadge = updateGlobalReviewBadge;
+  window.__runGlobalReview = runGlobalReview;
+
+  async function runGlobalReview() {
+    const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) { alert('APIキーが設定されていません'); return; }
+    const corrections = window.__factCheckCorrections || [];
+    if (corrections.length === 0) { alert('まず個別の修正を1件以上適用してください'); return; }
+
+    // 結果本文のテキスト (チャート・出典等を除く) を抽出
+    const articleText = (() => {
+      const clone = resultDiv.cloneNode(true);
+      // 不要な要素を削除
+      clone.querySelectorAll('.result-actions, .data-sources-panel, .price-verification, .historical-chart-card, .chart-loading, .yahoo-spark-wrap, .eval-rating-banner, .fact-check-popover, .fact-check-trigger, .fc-review-panel').forEach(el => el.remove());
+      return (clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 6000);
+    })();
+
+    // ローディングパネルを表示
+    let panel = document.getElementById('factCheckReviewPanel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'factCheckReviewPanel';
+      panel.className = 'fc-review-panel';
+      const actionsBar = document.getElementById('resultActionsBar');
+      if (actionsBar && actionsBar.parentNode) {
+        actionsBar.parentNode.insertBefore(panel, actionsBar.nextSibling);
+      } else {
+        resultDiv.insertBefore(panel, resultDiv.firstChild);
+      }
+    }
+    panel.innerHTML = `
+      <div class="fc-review-title">🧹 全体見直し中…</div>
+      <div class="fc-review-empty">Haiku 4.5 が記事全体の整合性を確認しています。修正済み: ${corrections.length}件</div>
+    `;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const correctionsList = corrections.map((c, i) =>
+      `${i+1}. "${c.original}" → "${c.replacement}"`
+    ).join('\n');
+
+    const prompt = `あなたは投資・株式分析の編集者です。記事の中で、すでに以下の修正が適用されました。残りの記事本文に、これらの修正と整合しない記述・派生数値・関連項目・矛盾が無いかを確認してください。
+
+【今日の日付】 ${today}
+
+【すでに適用された修正】
+${correctionsList}
+
+【記事本文(現在の状態)】
+"""
+${articleText}
+"""
+
+【手順】
+1. 上記の修正に関連する記述・派生数値(成長率・比較・割合等)・関連銘柄等が記事中で他の場所にも登場するか確認
+2. 必要に応じて web_search を最大3回使用し、関連数値が現在も正しいかクロスチェック
+3. 整合しない・追加で誤りの疑いがある箇所を最大5つまでリストアップ
+4. 必ず以下のJSONのみを返す。前置き・コードフェンス禁止。
+
+{
+  "findings": [
+    {
+      "snippet": "問題のある記述の引用 (記事原文から30〜80字)",
+      "issue": "何が問題か (50字以内)",
+      "suggestion": "推奨される置換・修正案 (50字以内)",
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "summary": "全体の整合性についての一言コメント (60字以内)"
+}
+
+問題が見つからなければ findings: [] を返すこと。`;
+
+    try {
+      const body = {
+        model: FACT_CHECK_MODEL,
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]
+      };
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`APIエラー (${res.status}): ${errText.slice(0, 200)}`);
+      }
+      const data = await res.json();
+      const text = (data.content || [])
+        .filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
+      const m = text.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('JSON抽出失敗:\n' + text.slice(0, 200));
+      let parsed;
+      try { parsed = JSON.parse(m[0]); }
+      catch { parsed = JSON.parse(m[0].replace(/,(\s*[}\]])/g, '$1')); }
+
+      const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+      const summary = parsed.summary || '';
+
+      if (findings.length === 0) {
+        panel.innerHTML = `
+          <div class="fc-review-title">✅ 全体整合性チェック完了</div>
+          <div class="fc-review-empty">追加の問題は見つかりませんでした。${escapeHtml(summary)}</div>
+          <div style="margin-top:8px;"><button class="fc-btn" id="fcDismissReviewBtn" type="button">閉じる</button></div>
+        `;
+      } else {
+        const findingsHtml = findings.slice(0, 5).map(f => {
+          const conf = (f.confidence || 'medium').toLowerCase();
+          const confIcon = conf === 'high' ? '🔴' : conf === 'low' ? '🟡' : '🟠';
+          return `<div class="fc-review-finding">
+            <div style="font-weight:700;margin-bottom:4px;">${confIcon} ${escapeHtml(f.issue || '')}</div>
+            <div>該当: <span class="fc-snippet">${escapeHtml(f.snippet || '')}</span></div>
+            ${f.suggestion ? `<div style="margin-top:4px;">推奨: <span class="fc-snippet">${escapeHtml(f.suggestion)}</span></div>` : ''}
+          </div>`;
+        }).join('');
+        panel.innerHTML = `
+          <div class="fc-review-title">🧹 全体見直し: ${findings.length}件の追加懸念</div>
+          ${summary ? `<div class="fc-review-empty">${escapeHtml(summary)}</div>` : ''}
+          ${findingsHtml}
+          <div style="margin-top:10px;font-size:11.5px;color:var(--text-secondary)">該当箇所をテキスト選択して個別ファクトチェック→修正・再構築してください。</div>
+          <div style="margin-top:8px;"><button class="fc-btn" id="fcDismissReviewBtn" type="button">パネルを閉じる</button></div>
+        `;
+      }
+      const dismiss = panel.querySelector('#fcDismissReviewBtn');
+      if (dismiss) dismiss.onclick = () => panel.remove();
+    } catch (err) {
+      panel.innerHTML = `
+        <div class="fc-review-title">⚠️ 全体見直し失敗</div>
+        <div class="fc-review-empty">${escapeHtml((err && err.message) || String(err)).slice(0, 300)}</div>
+        <div style="margin-top:8px;"><button class="fc-btn" id="fcDismissReviewBtn" type="button">閉じる</button></div>
+      `;
+      const dismiss = panel.querySelector('#fcDismissReviewBtn');
+      if (dismiss) dismiss.onclick = () => panel.remove();
     }
   }
 })();
