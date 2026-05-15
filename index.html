@@ -1535,11 +1535,127 @@ label {
   .segmented.segmented-4 { grid-template-columns: repeat(2, 1fr); }
   .segmented.segmented-4 label { font-size: 13px; padding: 10px 6px; }
 }
+
+/* ===== 🔍 Fact-Check 選択箇所をWeb再調査 ===== */
+.fact-check-trigger {
+  position: absolute;
+  z-index: 9000;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  background: var(--gradient-primary);
+  border: none;
+  border-radius: 100px;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.fact-check-trigger:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45); }
+.fact-check-trigger:active { transform: scale(0.97); }
+.fact-check-trigger.visible { display: inline-flex; }
+
+.fact-check-popover {
+  position: absolute;
+  z-index: 9100;
+  display: none;
+  width: min(380px, calc(100vw - 24px));
+  max-height: 75vh;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: 0 16px 50px rgba(15, 23, 42, 0.18);
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.fact-check-popover.visible { display: block; }
+.fact-check-popover .fc-head {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; margin-bottom: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-glass);
+}
+.fact-check-popover .fc-head .fc-close {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 18px; line-height: 1; padding: 2px 6px;
+}
+.fact-check-popover .fc-head .fc-close:hover { color: var(--text-primary); }
+.fact-check-popover .fc-verdict-ok { color: #047857; }
+.fact-check-popover .fc-verdict-wrong { color: #b91c1c; }
+.fact-check-popover .fc-verdict-uncertain { color: #b45309; }
+.fact-check-popover .fc-verdict-not-factual { color: var(--text-secondary); }
+.fact-check-popover .fc-row { margin: 6px 0; word-break: break-word; }
+.fact-check-popover .fc-label {
+  display: inline-block; font-weight: 700; color: var(--text-secondary);
+  margin-right: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.fact-check-popover .fc-snippet {
+  background: rgba(15, 23, 42, 0.05); padding: 6px 10px;
+  border-radius: 8px; font-size: 12.5px; word-break: break-word;
+  display: inline-block; margin-top: 2px;
+}
+.fact-check-popover .fc-sources { margin-top: 4px; }
+.fact-check-popover .fc-sources a {
+  display: block; font-size: 11.5px; word-break: break-all;
+  color: var(--accent-blue); text-decoration: none;
+  border-bottom: 1px dotted var(--accent-blue); margin-top: 2px;
+}
+.fact-check-popover .fc-actions {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border-glass);
+}
+.fact-check-popover .fc-btn {
+  padding: 7px 12px; font-size: 12px; font-weight: 700;
+  border-radius: 10px; border: 1px solid var(--border-glass);
+  background: white; color: var(--text-secondary);
+  cursor: pointer; font-family: inherit;
+}
+.fact-check-popover .fc-btn:hover { background: rgba(59, 130, 246, 0.06); color: var(--text-primary); }
+.fact-check-popover .fc-btn.primary { background: var(--gradient-primary); color: white; border-color: transparent; }
+.fact-check-popover .fc-btn.primary:hover { color: white; box-shadow: var(--shadow-glow); }
+.fact-check-popover .fc-btn.danger-ghost { color: #b91c1c; }
+.fact-check-popover .fc-btn:disabled { opacity: 0.6; cursor: default; }
+.fact-check-popover .fc-loading {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-secondary); padding: 6px 0;
+}
+.fact-check-popover .fc-loading::before {
+  content: ''; width: 14px; height: 14px;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 結果本文内のハイライト */
+.fact-check-highlight {
+  background: linear-gradient(transparent 60%, rgba(59, 130, 246, 0.25) 60%);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+.fact-check-highlight.fc-ok { background: linear-gradient(transparent 60%, rgba(16, 185, 129, 0.30) 60%); }
+.fact-check-highlight.fc-wrong { background: linear-gradient(transparent 60%, rgba(239, 68, 68, 0.30) 60%); }
+.fact-check-highlight.fc-uncertain { background: linear-gradient(transparent 60%, rgba(245, 158, 11, 0.30) 60%); }
+.fact-check-strike { text-decoration: line-through; color: #b91c1c; opacity: 0.7; }
+.fact-check-corrected { color: #047857; font-weight: 700; }
 </style>
 </head>
 <body>
 <div class="bg-mesh"></div>
 <div class="bg-grid"></div>
+
+<!-- 🔍 Fact-Check 選択箇所をWeb再調査(結果本文の選択時に表示) -->
+<button id="factCheckTrigger" class="fact-check-trigger" type="button">🔍 この箇所を再調査</button>
+<div id="factCheckPopover" class="fact-check-popover" role="dialog" aria-label="ファクトチェック結果"></div>
 
 <div class="app">
   <header>
@@ -1768,8 +1884,8 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.16.6';
-const APP_VERSION_DATE = '2026-05-14';
+const APP_VERSION = 'v1.17.0';
+const APP_VERSION_DATE = '2026-05-15';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
@@ -6847,6 +6963,383 @@ function renderMarkdown(text) {
 
 // Initial render of history
 renderHistory();
+
+// ===== 🔍 Fact-Check 選択箇所をWeb再調査 =====
+// 結果本文内でテキスト選択 → フローティングボタン → Haiku 4.5 + web_search ×2 で
+// 事実確認 → ハイライト + ポップオーバーで提示。誤りなら「✏️ 本文を修正」で
+// DOM 上の該当箇所を「取り消し線+正しい値」に置換。
+(function setupFactCheck() {
+  const FACT_CHECK_MODEL = 'claude-haiku-4-5';
+  const trigger = document.getElementById('factCheckTrigger');
+  const popover = document.getElementById('factCheckPopover');
+  if (!trigger || !popover) return;
+
+  let activeSpan = null;     // 選択箇所をラップしたハイライト span
+  let busy = false;          // API 呼び出し中フラグ
+  let applied = false;       // 修正を反映済みかどうか
+  let pendingSelection = null; // showTrigger 時の選択スナップショット (モバイルでタップ時に消える対策)
+
+  function getResultSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    if (!resultDiv.contains(range.commonAncestorContainer)) return null;
+    // ボタン・チャート・出典パネル・既存ハイライト内の選択は除外
+    let host = range.commonAncestorContainer;
+    if (host.nodeType === 3) host = host.parentElement;
+    if (host && host.closest(
+      'button, .result-actions, .data-sources-panel, .price-verification, ' +
+      '.historical-chart-card, .chart-loading, .yahoo-spark-wrap, ' +
+      '.fact-check-popover, .fact-check-trigger, .fact-check-highlight'
+    )) return null;
+    const text = sel.toString().trim();
+    if (text.length < 1 || text.length > 200) return null;
+    return { range, text };
+  }
+
+  function getBlockContext(range) {
+    let el = range.startContainer;
+    if (el.nodeType === 3) el = el.parentElement;
+    const blockTags = new Set(['P', 'LI', 'TD', 'TH', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE']);
+    while (el && el !== resultDiv && !blockTags.has(el.tagName)) {
+      el = el.parentElement;
+    }
+    if (!el || el === resultDiv) {
+      // フォールバック: 直近の親要素のテキストを使う
+      el = range.startContainer.nodeType === 3 ? range.startContainer.parentElement : range.startContainer;
+    }
+    const text = (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
+    return { element: el, text: text.slice(0, 800) };
+  }
+
+  function positionElementNear(rect, el, preferBelow) {
+    const elW = el.offsetWidth || 200;
+    const elH = el.offsetHeight || 36;
+    let top, left;
+    if (preferBelow) {
+      top = rect.bottom + window.scrollY + 6;
+      if (top + elH > window.scrollY + window.innerHeight - 8) {
+        top = rect.top + window.scrollY - elH - 6;
+      }
+    } else {
+      top = rect.top + window.scrollY - elH - 6;
+      if (top < window.scrollY + 8) top = rect.bottom + window.scrollY + 6;
+    }
+    left = rect.left + window.scrollX + (rect.width - elW) / 2;
+    const minLeft = window.scrollX + 8;
+    const maxLeft = window.scrollX + window.innerWidth - elW - 8;
+    left = Math.max(minLeft, Math.min(left, maxLeft));
+    el.style.top = top + 'px';
+    el.style.left = left + 'px';
+  }
+
+  function showTrigger() {
+    if (busy) return;
+    if (popover.classList.contains('visible')) return; // ポップオーバー表示中は出さない
+    const sel = getResultSelection();
+    if (!sel) { hideTrigger(); pendingSelection = null; return; }
+    const rect = sel.range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) { hideTrigger(); return; }
+    // 選択スナップショットを保存(モバイルで button タップ時に selection が消えるのに対応)
+    pendingSelection = {
+      text: sel.text,
+      range: sel.range.cloneRange(),
+      blockText: getBlockContext(sel.range).text
+    };
+    trigger.classList.add('visible');
+    positionElementNear(rect, trigger, false);
+  }
+  function hideTrigger() { trigger.classList.remove('visible'); }
+
+  function dismissPopover(removeHighlight) {
+    popover.classList.remove('visible');
+    popover.innerHTML = '';
+    if (activeSpan && activeSpan.parentNode && removeHighlight && !applied) {
+      const parent = activeSpan.parentNode;
+      while (activeSpan.firstChild) parent.insertBefore(activeSpan.firstChild, activeSpan);
+      parent.removeChild(activeSpan);
+      parent.normalize();
+    }
+    activeSpan = null;
+    applied = false;
+    busy = false;
+    pendingSelection = null;
+  }
+
+  // ===== Selection / outside-click handlers =====
+  document.addEventListener('mouseup', () => { setTimeout(showTrigger, 10); });
+  document.addEventListener('touchend', () => { setTimeout(showTrigger, 60); }, { passive: true });
+  document.addEventListener('selectionchange', () => {
+    if (busy) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) hideTrigger();
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (trigger.contains(e.target) || popover.contains(e.target)) return;
+    if (popover.classList.contains('visible')) {
+      dismissPopover(false); // クリック外しではハイライト残す
+    } else {
+      hideTrigger();
+    }
+  });
+
+  window.addEventListener('scroll', () => {
+    if (busy) return;
+    if (trigger.classList.contains('visible')) {
+      const sel = getResultSelection();
+      if (sel) {
+        const rect = sel.range.getBoundingClientRect();
+        if (rect) positionElementNear(rect, trigger, false);
+      }
+    }
+  }, { passive: true });
+
+  // ===== Trigger click → ハイライト + Haiku 4.5 へ問い合わせ =====
+  trigger.addEventListener('mousedown', (e) => { e.preventDefault(); }); // selection 維持
+  trigger.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false }); // モバイルで selection を保護
+  trigger.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // 優先: 直近の getResultSelection、フォールバック: pendingSelection スナップショット
+    const liveSel = getResultSelection();
+    const snap = liveSel || pendingSelection;
+    if (!snap) return;
+    const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) { alert('APIキーが設定されていません'); return; }
+
+    const range = snap.range;
+    const selectedText = snap.text;
+    const blockText = snap.blockText || getBlockContext(range).text;
+
+    // ハイライト用 span でラップ
+    const span = document.createElement('span');
+    span.className = 'fact-check-highlight';
+    try {
+      range.surroundContents(span);
+    } catch (err) {
+      // 選択範囲が複数要素にまたがる場合のフォールバック
+      try {
+        const frag = range.extractContents();
+        span.appendChild(frag);
+        range.insertNode(span);
+      } catch (err2) {
+        alert('選択範囲が複雑すぎてラップできませんでした。1つの段落内のテキストを選択してください。');
+        return;
+      }
+    }
+    activeSpan = span;
+    pendingSelection = null;
+    if (window.getSelection().removeAllRanges) window.getSelection().removeAllRanges();
+    hideTrigger();
+
+    // ポップオーバーをローディング状態で表示
+    busy = true;
+    popover.innerHTML = `
+      <div class="fc-head">
+        <span>🔍 ファクトチェック中</span>
+        <button class="fc-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="fc-loading">Haiku 4.5 が web_search × 2 で確認中…</div>
+      <div class="fc-row" style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">
+        対象: <span class="fc-snippet">${escapeHtml(selectedText)}</span>
+      </div>`;
+    popover.classList.add('visible');
+    popover.querySelector('.fc-close').onclick = () => dismissPopover(true);
+    const spanRect = span.getBoundingClientRect();
+    positionElementNear(spanRect, popover, true);
+
+    try {
+      const result = await callFactCheck(apiKey, selectedText, blockText);
+      renderResult(span, selectedText, result);
+    } catch (err) {
+      console.warn('[FactCheck] failed:', err);
+      popover.innerHTML = `
+        <div class="fc-head">
+          <span class="fc-verdict-uncertain">⚠️ チェック失敗</span>
+          <button class="fc-close" type="button" aria-label="閉じる">×</button>
+        </div>
+        <div class="fc-row">${escapeHtml((err && err.message) || String(err)).slice(0, 400)}</div>
+        <div class="fc-actions">
+          <button class="fc-btn" id="fcRetryBtn" type="button">🔁 もう一度</button>
+          <button class="fc-btn danger-ghost" id="fcRevertBtn" type="button">ハイライト解除</button>
+        </div>`;
+      popover.querySelector('.fc-close').onclick = () => dismissPopover(true);
+      popover.querySelector('#fcRevertBtn').onclick = () => dismissPopover(true);
+      popover.querySelector('#fcRetryBtn').onclick = async () => {
+        popover.querySelector('#fcRetryBtn').disabled = true;
+        popover.innerHTML = `
+          <div class="fc-head"><span>🔍 再試行中</span></div>
+          <div class="fc-loading">Haiku 4.5 が web_search × 2 で確認中…</div>`;
+        try {
+          const r2 = await callFactCheck(apiKey, selectedText, blockText);
+          renderResult(span, selectedText, r2);
+        } catch (e2) {
+          popover.innerHTML = `<div class="fc-head"><span class="fc-verdict-uncertain">⚠️ 再失敗</span>
+            <button class="fc-close" type="button">×</button></div>
+            <div class="fc-row">${escapeHtml((e2 && e2.message) || String(e2)).slice(0, 400)}</div>`;
+          popover.querySelector('.fc-close').onclick = () => dismissPopover(true);
+        }
+      };
+    } finally {
+      busy = false;
+    }
+  });
+
+  async function callFactCheck(apiKey, selectedText, paragraphText) {
+    const today = new Date().toISOString().slice(0, 10);
+    const prompt = `あなたは日本語の事実確認(ファクトチェック)エキスパートです。投資・株式分析の記事に含まれる「ユーザーが選択した箇所」(数値・固有名詞・日付・統計・銘柄情報など)が事実と一致しているかを web_search を使って厳密に確認してください。
+
+【今日の日付】 ${today}
+
+【ユーザーが選択した箇所】
+"${selectedText}"
+
+【選択箇所を含む段落(文脈)】
+"""
+${paragraphText}
+"""
+
+【厳守事項】
+1. 選択箇所が事実主張(数値・日付・固有名詞・統計・株価・指数・出来高・経済データ等)でなければ verdict="not_factual" を返して終了。
+2. **web_search を必ず2回使う**。1回目で値・事実そのものを検索、2回目は異なるキーワードや英語名でクロスチェックすること(例: 1回目「日経平均 終値 ${today.slice(0,4)}年」 → 2回目「Nikkei 225 close ${today.slice(0,4)}」)。1回しか検索しない・両方とも同じクエリは禁止。
+3. 数値の場合「単位(円/ドル/億/兆/%)」「日付・期間」「最新値か特定時点の値か」を必ず確認。文脈に時期(年月日・四半期等)が明記されていればその時点の値を、明記されていなければ最新値を確認すること。
+4. 5%以内の小さな乖離は "ok"、5〜15%の中程度の乖離は "uncertain"、それ以上の大幅乖離・明確な誤りは "wrong"。
+5. 必ず以下のJSONのみを返す。前後に説明文・コードフェンス・マークダウン禁止。
+
+{
+  "claim": "選択箇所の事実主張を一言で",
+  "verdict": "ok" | "wrong" | "uncertain" | "not_factual",
+  "actual": "実際の正しい値・事実 (verdict=wrong/uncertain の時のみ。それ以外は空文字)",
+  "suggested_replacement": "選択箇所をこの文字列に置き換えると正確になる、という置換候補(元のフォーマット・単位を踏襲。verdict=wrong の時のみ、それ以外は空文字)",
+  "explanation": "簡潔な根拠+出典名 (80文字以内)",
+  "sources": ["出典URL1", "出典URL2"]
+}
+
+JSON以外の文字を一切出力しないこと。`;
+
+    const body = {
+      model: FACT_CHECK_MODEL,
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }]
+    };
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      let msg = `APIエラー (${res.status})`;
+      try {
+        const j = JSON.parse(errText);
+        if (j.error && j.error.message) msg += ': ' + j.error.message;
+      } catch { msg += ': ' + errText.slice(0, 200); }
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    const text = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text || '')
+      .join('\n')
+      .trim();
+    if (!text) throw new Error('モデルがテキスト応答を返しませんでした');
+
+    // JSON抽出 (前後の余計な文字を許容)
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('JSONを抽出できませんでした:\n' + text.slice(0, 300));
+    let parsed;
+    try { parsed = JSON.parse(m[0]); }
+    catch (e) {
+      // 末尾カンマ等の修復を試す
+      try { parsed = JSON.parse(m[0].replace(/,(\s*[}\]])/g, '$1')); }
+      catch (e2) { throw new Error('JSON解析失敗: ' + e.message); }
+    }
+    return parsed;
+  }
+
+  function renderResult(span, originalText, result) {
+    const verdict = result.verdict || 'uncertain';
+    const verdictMap = {
+      ok:           { icon: '✅', label: '問題なし',        cls: 'fc-verdict-ok',           spanCls: 'fc-ok' },
+      wrong:        { icon: '⚠️', label: '誤り・大きな乖離', cls: 'fc-verdict-wrong',        spanCls: 'fc-wrong' },
+      uncertain:    { icon: '❓', label: '断定できず',       cls: 'fc-verdict-uncertain',    spanCls: 'fc-uncertain' },
+      not_factual:  { icon: '🔘', label: '事実主張ではない', cls: 'fc-verdict-not-factual', spanCls: '' }
+    };
+    const m = verdictMap[verdict] || verdictMap.uncertain;
+
+    span.classList.remove('fc-ok', 'fc-wrong', 'fc-uncertain');
+    if (m.spanCls) span.classList.add(m.spanCls);
+
+    const claim = result.claim || originalText;
+    const actual = result.actual || '';
+    const explanation = result.explanation || '';
+    const replacement = result.suggested_replacement || '';
+    const sources = Array.isArray(result.sources) ? result.sources.filter(Boolean).slice(0, 3) : [];
+
+    const sourcesHtml = sources.length
+      ? `<div class="fc-row"><span class="fc-label">出典</span>
+          <div class="fc-sources">${sources.map(u =>
+            `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(u)}</a>`
+          ).join('')}</div>
+        </div>`
+      : '';
+
+    const actualHtml = actual
+      ? `<div class="fc-row"><span class="fc-label">実際の値</span><span class="fc-snippet">${escapeHtml(actual)}</span></div>`
+      : '';
+
+    const replaceHtml = (verdict === 'wrong' && replacement)
+      ? `<div class="fc-row"><span class="fc-label">置換案</span><span class="fc-snippet">${escapeHtml(replacement)}</span></div>`
+      : '';
+
+    const applyBtn = (verdict === 'wrong' && replacement)
+      ? `<button class="fc-btn primary" id="fcApplyBtn" type="button">✏️ 本文を修正</button>`
+      : '';
+
+    popover.innerHTML = `
+      <div class="fc-head">
+        <span class="${m.cls}">${m.icon} ${m.label}</span>
+        <button class="fc-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="fc-row"><span class="fc-label">主張</span>${escapeHtml(claim)}</div>
+      ${actualHtml}
+      ${replaceHtml}
+      ${explanation ? `<div class="fc-row"><span class="fc-label">根拠</span>${escapeHtml(explanation)}</div>` : ''}
+      ${sourcesHtml}
+      <div class="fc-actions">
+        ${applyBtn}
+        <button class="fc-btn" id="fcKeepBtn" type="button">閉じる</button>
+        <button class="fc-btn danger-ghost" id="fcRevertBtn" type="button">ハイライト解除</button>
+      </div>`;
+
+    popover.querySelector('.fc-close').onclick = () => dismissPopover(false);
+    popover.querySelector('#fcKeepBtn').onclick = () => dismissPopover(false);
+    popover.querySelector('#fcRevertBtn').onclick = () => dismissPopover(true);
+    const apply = popover.querySelector('#fcApplyBtn');
+    if (apply) apply.onclick = () => {
+      span.innerHTML = `<span class="fact-check-strike">${escapeHtml(originalText)}</span> <span class="fact-check-corrected">${escapeHtml(replacement)}</span>`;
+      applied = true;
+      apply.disabled = true;
+      apply.textContent = '✅ 反映済み';
+    };
+
+    // 内容変化後にポップオーバー位置を再調整
+    if (activeSpan) {
+      const r = activeSpan.getBoundingClientRect();
+      positionElementNear(r, popover, true);
+    }
+  }
+})();
 </script>
 </body>
 </html>
