@@ -792,6 +792,49 @@ label {
   box-shadow: var(--shadow-glow);
 }
 .mode-option.active:hover { color: white; }
+.mode-option.innovative {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.10), rgba(245, 158, 11, 0.10));
+  border: 1px dashed rgba(236, 72, 153, 0.35);
+}
+.mode-option.innovative:hover {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.18), rgba(245, 158, 11, 0.18));
+  color: var(--text-primary);
+}
+.mode-option.innovative.active {
+  background: linear-gradient(135deg, #ec4899, #f59e0b);
+  border: 1px solid transparent;
+  color: white;
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.35);
+}
+/* 🌡 市場感情温度計 */
+.thermo-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(236, 72, 153, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+}
+.thermo-label { font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+.thermo-scores { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+.thermo-score {
+  padding: 3px 9px; border-radius: 999px; font-weight: 700; font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.thermo-score.fear   { background: rgba(239, 68, 68, 0.15); color: #b91c1c; }
+.thermo-score.greed  { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.thermo-score.calm   { background: rgba(156, 163, 175, 0.18); color: #4b5563; }
+.thermo-summary { color: var(--text-secondary); font-size: 12px; flex-basis: 100%; }
+.thermo-btn {
+  margin-left: auto; padding: 5px 12px; border-radius: 8px;
+  background: rgba(99, 102, 241, 0.12); color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  cursor: pointer; font-size: 11.5px; font-weight: 700; font-family: inherit;
+}
+.thermo-btn:hover { background: rgba(99, 102, 241, 0.22); }
+.thermo-btn:disabled { opacity: 0.55; cursor: progress; }
+.thermo-empty { color: var(--text-muted); font-size: 12px; }
 .review-notice {
   display: none;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08));
@@ -1752,12 +1795,26 @@ label {
       <span class="selected-count" id="selectedCount" style="display:none">0件選択中</span>
     </div>
 
+    <div class="thermo-bar" id="thermoBar">
+      <span class="thermo-label">🌡 市場感情温度計</span>
+      <div class="thermo-scores" id="thermoScores">
+        <span class="thermo-empty">未測定 — 「測る」を押すと当日のニューストーンを集計します</span>
+      </div>
+      <button type="button" class="thermo-btn" id="thermoBtn">🌡 測る</button>
+      <div class="thermo-summary" id="thermoSummary"></div>
+    </div>
+
     <div class="mode-toggle" role="radiogroup">
       <button type="button" class="mode-option active" data-mode="new">🆕 新規分析</button>
       <button type="button" class="mode-option" data-mode="ultra-short">⚡ 超短期1点絞り</button>
       <button type="button" class="mode-option" data-mode="review">🔄 保存済みから考察</button>
       <button type="button" class="mode-option" data-mode="simplify">🧒 超かんたん要約</button>
       <button type="button" class="mode-option" data-mode="news-digest">📰 ニュース収集</button>
+      <button type="button" class="mode-option innovative" data-mode="premortem">🪦 死亡診断書</button>
+      <button type="button" class="mode-option innovative" data-mode="self-audit">📜 AI自己採点</button>
+      <button type="button" class="mode-option innovative" data-mode="bottom-up">👀 日常気づき逆算</button>
+      <button type="button" class="mode-option innovative" data-mode="council">🥊 投資家5人会議</button>
+      <button type="button" class="mode-option innovative" data-mode="future-letter">💌 未来からの手紙</button>
     </div>
 
     <div class="review-notice" id="reviewNotice">
@@ -1940,8 +1997,8 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.18.0';
-const APP_VERSION_DATE = '2026-05-15';
+const APP_VERSION = 'v1.19.0';
+const APP_VERSION_DATE = '2026-05-23';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
@@ -2649,6 +2706,30 @@ document.querySelectorAll('.mode-option').forEach(opt => {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '📰 ニュース収集モード:';
       reviewNoticeText.textContent = '銘柄分析はせず、本日のローカル・国内・世界ニュースを集めるだけのモードです。「追加要望」欄で気になるテーマ(例: AI / 円安 / 米中関係)を指定可能。★ Haiku 4.5 固定 ★(コスト最大圧縮、Sonnet/Opus 比で約 1/3 のコスト)。';
+    } else if (currentMode === 'premortem') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '🪦 死亡診断書モード:';
+      reviewNoticeText.textContent = '推奨と「3年後に大失敗していたら原因はこの5つ」の死亡診断書を ★ 同時に ★ 書かせます。撤退ラインと早期警戒シグナルを各銘柄ごとに具体的な数字で生成。確証バイアス対策。';
+    } else if (currentMode === 'self-audit') {
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '📜 AI自己採点モード:';
+      reviewNoticeText.textContent = '下の「📚 保存された分析」から1〜3件を選択。AIが ★ 自分の過去推奨 ★ の現在価格を web_search で取得し、容赦なく自己批判します。「見落としていた要因」「言い訳できない誤り」「次回のチェックリスト」を出力。';
+    } else if (currentMode === 'bottom-up') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '👀 日常気づき逆算モード:';
+      reviewNoticeText.textContent = '「追加要望」欄に日常の観察(例: 「スタバ空いてる」「Switch2予約殺到」「ワークマンに女性客が増えた」)を書いてください。AIが消費トレンドに翻訳 → 裏取り検索 → 銘柄を逆算します。現代版ピーター・リンチ。';
+    } else if (currentMode === 'council') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '🥊 投資家5人会議モード:';
+      reviewNoticeText.textContent = 'バフェット・リンチ・ソロス・グレアム・ウッドの5人格AIが同じ銘柄を ★ 互いに論破し合って ★ 議論。最後にあなたの投資スタイルに合う1人を指名します。立体的な視点が一度に得られます。';
+    } else if (currentMode === 'future-letter') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.add('active');
+      reviewNoticeTitle.textContent = '💌 未来からの手紙モード:';
+      reviewNoticeText.textContent = '5年後のあなたが ★ 成功・失敗・凡庸 ★ の3シナリオで手紙を書きます。各銘柄ごとに3通。心理的距離を作って衝動買い・確証バイアスに対抗する独自UX。';
     } else {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '考察モード:';
@@ -2662,7 +2743,7 @@ document.querySelectorAll('.mode-option').forEach(opt => {
 
 function updateSelectionBadge() {
   const n = selectedHistoryIds.size;
-  if ((currentMode === 'review' || currentMode === 'simplify') && n > 0) {
+  if ((currentMode === 'review' || currentMode === 'simplify' || currentMode === 'self-audit') && n > 0) {
     selectedCountBadge.style.display = 'inline-flex';
     selectedCountBadge.textContent = `${n}件選択中`;
   } else {
@@ -2688,6 +2769,20 @@ function updateAnalyzeButtonLabel() {
     btnText.textContent = '📰 本日のニュースを収集';
   } else if (currentMode === 'ultra-short') {
     btnText.textContent = '⚡ 超短期で 1 銘柄を厳選';
+  } else if (currentMode === 'premortem') {
+    btnText.textContent = '🪦 推奨＋死亡診断書を生成';
+  } else if (currentMode === 'self-audit') {
+    if (selectedHistoryIds.size === 0) {
+      btnText.textContent = '⚠️ 自己採点する分析を選択してください';
+    } else {
+      btnText.textContent = `📜 ${selectedHistoryIds.size}件の過去推奨を自己採点`;
+    }
+  } else if (currentMode === 'bottom-up') {
+    btnText.textContent = '👀 観察から銘柄を逆算';
+  } else if (currentMode === 'council') {
+    btnText.textContent = '🥊 5人格AIで議論開始';
+  } else if (currentMode === 'future-letter') {
+    btnText.textContent = '💌 未来の自分から手紙を受け取る';
   } else {
     btnText.textContent = '🔍 最新情報を検索して分析開始';
   }
@@ -3321,9 +3416,10 @@ async function renderHistory() {
     const marketIcons = { paypay: '💴 PayPay', sbi: '🏦 SBI', japan: '🇯🇵 日本株', us: '🇺🇸 米国株', both: '🌐 日米', crypto: '🪙 暗号資産', etf: '📦 ETF' };
     const isReview = currentMode === 'review';
     const isSimplify = currentMode === 'simplify';
-    const isSelectable = isReview || isSimplify;
+    const isSelfAudit = currentMode === 'self-audit';
+    const isSelectable = isReview || isSimplify || isSelfAudit;
     const isSelected = selectedHistoryIds.has(item.id);
-    const selectVerb = isSimplify ? '要約対象' : '考察対象';
+    const selectVerb = isSimplify ? '要約対象' : isSelfAudit ? '自己採点対象' : '考察対象';
     const checkboxRow = isSelectable ? `
       <div class="history-checkbox-row">
         <input type="checkbox" class="history-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''} aria-label="この分析を${selectVerb}に含める">
@@ -3338,7 +3434,12 @@ async function renderHistory() {
       ? `<span class="history-item-eval-badge" title="評価済み: ${item.evaluationComment ? escapeHtml(item.evaluationComment) : ''}">${'★'.repeat(item.evaluationRating)}${'☆'.repeat(5 - item.evaluationRating)} 評価済</span>`
       : '';
     if (titleText) {
-      const modeIcon = item.mode === 'evaluate' ? '📊' : item.mode === 'review' ? '🔄' : '💡';
+      const modeIconMap = {
+        'evaluate': '📊', 'review': '🔄', 'simplify': '🧒', 'news-digest': '📰',
+        'ultra-short': '⚡', 'premortem': '🪦', 'self-audit': '📜',
+        'bottom-up': '👀', 'council': '🥊', 'future-letter': '💌'
+      };
+      const modeIcon = modeIconMap[item.mode] || '💡';
       titleHtml = `<div class="history-title">
         <span class="history-title-icon">${modeIcon}</span>
         <span class="history-title-text">${escapeHtml(titleText)}</span>
@@ -3381,7 +3482,7 @@ historyList.addEventListener('change', (e) => {
     const cap = currentMode === 'simplify' ? MAX_SIMPLIFY_SELECTION : MAX_REVIEW_SELECTION;
     if (selectedHistoryIds.size >= cap) {
       e.target.checked = false;
-      const modeLabel = currentMode === 'simplify' ? '要約モード' : '考察モード';
+      const modeLabel = currentMode === 'simplify' ? '要約モード' : currentMode === 'self-audit' ? '自己採点モード' : '考察モード';
       alert(`${modeLabel}では最大 ${cap} 件まで選択できます（トークン消費を抑えるため）`);
       return;
     }
@@ -3724,9 +3825,10 @@ async function analyzeStocksHybrid(ctx) {
     market, style, risk, amount, additional,
     marketLabels, styleLabels, riskLabels, amountLabels,
     paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', ultraShortBlock = '', shortTermTimingBlock, learningsBlock,
+    preMortemBlock = '', councilBlock = '', futureLetterBlock = '', bottomUpBlock = '', selfAuditBlock = '',
     brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
     stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-    pastLearnings, currentMode,
+    pastLearnings, currentMode, reviewItems = [],
     weatherUsage = { used: false, cities: 0, failed: false, error: '' } // 🔧 v1.16.2
   } = ctx;
   const isEcoHybrid = hybridMode === 'eco-hybrid';
@@ -3776,7 +3878,7 @@ async function analyzeStocksHybrid(ctx) {
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
+${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
 
 【調査項目】(web_search で取得)
 (A) 主要株価指数の数値・変動率(日経平均・TOPIX・S&P500・NASDAQ)
@@ -4015,7 +4117,7 @@ ${researchData}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 ${learningsBlock}
 
@@ -4450,8 +4552,8 @@ ${questions}
         inputTokens: phase1In + phase2In,
         outputTokens: phase1Out + phase2Out,
         stopReason,
-        mode: 'new',
-        reviewSourceIds: [],
+        mode: currentMode || 'new',
+        reviewSourceIds: (currentMode === 'review' || currentMode === 'self-audit') ? (reviewItems || []).map(it => it.id).filter(Boolean) : [],
         evaluateTargetId: null,
         learningsApplied: pastLearnings.length,
         hybridPhases: {
@@ -4480,6 +4582,14 @@ ${questions}
       const cost = tokenCost + searchCost;
       let chips = '';
       chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.18),rgba(16,185,129,0.18));color:#047857;font-weight:700">${hybridIcon} ${hybridLabel}</span>`;
+      const _innovativeModeChip = {
+        'premortem': '🪦 死亡診断書',
+        'self-audit': '📜 AI自己採点',
+        'bottom-up': '👀 日常気づき逆算',
+        'council': '🥊 投資家5人会議',
+        'future-letter': '💌 未来からの手紙'
+      }[currentMode];
+      if (_innovativeModeChip) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(245,158,11,0.18));color:#be185d;font-weight:700">${_innovativeModeChip}</span>`;
       chips += `<span class="chip">🔍 検索 <span class="chip-value">${phase1Search}回</span></span>`;
       chips += `<span class="chip">📥 入力 <span class="chip-value">${(phase1In + phase2In).toLocaleString()}</span></span>`;
       chips += `<span class="chip">📤 出力 <span class="chip-value">${(phase1Out + phase2Out).toLocaleString()}</span></span>`;
@@ -5084,11 +5194,12 @@ async function analyzeStocks(retryCount = 0) {
   const apiKey = apiKeyInput.value.trim();
   if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
 
-  // Review mode validation
+  // Review / Self-audit mode validation
   let reviewItems = [];
-  if (currentMode === 'review' && !evaluatingItem) {
+  if ((currentMode === 'review' || currentMode === 'self-audit') && !evaluatingItem) {
     if (selectedHistoryIds.size === 0) {
-      showStatus('⚠️ 考察モードでは過去の分析を1件以上選択してください', 'error');
+      const label = currentMode === 'self-audit' ? '自己採点モード' : '考察モード';
+      showStatus(`⚠️ ${label}では過去の分析を1件以上選択してください`, 'error');
       return;
     }
     for (const id of selectedHistoryIds) {
@@ -5096,6 +5207,15 @@ async function analyzeStocks(retryCount = 0) {
       if (item) reviewItems.push(item);
     }
     reviewItems.sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  // Bottom-up mode validation: 観察メモが必要
+  if (currentMode === 'bottom-up' && !evaluatingItem) {
+    const obs = document.getElementById('additional').value.trim();
+    if (!obs) {
+      showStatus('⚠️ 日常気づき逆算モードでは「追加要望」欄に日常の観察を1つ以上書いてください', 'error');
+      return;
+    }
   }
 
   // Evaluation mode flag (set by the 📊 評価 button on history items)
@@ -5592,6 +5712,233 @@ OK: 「朝9時の取引開始直後、同業株が上がっているのを見た
 - 初心者でも「明日の朝起きたら何をすればいいか」が分かるレベルの具体性で
 ` : '';
 
+  // 🪦 死亡診断書モード (Pre-mortem) — 推奨と「失敗シナリオ」を同時に書かせ、撤退ラインを具体化
+  const preMortemBlock = currentMode === 'premortem' ? `
+
+【★★★ 🪦 死亡診断書モード(Pre-mortem)★★★】
+通常の銘柄推奨に加えて、各推奨銘柄について「もし3年後にこの投資が ★ 大失敗 ★ していたら、その原因は何か」を ★ 必ず先に ★ 書く Pre-mortem 分析を実施してください。
+
+▼ 哲学(ノーベル経済学者カーネマンの Pre-mortem 手法)
+- 投資判断は「買う理由」より「売る/撤退する条件」の方が重要
+- 「気づいたら塩漬けになっていた」を防ぐため、★ 撤退条件を先に決める ★
+- 確証バイアス・希望的観測に対抗するため、★ 必ず悲観的シナリオを自分で書く ★
+
+▼ 各推奨銘柄に必ず追加するセクション(本文の最後に):
+
+#### 🪦 死亡診断書(3年後の失敗シナリオ)
+- **想定される失敗の原因(5つ)**: もしこの銘柄が 3 年後に -50% 以上下落していたら、起きていることをこの5つで網羅。各項目1〜2行、具体的に。
+  1. (例) 主要顧客◯◯社が内製化に踏み切り、売上が▲%減少
+  2. (例) 競合△△が技術的優位を確立、シェア奪取
+  3. ...
+- **最も警戒すべきトリガー TOP3**: 5 つのうち発生確率が高い順に 3 つ、★ なぜそれが高確率か ★ を 1 行で
+- **早期警戒シグナル(価格に出る前の予兆)**:
+  - 営業利益率の推移(例: 3四半期連続で◯%以下なら危険)
+  - 主要KPI(顧客数・契約継続率・受注残 等)が悪化する具体的水準
+  - 経営陣の動き(CFO退任・大口インサイダー売却 等)
+- **★ 撤退ライン(具体的な数字必須)★**:
+  - 価格による撤退: 現在価格から -X%、または ¥X,XXX を割ったら ★ 機械的に ★ 売却
+  - 時間による撤退: 想定保有期間内に目標価格の◯%に届かなければ撤退
+  - 非価格的サイン: 「決算で売上ガイダンスを下方修正」「主要事業から撤退発表」など、価格と無関係に撤退すべきイベント
+
+▼ 厳禁事項
+- 「リスクは限定的」「下落しても回復見込み」といった ★ 楽観的書き方は禁止 ★
+- 失敗シナリオが具体性に欠ける(「市場全体の下落」だけ等)場合は、もう一度書き直す
+- 撤退ラインを「様子見」「状況次第」のように曖昧に書くのは ★ 禁止 ★
+- すべて具体的な数字・KPI・イベント名で書く
+` : '';
+
+  // 🥊 投資家5人会議モード — 5人格AIによる論破合戦
+  const councilBlock = currentMode === 'council' ? `
+
+【★★★ 🥊 投資家5人会議モード ★★★】
+通常の銘柄推奨に加えて、各推奨銘柄について以下の5人格による議論セクションを必ず追加してください。
+
+▼ 5 人の投資家(必ずこの5人で議論):
+1. **🐢 ウォーレン・バフェット**(バリュー・長期保有)
+   - 視点: 永続的競争優位、経営者の質、買い値の安全域、10年後も使われている事業か
+   - 口癖: 「価格は支払うもの、価値は得るもの」「素晴らしい会社を適正価格で」
+2. **🚀 ピーター・リンチ**(成長株・身近な発見)
+   - 視点: PEG <1、自分が消費者として実感する成長、機関投資家未発見の宝石
+   - 口癖: 「身近な観察から銘柄を発見」「大化けする 10 倍株」
+3. **🌪 ジョージ・ソロス**(マクロ・反射性)
+   - 視点: マクロ環境の転換点、市場の認識と現実のギャップ、為替・金利・地政学
+   - 口癖: 「市場は常に間違っている」「トレンドが転換する瞬間を狙う」
+4. **🛡 ベンジャミン・グレアム**(ディフェンシブ・安全域)
+   - 視点: ネットネット株、PBR・流動比率、最悪期でも倒産しないか、配当の安定性
+   - 口癖: 「投機ではなく投資を」「Mr. Market に振り回されるな」
+5. **💡 キャシー・ウッド**(破壊的イノベーション・指数関数成長)
+   - 視点: AI・ロボティクス・ゲノム・宇宙・ブロックチェーンなど指数関数的成長技術
+   - 口癖: 「短期のボラを恐れず、5年後を見る」「破壊される側にいないか」
+
+▼ 各推奨銘柄に必ず追加するセクション:
+
+#### 🥊 投資家5人会議
+
+**🎤 第 1 ラウンド: 各人の評価(★1〜5 で点数)**
+- 🐢 バフェット: ★★★☆☆ — 「(理由を 1 行・その人らしい口調で)」
+- 🚀 リンチ: ★★★★☆ — 「(理由を 1 行・その人らしい口調で)」
+- 🌪 ソロス: ★★☆☆☆ — 「(理由を 1 行・その人らしい口調で)」
+- 🛡 グレアム: ★★★★☆ — 「(理由を 1 行・その人らしい口調で)」
+- 💡 ウッド: ★★★☆☆ — 「(理由を 1 行・その人らしい口調で)」
+
+**🗣 第 2 ラウンド: 互いに論破し合う(必ず3つの対立軸)**
+- 🐢 バフェット vs 💡 ウッド: 「(バフェットがウッドの楽観論を批判)」 ⇄ 「(ウッドの反論)」
+- 🚀 リンチ vs 🛡 グレアム: 「(リンチの成長期待 vs グレアムの懐疑)」 ⇄ 「(リンチの反論)」
+- 🌪 ソロスの一言: 「(マクロ視点で全員の盲点を指摘・1 行で鋭く)」
+
+**👨‍⚖️ 第 3 ラウンド: あなたへの指名**
+- 「投資スタイル「${styleLabels[style]}」/ リスク「${riskLabels[risk]}」のあなたは、★ <人物名>さん ★ の見方に従うべきです」
+- 指名理由を 2 行で(投資スタイルとリスク許容度に紐付けて)
+
+▼ 議論の質(★ 厳守 ★)
+- 各人の発言は ★ その人らしい口調・哲学 ★ で(借り物のセリフは禁止)
+- 5 人が全員同じ結論になることは ★ 禁止 ★(必ず対立軸を出す)
+- 「総合点」のような平均化も ★ 禁止 ★(誰の視点に従うかを 1 人だけ明示)
+- 点数評価は ★ 厳しめ ★(★★★★★ は本当に全員一致で絶賛の場合のみ)
+` : '';
+
+  // 💌 未来の自分からの手紙モード — 3シナリオの一人称手紙
+  const futureLetterBlock = currentMode === 'future-letter' ? `
+
+【★★★ 💌 未来の自分からの手紙モード ★★★】
+通常の銘柄推奨に加えて、各推奨銘柄について「5 年後のあなた」から「今のあなた」への手紙を ★ 3 通 ★ 書いてください。
+
+▼ 哲学
+- 心理的距離を作ることで、衝動買い・確証バイアス・希望的観測に対抗
+- 「成功した未来」「失敗した未来」を ★ 等しく具体的に ★ 書くことで意思決定を客観化
+- 凡庸シナリオが最も確率が高いことを忘れない(投資は派手な勝ち負けより、地味な機会損失が多い)
+
+▼ 各推奨銘柄に必ず追加するセクション:
+
+#### 💌 5 年後の自分からの手紙(3 通)
+
+**📈 手紙 1: 成功シナリオ版** (確率およそ 20〜30%)
+> ${new Date().getFullYear() + 5}年${new Date().getMonth()+1}月、◯◯歳のあなたへ。
+> あの時◯◯を買って本当に良かった。なぜなら…
+- 何が起こったか具体的に(株価 X 倍、配当再投資で◯円、生活がこう変わった)
+- 当時のあなたが見落としていなかった「正しかった判断」を 1〜2 点
+- 文体は ★ 一人称・手紙文体 ★ で 200〜300 字
+
+**📉 手紙 2: 失敗シナリオ版** (確率およそ 20〜30%)
+> ${new Date().getFullYear() + 5}年${new Date().getMonth()+1}月、◯◯歳のあなたへ。
+> お願いだから、あの時の決定を見直して。気づくべきだったのに…
+- 何が起こったか(株価 X% 下落、結局◯円損した、塩漬けになった、機会損失◯◯)
+- 当時のあなたが見落としていた重要な兆候を 1〜2 点(★ 具体的に ★)
+- 文体は ★ 一人称・手紙文体 ★ で 200〜300 字
+
+**😐 手紙 3: 凡庸シナリオ版** (確率およそ 40〜60% — ★ 最も発生確率が高い ★)
+> ${new Date().getFullYear() + 5}年${new Date().getMonth()+1}月、◯◯歳のあなたへ。
+> あの時の銘柄、結局そこそこだったよ。買ってもよかったけど、買わなくてもよかった…
+- 株価 X%、機会損失/超過利益は Y% 程度
+- 「もしあの時間とお金を△△に使っていたら」という代替案
+- 文体は ★ 一人称・手紙文体 ★ で 200〜300 字
+
+▼ 厳禁事項(★ 厳守 ★)
+- 3 通とも同じ結論(全部成功 or 全部失敗)になるのは ★ 禁止 ★
+- 「市場全体の動向次第」のような曖昧な書き方は ★ 禁止 ★
+- 物語性を持たせるため、必ず ★ 一人称の手紙文体 ★ で
+- 「${new Date().getFullYear() + 5}年${new Date().getMonth()+1}月」の日付と「◯◯歳のあなたへ」の呼びかけは必ず冒頭に
+` : '';
+
+  // 👀 日常気づき逆算モード — Lynch 流ボトムアップ
+  const bottomUpBlock = currentMode === 'bottom-up' ? `
+
+【★★★ 👀 日常気づき → 銘柄逆算モード(現代版ピーター・リンチ)★★★】
+このモードは ★ ユーザーが書いた「日常の気づき」 ★ を銘柄選定の唯一の起点とします。
+通常モードのように「業績の良い銘柄を探す」のではなく、★ ユーザーの観察を消費・社会トレンドに翻訳してから ★ 銘柄を逆算してください。
+
+▼ ユーザーが書いた日常の気づき(★ これが分析の最重要起点・絶対無視禁止 ★):
+\`\`\`
+${additional || '(空)'}
+\`\`\`
+
+▼ 必須の手順(★ この順番を守る ★)
+1. ★ 観察の翻訳 ★: ユーザーの気づき 1 つ 1 つを「何のトレンドの兆候か」に翻訳
+   - 例 1: 「スタバが空いてる」→ ① コーヒーチェーン苦戦? ② 物価上昇で外食離れ? ③ ライバル(コメダ/ドトール)に流れた?
+   - 例 2: 「Switch2 の予約殺到」→ ① 任天堂の新サイクル始動? ② 半導体サプライ需要増? ③ ゲーム関連の連鎖?
+   - ★ 1 つの観察から必ず 2〜3 の仮説 ★ を立てる
+2. ★ web_search で裏取り ★: その仮説が他の人にも観察されているか・データはあるか
+   - 検索クエリ例: 「スタバ 客足 ${new Date().getFullYear()}」「コーヒーチェーン 業績」「Switch2 予約 状況」等
+3. ★ 銘柄の逆算 ★: 観察が示唆するトレンドの「勝ち組」と「負け組」を整理し、PayPay/SBI 取扱銘柄に変換
+   - 仮説が正しければ買い → どの銘柄? / 仮説が外れたら避ける → どの銘柄?
+4. ★ 観察と銘柄の紐付け ★: 各銘柄について「なぜこの銘柄か」を ★ ユーザーの観察に直接ひも付けて ★ 説明
+
+▼ 各推奨銘柄に必ず追加するセクション:
+
+#### 👀 観察ストーリー(なぜこの銘柄?)
+- **元になった観察**: ユーザーが書いた「XXXX」という気づき
+- **観察の翻訳**: これは『◯◯トレンド』を示唆している(仮説 1〜2)
+- **裏取り検索結果**: web_search で得られた根拠データを 1〜2 点(数値・出典付き)
+- **だからこの銘柄**: このトレンドが本物なら、◯◯社が直接的に恩恵を受ける。なぜなら…
+- **観察が外れた場合の代替**: もし観察が思い違いなら、代わりに△△の方が現実
+
+▼ Lynch 流の哲学
+- 「自分の生活圏で見える変化」は機関投資家より早く気づける
+- 「データより肌感覚を信じる」のではなく、肌感覚から仮説を立て、★ データで裏取り ★ する
+- 観察に根ざさない銘柄推奨は ★ このモードでは禁止 ★
+
+▼ 厳禁事項(★ 厳守 ★)
+- ユーザーの観察を無視して「業績の良い銘柄」を出すのは ★ 絶対禁止 ★
+- 観察と銘柄の紐付けが弱い(「なんとなくテック関連」等)場合は、銘柄を ★ 差し替える ★
+- 通常モードのテンプレ(財務分析中心)に流れない
+- 必ずユーザーの観察文を「元になった観察」セクションに ★ そのまま引用 ★ する
+` : '';
+
+  // 📜 AI 自己採点モード — 過去推奨を容赦なく自己批判
+  const selfAuditBlock = (currentMode === 'self-audit' && reviewItems.length > 0) ? `
+
+【★★★ 📜 AI 自己採点モード(${reviewItems.length}件)★★★】
+これは ★ 過去の自分(AI)が出した推奨 ★ を、本日(${today})時点で ★ 容赦なく自己批判 ★ するモードです。
+証券会社や評論家のような「結果論」ではなく、★ AI 自身が当時の自分の判断を厳しく振り返る ★ ことが目的です。
+
+【過去推奨(${reviewItems.length}件)】
+${reviewItems.map((it, i) => {
+  const past = new Date(it.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  const days = Math.floor((Date.now() - it.timestamp) / (1000 * 60 * 60 * 24));
+  return `--- 過去推奨 ${i+1} (推奨日: ${past} / 経過: ${days}日 / 市場: ${it.market} / スタイル: ${it.style} / リスク: ${it.risk}) ---\n${it.result}`;
+}).join('\n\n')}
+--- 過去推奨ここまで ---
+
+▼ 必須の作業:
+1. ★ web_search で現在価格を取得 ★ — 各過去推奨銘柄について
+2. ★ 厳しい自己採点 ★ — 5 段階評価で、甘い採点は ★ 禁止 ★
+3. ★ 何を見落としていたか ★ — 当時のAI(=自分)が気づくべきだったが見落とした要因を分析
+
+▼ 出力フォーマット(Markdown):
+
+## 📜 自己採点の覚悟
+冒頭で「これから過去の自分の推奨を容赦なく批判します。」と一人称で宣言。
+甘い採点・言い訳はしないことを宣誓。
+
+## 🎯 銘柄別の通信簿
+各過去推奨銘柄について以下を必ず記載:
+
+### 1. 銘柄名(コード)
+- **推奨日 → 現在**: 20XX/X/X → ${today} (X日経過)
+- **推奨時価格 → 現在価格**: ¥XXX → ¥YYY (差分 +X% / -X%、★ 1万円が◯円になった感覚 ★)
+- **当時の推奨アクション**: 買い/様子見/...(具体的に)
+- **★ 自己採点 ★**: ★★☆☆☆ (5 段階で厳しめに。理由 1 行)
+- **★ 見落としていた要因 ★**: 「当時の私は◯◯を見ていなかった。本来なら◯◯を考慮すべきだった」
+- **★ 言い訳できない誤り ★**: 「これは予測不能なイベントではなく、当時から認識可能だった見落とし」
+- **★ もう一度やり直せるなら ★**: 「今の知見で当時に戻れるなら、こう判断する」
+- **★ 現時点の処方箋 ★**: ユーザーがまだ保有していたら → 損切り/維持/反転買い増し のどれが妥当か
+
+## 📊 全体の傾向分析
+- 当たった推奨と外れた推奨の ★ 共通パターン ★(楽観過ぎる / 短期視点 / マクロ見落とし 等)
+- 自分の ★ 認知バイアス ★ を 1〜3 個挙げる(★ AI でも持つバイアス ★ を率直に)
+- 同じ過ちを ★ 次回避けるためのチェックリスト ★ を 3〜5 項目
+
+## 💡 ユーザーへのお詫びと約束
+- 自信過剰だった部分は ★ 率直に謝罪 ★ する(取り繕わない)
+- 「次回からは◯◯を必ず確認する」という具体的な約束を 1〜3 個
+
+▼ 採点の哲学(★ 厳守 ★)
+- 「市場全体が下落したから仕方ない」のような ★ 言い訳は禁止 ★
+- 良かった点は ★ 控えめに ★、悪かった点は ★ 容赦なく ★
+- AI が完璧でないことを ★ 隠さない ★(信頼は誠実さから生まれる)
+- ★★★★★(満点)を付けるのは「想定通り or それ以上の結果 + 推奨理由も的確」だった場合のみ
+` : '';
+
   // ===== Review mode prompt =====
   const reviewBlock = (currentMode === 'review' && reviewItems.length > 0) ? `
 
@@ -5735,9 +6082,10 @@ ${evalTarget.result}
       market, style, risk, amount, additional,
       marketLabels, styleLabels, riskLabels, amountLabels,
       paypayBlock, sbiBlock, japanNewsBlock, extraRiskBlock, ultraShortBlock, shortTermTimingBlock, learningsBlock,
+      preMortemBlock, councilBlock, futureLetterBlock, bottomUpBlock, selfAuditBlock,
       brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
       stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-      pastLearnings, currentMode,
+      pastLearnings, currentMode, reviewItems,
       weatherUsage // 🔧 v1.16.2: 天気API使用情報をhybridに引き継ぐ
     });
   }
@@ -5762,7 +6110,7 @@ ${learningsBlock}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 【★調査方針 — プロのアナリスト/機関投資家の手法に準拠★】
 推奨を出す前に必ず以下を web_search で調査し、複数手法を組み合わせること:
@@ -6452,7 +6800,7 @@ ${stylePeriodsListItems}
         summary: extractedSummary,
         searchCount, inputTokens, outputTokens, stopReason,
         mode: currentMode,
-        reviewSourceIds: currentMode === 'review' ? Array.from(selectedHistoryIds) : [],
+        reviewSourceIds: (currentMode === 'review' || currentMode === 'self-audit') ? Array.from(selectedHistoryIds) : [],
         evaluateTargetId: null,
         learningsApplied: pastLearnings.length,
         dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: stooqCount } }
@@ -6474,6 +6822,16 @@ ${stylePeriodsListItems}
       if (retryCount > 0) chips += `<span class="chip">🔁 リトライ <span class="chip-value">${retryCount}回</span></span>`;
       if (isEvaluating) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}を評価</span></span>`;
       else if (currentMode === 'review') chips += `<span class="chip">🔄 考察モード <span class="chip-value">${reviewItems.length}件参照</span></span>`;
+      else {
+        const _innMode = {
+          'premortem': '🪦 死亡診断書',
+          'self-audit': `📜 AI自己採点 (${reviewItems.length}件)`,
+          'bottom-up': '👀 日常気づき逆算',
+          'council': '🥊 投資家5人会議',
+          'future-letter': '💌 未来からの手紙'
+        }[currentMode];
+        if (_innMode) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(245,158,11,0.18));color:#be185d;font-weight:700">${_innMode}</span>`;
+      }
       if (pastLearnings.length > 0) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.12));color:#047857">🎓 学習反映 <span class="chip-value">${pastLearnings.length}件</span></span>`;
       chips += `<span class="chip">💾 自動保存済み</span>`;
 
@@ -7761,6 +8119,151 @@ ${articleText}
       if (dismiss) dismiss.onclick = () => panel.remove();
     }
   }
+})();
+
+// =====================================================
+// 🌡 市場感情温度計 (Market Emotion Thermometer)
+// 当日のニューストーンを web_search で集計し、恐怖/強欲/無関心の3スコアを表示
+// =====================================================
+(function () {
+  const THERMO_KEY = 'stock_market_thermometer_v1';
+  const thermoBtn = document.getElementById('thermoBtn');
+  const thermoScores = document.getElementById('thermoScores');
+  const thermoSummary = document.getElementById('thermoSummary');
+  if (!thermoBtn || !thermoScores || !thermoSummary) return;
+
+  function todayStamp() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function renderThermo(data) {
+    if (!data || typeof data !== 'object') {
+      thermoScores.innerHTML = '<span class="thermo-empty">未測定 — 「測る」を押すと当日のニューストーンを集計します</span>';
+      thermoSummary.textContent = '';
+      return;
+    }
+    const { fear = 0, greed = 0, calm = 0, summary = '', stamp = '', model = '' } = data;
+    const bars = (n, max = 10) => {
+      const v = Math.max(0, Math.min(max, Math.round(n)));
+      return '█'.repeat(v) + '░'.repeat(max - v);
+    };
+    thermoScores.innerHTML = `
+      <span class="thermo-score fear">🟥 恐怖 ${fear} ${bars(fear)}</span>
+      <span class="thermo-score greed">🟧 強欲 ${greed} ${bars(greed)}</span>
+      <span class="thermo-score calm">⬜ 無関心 ${calm} ${bars(calm)}</span>
+    `;
+    thermoSummary.textContent = summary
+      ? `💭 ${summary}${stamp ? ` (測定: ${stamp}${model ? ' / ' + model : ''})` : ''}`
+      : (stamp ? `測定日: ${stamp}` : '');
+  }
+
+  // 起動時にキャッシュをロード(今日のものなら表示)
+  try {
+    const cached = JSON.parse(localStorage.getItem(THERMO_KEY) || 'null');
+    if (cached && cached.stamp === todayStamp()) {
+      renderThermo(cached);
+    }
+  } catch (_) { /* ignore */ }
+
+  async function measureMarketThermometer() {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      showStatus('⚠️ APIキーを入力してから「測る」を押してください', 'error');
+      return;
+    }
+    thermoBtn.disabled = true;
+    thermoBtn.textContent = '🌡 測定中…';
+    thermoScores.innerHTML = '<span class="thermo-empty">⏳ web_search で当日のニューストーンを集計中…(約20〜40秒)</span>';
+    thermoSummary.textContent = '';
+
+    const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    const prompt = `あなたは市場心理アナリストです。本日(${today})の世界の株式市場における「投資家の感情温度」を web_search で集計し、3つのスコアで定量化してください。
+
+【作業手順】
+1. web_search を ★ 3〜5 回 ★ 使い、本日〜直近 24 時間の主要市場ニュースの見出しトーンを集める。
+   - 検索クエリ例:「株式市場 ${new Date().getFullYear()} 本日」「日経平均 今日 終値」「米国株 today market」「VIX 恐怖指数 今日」「market sentiment ${new Date().getFullYear()}」
+2. 見出し・記事のトーンを分類し、以下 3 つのスコア(★ 各 0〜10 の整数 ★、合計が 10 になるよう配分)を算出:
+   - 🟥 **恐怖 (fear)**: 「下落」「警戒」「リスクオフ」「急落」「不安」「クラッシュ」など否定的なトーン
+   - 🟧 **強欲 (greed)**: 「上昇」「最高値」「リスクオン」「強気」「楽観」「FOMO」など過熱気味のトーン
+   - ⬜ **無関心 (calm)**: 上記どちらでもない、または「材料難」「方向感欠如」「商い薄」など停滞のトーン
+
+【出力形式】★ 必ず以下の JSON だけを出力 ★(他の文章は禁止):
+
+\`\`\`json
+{
+  "fear": 4,
+  "greed": 3,
+  "calm": 3,
+  "summary": "本日は◯◯のため、リスクオフ気味で恐怖がやや優勢。"
+}
+\`\`\`
+
+- summary は ★ 30〜80 字 ★ で「なぜそのスコアか」を 1 文で
+- fear + greed + calm = 10 になるように
+- JSON ブロック以外の文章は ★ 一切禁止 ★`;
+
+    let accumulated = '';
+    const THERMO_MODEL = 'claude-haiku-4-5';
+    try {
+      await streamFetch({
+        apiKey, model: THERMO_MODEL, prompt, useTools: true,
+        maxTokens: 1500, maxSearchUses: 5,
+        signal: undefined,
+        onEvent: (parsed) => {
+          if (parsed.type === 'content_block_delta') {
+            const delta = parsed.delta;
+            if (delta && delta.type === 'text_delta') accumulated += delta.text;
+          }
+          if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
+        }
+      });
+
+      // JSON 抽出
+      let parsed = null;
+      const jsonMatch = accumulated.match(/\{[\s\S]*?"fear"[\s\S]*?"greed"[\s\S]*?"calm"[\s\S]*?\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch (_) {}
+      }
+      if (!parsed) {
+        const codeBlock = accumulated.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlock) {
+          try { parsed = JSON.parse(codeBlock[1].trim()); } catch (_) {}
+        }
+      }
+      if (!parsed || typeof parsed.fear !== 'number') {
+        throw new Error('スコアの解析に失敗しました。応答: ' + accumulated.slice(0, 200));
+      }
+
+      // 正規化(合計10)
+      const total = (parsed.fear || 0) + (parsed.greed || 0) + (parsed.calm || 0);
+      if (total > 0 && total !== 10) {
+        parsed.fear = Math.round(parsed.fear * 10 / total);
+        parsed.greed = Math.round(parsed.greed * 10 / total);
+        parsed.calm = 10 - parsed.fear - parsed.greed;
+      }
+
+      const data = {
+        fear: parsed.fear || 0,
+        greed: parsed.greed || 0,
+        calm: parsed.calm || 0,
+        summary: (parsed.summary || '').slice(0, 200),
+        stamp: todayStamp(),
+        model: 'Haiku 4.5'
+      };
+      localStorage.setItem(THERMO_KEY, JSON.stringify(data));
+      renderThermo(data);
+    } catch (e) {
+      console.error('Thermometer error:', e);
+      thermoScores.innerHTML = `<span class="thermo-empty">❌ 測定失敗: ${(e.message || String(e)).slice(0, 100)}</span>`;
+      thermoSummary.textContent = '';
+    } finally {
+      thermoBtn.disabled = false;
+      thermoBtn.textContent = '🌡 再測定';
+    }
+  }
+
+  thermoBtn.addEventListener('click', measureMarketThermometer);
 })();
 </script>
 </body>
