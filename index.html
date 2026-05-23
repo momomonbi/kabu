@@ -187,6 +187,7 @@ label {
   border-radius: 14px;
 }
 .segmented.segmented-4 { grid-template-columns: repeat(4, 1fr); }
+.segmented.segmented-5 { grid-template-columns: repeat(5, 1fr); }
 .segmented input { display: none; }
 .depth-sub {
   display: block;
@@ -1572,11 +1573,14 @@ label {
   .progress-panel { padding: 16px; }
   .segmented label { font-size: 12px; padding: 10px 4px; }
   .segmented.segmented-4 label { font-size: 11px; padding: 10px 2px; }
+  .segmented.segmented-5 label { font-size: 10.5px; padding: 10px 1px; }
 }
 @media (max-width: 360px) {
-  /* 超狭幅では 4列を 2x2 に折り返す */
+  /* 超狭幅では 4/5列を折り返す */
   .segmented.segmented-4 { grid-template-columns: repeat(2, 1fr); }
   .segmented.segmented-4 label { font-size: 13px; padding: 10px 6px; }
+  .segmented.segmented-5 { grid-template-columns: repeat(2, 1fr); }
+  .segmented.segmented-5 label { font-size: 13px; padding: 10px 6px; }
 }
 
 /* ===== 🔍 Fact-Check 選択箇所をWeb再調査 ===== */
@@ -1883,7 +1887,9 @@ label {
 
     <div class="field">
       <label>🔍 検索の深さ <span class="depth-hint" id="depthHint">(検索コスト: 約 $0.10 / 推奨)</span></label>
-      <div class="segmented segmented-4" role="radiogroup">
+      <div class="segmented segmented-5" role="radiogroup">
+        <input type="radio" name="depth" id="depth-mini" value="mini">
+        <label for="depth-mini">🪶 ミニ<br><span class="depth-sub">1+1回 / $0.02</span></label>
         <input type="radio" name="depth" id="depth-ultra-eco" value="ultra-eco">
         <label for="depth-ultra-eco">🌱 超節約<br><span class="depth-sub">10回 / 出力極小</span></label>
         <input type="radio" name="depth" id="depth-quick" value="quick">
@@ -2793,9 +2799,11 @@ function setStatusHTML(html, type) { statusDiv.innerHTML = html; statusDiv.class
 function hideStatus() { statusDiv.className = 'status'; }
 function getRadioValue(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : null; }
 
-// 🔍 検索深さ: 超節約=3, クイック=5, 標準=10, 徹底=15 (max_uses として渡す)
+// 🔍 検索深さ: ミニ=2, 超節約=10, クイック=5, 標準=10, 徹底=15 (max_uses として渡す)
 function getSearchDepth() {
   const v = getRadioValue('depth') || 'standard';
+  // 🪶 ミニは「検索1回 + 深掘り1回」の合計2回(コスト最小)
+  if (v === 'mini') return 2;
   // 超節約は検索回数は標準と同じ(出力だけを極端に絞る)
   if (v === 'ultra-eco') return 10;
   if (v === 'quick') return 5;
@@ -3853,7 +3861,7 @@ async function analyzeStocksHybrid(ctx) {
   setPhase('🔬', `Phase 1/2: ${researchModelLabel} リサーチ開始`, 'web_search で詳細データを収集中...');
   setProgressPercent(5);
 
-  // ★ 検索深さ(クイック=5, 標準=10, 徹底=15)— プロンプトとツール設定の両方に反映する
+  // ★ 検索深さ(ミニ=2, クイック=5, 標準=10, 徹底=15)— プロンプトとツール設定の両方に反映する
   const phase1MaxSearches = getSearchDepth();
 
   // ===== Research Prompt (Phase 1) =====
@@ -3986,8 +3994,9 @@ ${stylePeriodsListItems}
             phase1ToolIndex = parsed.index;
             stepSearchCount.textContent = `${phase1Search}回`;
             updateSearchCounter(phase1Search, _phase1MaxSearches);
-            const _aThr = Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
-            const _bThr = Math.max(_aThr + 1, Math.floor(_phase1MaxSearches * 0.8));
+            // 🪶 検索上限が 2 以下のときは 1=A, 2=B の 2 段階。それ以外は A/B/C 3 段階。
+            const _aThr = _phase1MaxSearches <= 2 ? 1 : Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
+            const _bThr = _phase1MaxSearches <= 2 ? _phase1MaxSearches : Math.max(_aThr + 1, Math.floor(_phase1MaxSearches * 0.8));
             const phaseLabel = phase1Search <= _aThr ? '🌱 Phase A 情報収集' : phase1Search <= _bThr ? '🔍 Phase B 深掘り' : '🎯 Phase C まとめ';
             setProgressPercent(Math.min(45, 10 + Math.floor(phase1Search * (45 / Math.max(1, _phase1MaxSearches)))));
             setPhase('🔍', `${phaseLabel} - 検索 ${phase1Search}/${_phase1MaxSearches}`, `${researchModelLabel} が情報収集中...`);
@@ -3997,8 +4006,8 @@ ${stylePeriodsListItems}
             stopHeartbeat();
             // ★ 検索結果が返ってきた瞬間。次は「モデルが結果を読み込む長い沈黙」が来るので、
             // ここでメインのフェーズ表示も更新しておく(直前のフェーズが古いまま固まらないように)
-            const _aThr2 = Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
-            const _bThr2 = Math.max(_aThr2 + 1, Math.floor(_phase1MaxSearches * 0.8));
+            const _aThr2 = _phase1MaxSearches <= 2 ? 1 : Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
+            const _bThr2 = _phase1MaxSearches <= 2 ? _phase1MaxSearches : Math.max(_aThr2 + 1, Math.floor(_phase1MaxSearches * 0.8));
             const phaseLabel = phase1Search <= _aThr2 ? '🌱 Phase A' : phase1Search <= _bThr2 ? '🔍 Phase B 深掘り' : '🎯 Phase C まとめ';
             const remaining = Math.max(0, _phase1MaxSearches - phase1Search);
             setPhase('📥', `${phaseLabel} - 検索 ${phase1Search}/${_phase1MaxSearches} 完了`, `${researchModelLabel} が結果を解析中(残り ${remaining} 回検索可能)`);
@@ -4037,8 +4046,8 @@ ${stylePeriodsListItems}
             const inp = JSON.parse(phase1ToolInput);
             if (inp.query) {
               addActivity(`🔎 クエリ: "${inp.query}"`);
-              const _aThr3 = Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
-              const _bThr3 = Math.max(_aThr3 + 1, Math.floor(_phase1MaxSearches * 0.8));
+              const _aThr3 = _phase1MaxSearches <= 2 ? 1 : Math.max(2, Math.floor(_phase1MaxSearches * 0.34));
+              const _bThr3 = _phase1MaxSearches <= 2 ? _phase1MaxSearches : Math.max(_aThr3 + 1, Math.floor(_phase1MaxSearches * 0.8));
               const phaseLabel = phase1Search <= _aThr3 ? '🌱 Phase A 情報収集' : phase1Search <= _bThr3 ? '🔍 Phase B 深掘り' : '🎯 Phase C まとめ';
               // ★ メインのフェーズ表示にもクエリを表示(何を調べているか即座に見える)
               setPhase('🔍', `${phaseLabel} - 検索 ${phase1Search}/${_phase1MaxSearches}`, `${researchModelLabel}: "${inp.query}"`);
@@ -5566,24 +5575,43 @@ ${market === 'japan' || market === 'japan-news' || market === 'both' ? '- ' + us
   const _searchMax = getSearchDepth();
   const _aThreshold = Math.max(1, Math.floor(_searchMax * 0.34));
   const _bThreshold = Math.max(_aThreshold + 1, Math.floor(_searchMax * 0.8));
-  const searchStrategyBlock = `
+  // 🪶 ミニ(=2回)など極小検索数の場合は Phase C が成立しないので 2 段階に切り替える
+  const _hasPhaseC = _bThreshold < _searchMax;
+  const searchStrategyBlock = _searchMax <= 2 ? `
+
+【★★★ 検索戦略(ミニ・2段階)★★★】
+web_search は ★ 上限 ${_searchMax} 回 ★ まで。2段階のストーリーで調査:
+
+▼ 🌱 Phase A 情報収集 (検索 1 回目): 全体像・注目テーマ候補を 1 回で把握
+  - 主要株価指数、マクロ環境、注目セクター、候補銘柄を 1 度のクエリでまとめて取得
+  - 例: 「2026年X月X日 日本株 注目銘柄 ${userBroker}」のような複合キーワードで一網打尽
+
+▼ 🔍 Phase B 深掘り (検索 2 回目): Phase A で最有力候補を 1 銘柄(または 1 テーマ)深掘り
+  - 個別銘柄の財務・テクニカル・直近ニュース・リスクを 1 度のクエリで集約
+
+【★絶対ルール★】
+- 検索は ★ 必ず 2 回以内 ★。1 回目で広く、2 回目で深く
+- 1 回目で十分な情報が得られたら 2 回目をスキップして直ちに執筆へ
+- 上限(${_searchMax} 回)に達したら ★ 直ちに ★ 構造化テキスト出力を始める(「再試行します」等の文言は禁止)
+- 検索回数が少ない分、得られた情報を最大限活用し、不明点は「要確認」と明記
+` : `
 
 【★★★ 検索戦略(段階的・繋がりのある調査)★★★】
-web_search は ★ 上限 ${_searchMax} 回 ★ まで。3段階のストーリーで調査:
+web_search は ★ 上限 ${_searchMax} 回 ★ まで。${_hasPhaseC ? '3' : '2'}段階のストーリーで調査:
 
 ▼ 🌱 Phase A 情報収集 (検索 1〜${_aThreshold} 回目): 全体像・注目テーマ候補
   - 主要株価指数、マクロ環境、注目セクターの最新動向
 
 ▼ 🔍 Phase B 深掘り (検索 ${_aThreshold + 1}〜${_bThreshold} 回目): Phase A で見つけた候補を深く掘る
   - 個別銘柄の財務・テクニカル・アナリスト評価、リスク派生
-
+${_hasPhaseC ? `
 ▼ 🎯 Phase C まとめ (検索 ${_bThreshold + 1}〜${_searchMax} 回目、必要に応じて): 最終確認
   - 推奨候補の現在価格、${userBroker} 取扱状況、今後の重要イベント
-
+` : ''}
 【★絶対ルール★】
 - 各検索は前の結果を踏まえて連鎖させる(単発・並列にしない)
 - ${_searchMax} 回に達したら検索を打ち切り、得られた情報で結論を出す
-- 内容の薄い検索が続いたら早めに Phase C へ移行
+- 内容の薄い検索が続いたら早めに ${_hasPhaseC ? 'Phase C' : '執筆'} へ移行
 - 上限に達したら ★ 直ちに ★ 構造化テキスト出力を始める(「再試行します」等の文言は禁止)
 `;
 
