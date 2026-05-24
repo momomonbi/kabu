@@ -2444,6 +2444,7 @@ label {
           <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#22d3ee"></span> ✈️ 飛行中の航空機 (OpenSky)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.1),rgba(34,211,238,0.85));border-radius:2px;width:18px;height:3px"></span> 🛤 航路 (過去12分)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
           <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
         </div>
@@ -2544,6 +2545,21 @@ label {
           </p>
         </div>
 
+        <!-- 航空機 軌跡 -->
+        <div class="world-setting-row">
+          <label class="ws-label" for="worldAircraftTrailEnable">
+            <input type="checkbox" id="worldAircraftTrailEnable" checked />
+            <span class="ws-name">✈️🛤 航空機の航路 (軌跡) を描画</span>
+          </label>
+          <p class="ws-desc">
+            ← 左の <b>青いトグル</b> で ON/OFF。<br/>
+            ON にすると、各航空機の過去 <b>最大12点 (約12分)</b> の位置を結ぶ <b>水色の点線</b> を
+            地球儀/地図上に描画します。古い点ほど薄く、最新位置ほど濃く表示されてフェード効果。<br/>
+            ※ 起動直後は軌跡が空 (これから蓄積)。3〜5分後から見え始めます。
+            機体が15分以上消失すると軌跡も削除。航空機表示 OFF 時は同時に消えます。
+          </p>
+        </div>
+
         <!-- 高速検証 -->
         <div class="world-setting-row">
           <label class="ws-label" for="worldFastVerifyMode">
@@ -2574,7 +2590,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.3.0';
+const APP_VERSION = 'v2.3.1';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -9520,7 +9536,13 @@ const worldPredictionApp = (function() {
   let globe = null;
   let lmap = null;
   let mapMarkers = [];
+  let mapTrailLines = [];   // Leaflet 用の航跡 polyline
   let currentView = 'globe';
+
+  // 航空機の軌跡: icao24 -> [{lat, lng, ts, alt}, ...] (最大 TRAIL_MAX 件)
+  const aircraftTrails = new Map();
+  const TRAIL_MAX_POINTS  = 12;            // 1機あたりの最大保持点数
+  const TRAIL_MAX_AGE_MS  = 15 * 60 * 1000; // 15分以上古い点は削除
 
   function ensureGlobe() {
     if (globe) return globe;
@@ -9544,7 +9566,15 @@ const worldPredictionApp = (function() {
       .ringMaxRadius(d => d.maxR || 6)
       .ringPropagationSpeed(3)
       .ringRepeatPeriod(1500)
-      .ringColor(() => t => `rgba(239,68,68,${1 - t})`);
+      .ringColor(() => t => `rgba(239,68,68,${1 - t})`)
+      // 航空機の軌跡 (paths layer)
+      .pathPoints(d => d.points)
+      .pathPointLat(p => p[0])
+      .pathPointLng(p => p[1])
+      .pathPointAlt(p => p[2] || 0.005)
+      .pathColor(d => d.colors || ['rgba(34,211,238,0.15)', 'rgba(34,211,238,0.8)'])
+      .pathStroke(1.3)
+      .pathTransitionDuration(0);
     const sizeGlobe = () => {
       const r = container.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) globe.width(r.width).height(r.height);
@@ -9626,18 +9656,46 @@ const worldPredictionApp = (function() {
 
   function renderEvents(events) {
     const geoEvents = events.filter(e => isFinite(e.lat) && isFinite(e.lng));
+    const trailsEnabled = document.getElementById('worldAircraftTrailEnable')?.checked !== false;
+    // 軌跡用 paths データを作成 (2点以上保持してる機体のみ)
+    const trailPaths = [];
+    if (trailsEnabled) {
+      for (const [icao, trail] of aircraftTrails) {
+        if (trail.length < 2) continue;
+        // Globe.GL 用: [lat, lng, alt] のタプル配列。alt は浮き高さ (低)
+        const pts = trail.map(p => [p.lat, p.lng, Math.min(0.05, ((p.alt || 0) / 1000) * 0.003)]);
+        trailPaths.push({
+          icao,
+          points: pts,
+          // 古い点 → 新しい点 のグラデーション (薄→濃)
+          colors: ['rgba(34,211,238,0.05)', 'rgba(34,211,238,0.85)'],
+        });
+      }
+    }
     if (currentView === 'globe' || currentView === 'split') {
       const g = ensureGlobe();
       if (g) {
         g.pointsData(geoEvents.map(eventToVisualPoint));
         const bigEqs = geoEvents.filter(e => e.type === 'earthquake' && e.mag >= 6);
         g.ringsData(bigEqs.map(e => ({ lat: e.lat, lng: e.lng, maxR: e.mag })));
+        // 軌跡描画 (paths layer)
+        g.pathsData(trailPaths);
       }
     }
     if (currentView === 'map' || currentView === 'split') {
       const m = ensureMap();
       if (m) {
         mapMarkers.forEach(mk => mk.remove());
+        mapTrailLines.forEach(ln => ln.remove());
+        mapTrailLines = trailPaths.map(t => {
+          const latlngs = t.points.map(p => [p[0], p[1]]);
+          return L.polyline(latlngs, {
+            color: '#22d3ee',
+            weight: 1.3,
+            opacity: 0.6,
+            dashArray: '3,4',
+          }).addTo(m);
+        });
         mapMarkers = geoEvents.map(e => {
           // 航空機は専用マーカー (回転 ✈️ DivIcon)
           if (e.type === 'aircraft') {
@@ -9719,6 +9777,7 @@ const worldPredictionApp = (function() {
       try { lmap.remove(); } catch (_) {}
       lmap = null;
       mapMarkers = [];
+      mapTrailLines = [];
     }
   }
 
@@ -10339,22 +10398,47 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     const enabled = document.getElementById('worldAircraftEnable');
     if (enabled && !enabled.checked) {
       cachedAircraft = [];
-      // 既存のイベントだけで再描画 (飛行機マーカーを消す)
+      aircraftTrails.clear();
+      // 既存のイベントだけで再描画 (飛行機マーカーと軌跡を消す)
       renderEvents(cachedEvents);
       return;
     }
     try {
       const list = await worldDataService.fetchAircraft(600);
       cachedAircraft = list;
-      // イベント + 航空機 を統合描画
+      // 軌跡を蓄積: 現在のフレームに含まれる ICAO24 ごとに 1点追加
+      const now = Date.now();
+      const presentIcao = new Set();
+      for (const ac of list) {
+        const icao = ac.id; // 'ac_xxxx'
+        presentIcao.add(icao);
+        let trail = aircraftTrails.get(icao);
+        if (!trail) { trail = []; aircraftTrails.set(icao, trail); }
+        // 直近点との距離が極小なら追加せずスキップ (静止検出)
+        const last = trail[trail.length - 1];
+        if (!last || Math.abs(last.lat - ac.lat) > 0.001 || Math.abs(last.lng - ac.lng) > 0.001) {
+          trail.push({ lat: ac.lat, lng: ac.lng, ts: now, alt: ac.alt });
+          if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+        }
+      }
+      // 古い軌跡をパージ (15分以上点が追加されてない or 全点が古い)
+      for (const [icao, trail] of aircraftTrails) {
+        // 各点で TTL チェック
+        while (trail.length && now - trail[0].ts > TRAIL_MAX_AGE_MS) trail.shift();
+        if (trail.length === 0) {
+          aircraftTrails.delete(icao);
+        } else if (!presentIcao.has(icao) && now - trail[trail.length - 1].ts > 5 * 60 * 1000) {
+          // 現フレームに居らず、最後の点が 5分以上前 → 消失機体扱いで削除
+          aircraftTrails.delete(icao);
+        }
+      }
+      // イベント + 航空機 を統合描画 (軌跡は renderEvents 内で aircraftTrails 参照)
       renderEvents([...cachedEvents, ...cachedAircraft]);
       const acPart = cachedAircraft.length ? ` ✈️${cachedAircraft.length}` : '';
       // wsl-events ピルに航空機件数を上書き反映 (最新カウントを維持)
       const ev = document.getElementById('wsl-events');
       if (ev && ev.textContent && cachedAircraft.length) {
-        // 既存のテキストの末尾に ✈️ を差し込む (重複しないよう既存のを除去)
         const stripped = ev.textContent.replace(/\s*✈️\d+/, '');
-        // "...@ HH:MM" の前に挿入
         ev.textContent = stripped.replace(/(\s*@\s*\d{2}:\d{2})/, acPart + '$1');
       }
     } catch (e) {
@@ -10506,8 +10590,25 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         } else {
           toast('✈️ 航空機表示 OFF', 'info', 2500);
           cachedAircraft = [];
+          aircraftTrails.clear();
           renderEvents(cachedEvents);
         }
+      });
+    }
+    // 航空機 軌跡 (航路) トグル
+    const acTrailEl = document.getElementById('worldAircraftTrailEnable');
+    if (acTrailEl) {
+      const stored = localStorage.getItem('world_aircraft_trail_v1');
+      if (stored !== null) acTrailEl.checked = (stored === '1');
+      acTrailEl.addEventListener('change', () => {
+        localStorage.setItem('world_aircraft_trail_v1', acTrailEl.checked ? '1' : '0');
+        if (acTrailEl.checked) {
+          toast('🛤 航路描画 ON。3〜5分後から軌跡が見え始めます', 'success', 3500);
+        } else {
+          toast('🛤 航路描画 OFF', 'info', 2500);
+        }
+        // 即時再描画
+        renderEvents([...cachedEvents, ...cachedAircraft]);
       });
     }
     loadTranslateCache();
