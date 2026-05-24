@@ -1879,6 +1879,22 @@ label {
 .world-event-item.humanitarian { border-left-color: #10b981; background: rgba(16,185,129,0.05); }
 .world-event-item.space-weather { border-left-color: #fbbf24; background: rgba(251,191,36,0.06); }
 
+/* 航空機 Leaflet マーカー */
+.aircraft-marker {
+  background: transparent !important;
+  border: 0 !important;
+}
+.aircraft-marker .ac-icon {
+  width: 16px; height: 16px;
+  font-size: 14px;
+  line-height: 14px;
+  color: #06b6d4;
+  text-shadow: 0 0 3px rgba(0,0,0,0.6), 0 0 6px rgba(6,182,212,0.5);
+  text-align: center;
+  user-select: none;
+  pointer-events: auto;
+}
+
 /* 世界予測 設定 */
 .world-settings-list { display: grid; gap: 14px; }
 .world-setting-row {
@@ -2427,6 +2443,7 @@ label {
           <div class="wl-row"><span class="wl-dot" style="background:#8b5cf6"></span> 自然災害 (火山/火災/洪水)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#22d3ee"></span> ✈️ 飛行中の航空機 (OpenSky)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
           <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
         </div>
@@ -2464,6 +2481,7 @@ label {
         <button type="button" class="wef-btn" data-filter="humanitarian">🆘 人道</button>
         <button type="button" class="wef-btn" data-filter="space">☀️ 宇宙天気</button>
         <button type="button" class="wef-btn" data-filter="news">📰 ニュース</button>
+        <button type="button" class="wef-btn" data-filter="aircraft" title="航空機は地球儀/地図のみ表示">✈️ 航空機 (地図のみ)</button>
       </div>
       <div id="worldEventsTimeline" class="world-events-timeline"></div>
     </div>
@@ -2511,6 +2529,21 @@ label {
           <button type="button" id="worldClaudeAdjNow" class="ws-action-btn">🧠 今すぐムード補正を実行</button>
         </div>
 
+        <!-- 航空機表示 -->
+        <div class="world-setting-row">
+          <label class="ws-label" for="worldAircraftEnable">
+            <input type="checkbox" id="worldAircraftEnable" checked />
+            <span class="ws-name">✈️ 飛行機をリアルタイム表示 (OpenSky Network)</span>
+          </label>
+          <p class="ws-desc">
+            ← 左の <b>青いトグル</b> で ON/OFF。<br/>
+            ON にすると、世界中を <b>飛行中の航空機</b> (最大600機) の現在位置を OpenSky Network から
+            1分ごとに取得して地球儀/地図上に小さな ✈ マーカーで表示します。マーカーは進行方向を向き、
+            高度に応じて色が変化 (低=濃い水色、高=明るい水色)。クリックでコールサイン・国・高度・速度を表示。
+            <b>※ API キー不要</b>。タイムラインには出ません (常時動いているため)。OFF にすると全マーカー消去。
+          </p>
+        </div>
+
         <!-- 高速検証 -->
         <div class="world-setting-row">
           <label class="ws-label" for="worldFastVerifyMode">
@@ -2541,7 +2574,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.2.1';
+const APP_VERSION = 'v2.3.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -8886,6 +8919,7 @@ const worldPredictionApp = (function() {
   const EVENTS_TICK_MS    = 2 * 60 * 1000;      // 地震 2分
   const EONET_TICK_MS     = 5 * 60 * 1000;      // 自然災害 5分
   const NEWS_TICK_MS      = 5 * 60 * 1000;      // ニュース 5分
+  const AIRCRAFT_TICK_MS  = 60 * 1000;          // 航空機 1分 (OpenSky 10秒解像度なので余裕)
   const CLAUDE_TICK_MS    = 30 * 60 * 1000;     // Claude補正 30分
   const HISTORY_MAX       = 60;                 // 直近 N tick (回帰用)
   const PRED_TTL_DAYS     = 30;                 // 古い予測の削除TTL
@@ -9255,6 +9289,55 @@ const worldPredictionApp = (function() {
         return [];
       }
     },
+
+    // OpenSky Network: 世界中の飛行機リアルタイム位置 (CORS対応・無認証)
+    // anonymous は 10秒の解像度 + おおむね 100req/day。1分ポーリングなら余裕。
+    async fetchAircraft(limit = 600) {
+      const url = 'https://opensky-network.org/api/states/all';
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 15000);
+        const r = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('OpenSky HTTP ' + r.status);
+        const j = await r.json();
+        const states = j.states || [];
+        // タプル: [icao24, callsign, origin_country, time_position, last_contact, lng, lat, baro_alt, on_ground, velocity, true_track, vertical_rate, ...]
+        const all = [];
+        for (const s of states) {
+          const icao = s[0];
+          const callsign = (s[1] || '').trim();
+          const country = s[2];
+          const lng = s[5], lat = s[6];
+          const alt = s[7] || 0;        // baro_altitude m
+          const onGround = s[8];
+          const velocity = s[9] || 0;   // m/s
+          const heading = s[10] || 0;   // 度 (true_track)
+          if (onGround) continue;       // 飛行中のみ
+          if (!isFinite(lat) || !isFinite(lng)) continue;
+          all.push({
+            id: 'ac_' + icao,
+            type: 'aircraft',
+            callsign: callsign || icao,
+            country,
+            lat, lng,
+            alt,
+            velocity,
+            heading,
+            time: Date.now(),
+          });
+        }
+        // 均等サンプリングで limit 件まで間引き (lat-lng で重複を避ける)
+        if (all.length <= limit) return all;
+        const stride = Math.ceil(all.length / limit);
+        const sampled = [];
+        for (let i = 0; i < all.length; i += stride) sampled.push(all[i]);
+        return sampled;
+      } catch (e) {
+        console.warn('[world-v2] OpenSky fail', e);
+        return [];
+      }
+    },
   };
 
   // 国名/ISO3 → 大まかな中心座標 (Reliefweb 用)
@@ -9521,6 +9604,17 @@ const worldPredictionApp = (function() {
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:280px">
                  <b>☀️ 宇宙天気</b><br/>${ja.title}
                </div>`;
+    } else if (e.type === 'aircraft') {
+      // 高度ごとに白〜水色のグラデ。高高度ほど明るく
+      const altKm = (e.alt || 0) / 1000;
+      color = altKm > 10 ? '#a5f3fc' : altKm > 5 ? '#67e8f9' : '#22d3ee';
+      altitude = Math.min(0.15, 0.02 + altKm * 0.005); // 飛行高度に応じた浮き上がり
+      radius = 0.12; // 小さめ (大量にあるので)
+      const speed = (e.velocity || 0) * 3.6;
+      label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:5px 9px;border-radius:5px;font-size:11px;max-width:200px">
+                 ✈️ <b>${e.callsign}</b> (${e.country || '?'})<br/>
+                 高度 ${altKm.toFixed(1)} km / ${speed.toFixed(0)} km/h
+               </div>`;
     } else {
       color = '#94a3b8';
       altitude = 0.04;
@@ -9545,6 +9639,21 @@ const worldPredictionApp = (function() {
       if (m) {
         mapMarkers.forEach(mk => mk.remove());
         mapMarkers = geoEvents.map(e => {
+          // 航空機は専用マーカー (回転 ✈️ DivIcon)
+          if (e.type === 'aircraft') {
+            const heading = e.heading || 0;
+            const icon = L.divIcon({
+              className: 'aircraft-marker',
+              html: `<div class="ac-icon" style="transform:rotate(${heading}deg)">✈</div>`,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+            });
+            const altKm = (e.alt || 0) / 1000;
+            const speed = (e.velocity || 0) * 3.6;
+            return L.marker([e.lat, e.lng], { icon }).bindPopup(
+              `<b>✈️ ${e.callsign}</b><br/>国: ${e.country || '?'}<br/>高度: ${altKm.toFixed(1)} km<br/>速度: ${speed.toFixed(0)} km/h`
+            ).addTo(m);
+          }
           let color = '#94a3b8', radius = 4, kind = 'ニュース';
           if (e.type === 'earthquake') {
             color = e.mag >= 6 ? '#ef4444' : e.mag >= 5 ? '#f59e0b' : '#06b6d4';
@@ -9843,6 +9952,16 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     const badge = document.getElementById('worldEventsBadge');
     if (!el) return;
     const filterMap = { earthquake: 'earthquake', eonet: 'eonet', humanitarian: 'humanitarian', space: 'space-weather', news: 'news' };
+    // 航空機フィルタはタイムラインに該当イベントが無い (地図のみ表示)
+    if (eventFilter === 'aircraft') {
+      if (badge) badge.textContent = `${cachedAircraft.length}機 飛行中 (地図に表示)`;
+      el.innerHTML = `<div style="padding:14px;color:var(--text-secondary,#475569);font-size:12px;line-height:1.6">
+        ✈️ <b>${cachedAircraft.length}機の航空機を地球儀/地図上に表示中</b><br/>
+        飛行機はタイムラインには表示されません (常時動いているため)。<br/>
+        🗺 2D地図タブで個別の機体をクリックすると、コールサイン・国・高度・速度が見られます。
+      </div>`;
+      return;
+    }
     const filtered = eventFilter === 'all' ? events : events.filter(e => e.type === filterMap[eventFilter]);
     const sorted = filtered.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 80);
     if (badge) badge.textContent = events.length + '件 (表示 ' + sorted.length + ')';
@@ -10160,6 +10279,9 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     setStatusPill('wsl-prices', `価格: 更新 @ ${shortTime(Date.now())}`, 'ok');
   }
 
+  // 航空機データはイベントとは別系列で管理 (頻度が違う、タイムライン非表示)
+  let cachedAircraft = [];
+
   async function tickEvents() {
     setStatusPill('wsl-events', 'イベント: 取得中…', '');
     // 5系列のデータソースを並列取得 (失敗しても他は処理)
@@ -10196,7 +10318,8 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       } catch (_) {}
     }
     renderEventsTimeline(cachedEvents);
-    renderEvents(cachedEvents);
+    // 航空機と一緒に再描画
+    renderEvents([...cachedEvents, ...cachedAircraft]);
     // 日本語要約 (Claude Haiku) は非同期でバックグラウンド実行 (API Key 未設定なら何もしない)
     translateEvents(cachedEvents);
     const counts = {
@@ -10206,9 +10329,37 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       relief: relief.status === 'fulfilled' ? relief.value.length : 0,
       space: space.status === 'fulfilled' ? space.value.length : 0,
     };
+    const acPart = cachedAircraft.length ? ` ✈️${cachedAircraft.length}` : '';
     setStatusPill('wsl-events',
-      `🌋${counts.eq} 🌪${counts.eonet} 🆘${counts.relief} ☀️${counts.space} 📰${counts.news} @ ${shortTime(Date.now())}`,
+      `🌋${counts.eq} 🌪${counts.eonet} 🆘${counts.relief} ☀️${counts.space} 📰${counts.news}${acPart} @ ${shortTime(Date.now())}`,
       'ok');
+  }
+
+  async function tickAircraft() {
+    const enabled = document.getElementById('worldAircraftEnable');
+    if (enabled && !enabled.checked) {
+      cachedAircraft = [];
+      // 既存のイベントだけで再描画 (飛行機マーカーを消す)
+      renderEvents(cachedEvents);
+      return;
+    }
+    try {
+      const list = await worldDataService.fetchAircraft(600);
+      cachedAircraft = list;
+      // イベント + 航空機 を統合描画
+      renderEvents([...cachedEvents, ...cachedAircraft]);
+      const acPart = cachedAircraft.length ? ` ✈️${cachedAircraft.length}` : '';
+      // wsl-events ピルに航空機件数を上書き反映 (最新カウントを維持)
+      const ev = document.getElementById('wsl-events');
+      if (ev && ev.textContent && cachedAircraft.length) {
+        // 既存のテキストの末尾に ✈️ を差し込む (重複しないよう既存のを除去)
+        const stripped = ev.textContent.replace(/\s*✈️\d+/, '');
+        // "...@ HH:MM" の前に挿入
+        ev.textContent = stripped.replace(/(\s*@\s*\d{2}:\d{2})/, acPart + '$1');
+      }
+    } catch (e) {
+      console.warn('[world-v2] aircraft tick failed', e);
+    }
   }
 
   async function tickClaudeAdjust(opts = {}) {
@@ -10342,6 +10493,23 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       apiKeyMonitor.addEventListener('input', updateApiKeyWarning);
       apiKeyMonitor.addEventListener('change', updateApiKeyWarning);
     }
+    // 航空機表示トグル
+    const acEl = document.getElementById('worldAircraftEnable');
+    if (acEl) {
+      const stored = localStorage.getItem('world_aircraft_enable_v1');
+      if (stored !== null) acEl.checked = (stored === '1');
+      acEl.addEventListener('change', () => {
+        localStorage.setItem('world_aircraft_enable_v1', acEl.checked ? '1' : '0');
+        if (acEl.checked) {
+          toast('✈️ 航空機表示 ON。次の取得で表示されます', 'success', 3000);
+          tickAircraft();
+        } else {
+          toast('✈️ 航空機表示 OFF', 'info', 2500);
+          cachedAircraft = [];
+          renderEvents(cachedEvents);
+        }
+      });
+    }
     loadTranslateCache();
     renderInitialPriceCards();
     renderEventsTimeline([]);
@@ -10405,10 +10573,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     // 即時 tick
     tickPrices();
     tickEvents();
+    tickAircraft();
     // 定期 tick
-    timers.prices = setInterval(tickPrices, PRICE_TICK_MS);
-    timers.events = setInterval(tickEvents, EVENTS_TICK_MS);
-    timers.claude = setInterval(tickClaudeAdjust, CLAUDE_TICK_MS);
+    timers.prices   = setInterval(tickPrices, PRICE_TICK_MS);
+    timers.events   = setInterval(tickEvents, EVENTS_TICK_MS);
+    timers.claude   = setInterval(tickClaudeAdjust, CLAUDE_TICK_MS);
+    timers.aircraft = setInterval(tickAircraft, AIRCRAFT_TICK_MS);
     toast('🌍 世界予測 v2 起動。データ取得を開始します。', 'success');
   }
 
