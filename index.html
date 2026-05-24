@@ -1883,6 +1883,7 @@ label {
 .aircraft-marker {
   background: transparent !important;
   border: 0 !important;
+  cursor: pointer;
 }
 .aircraft-marker .ac-icon {
   width: 16px; height: 16px;
@@ -1893,6 +1894,29 @@ label {
   text-align: center;
   user-select: none;
   pointer-events: auto;
+}
+
+/* 選択中の航空機 詳細パネル */
+#selectedAircraftCard {
+  border: 1.5px solid rgba(251, 191, 36, 0.5);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.12);
+}
+.sel-ac-stat {
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
+  border-left: 3px solid #fbbf24;
+}
+.sel-ac-stat .sel-ac-label {
+  font-size: 10.5px; font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.sel-ac-stat .sel-ac-value {
+  font-size: 15px; font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 世界予測 設定 */
@@ -2444,7 +2468,8 @@ label {
           <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#22d3ee"></span> ✈️ 飛行中の航空機 (OpenSky)</div>
-          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.1),rgba(34,211,238,0.85));border-radius:2px;width:18px;height:3px"></span> 🛤 航路 (過去12分)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.1),rgba(34,211,238,0.85));border-radius:2px;width:18px;height:3px"></span> 🛤 短期軌跡 (過去12分)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#fbbf24;border-radius:2px;width:18px;height:3px"></span> 🛩 選択中の完全航路 (クリック)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
           <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
         </div>
@@ -2459,6 +2484,8 @@ label {
       </div>
       <div id="worldPricesGrid" class="world-prices-grid"></div>
     </div>
+
+    <div class="card" id="selectedAircraftCard" style="display:none"></div>
 
     <div class="card" id="accuracyCard">
       <div class="card-title">
@@ -2553,10 +2580,11 @@ label {
           </label>
           <p class="ws-desc">
             ← 左の <b>青いトグル</b> で ON/OFF。<br/>
-            ON にすると、各航空機の過去 <b>最大12点 (約12分)</b> の位置を結ぶ <b>水色の点線</b> を
-            地球儀/地図上に描画します。古い点ほど薄く、最新位置ほど濃く表示されてフェード効果。<br/>
-            ※ 起動直後は軌跡が空 (これから蓄積)。3〜5分後から見え始めます。
-            機体が15分以上消失すると軌跡も削除。航空機表示 OFF 時は同時に消えます。
+            <b>(A) 短期軌跡 (全機)</b>: 過去最大12点 (約12分) を水色の点線で表示。<br/>
+            <b>(B) 完全航路 (クリック時)</b>: 地球儀/地図上の ✈ をクリックすると、
+            OpenSky から <b>離陸から現在までの完全な航路</b> を取得し、<b>金色の太線</b>で描画。
+            出発空港 (ICAO コード) も「選択中の機体」カードに表示されます。
+            到着空港は OpenSky の制約上、着陸後にしか判明しません。
           </p>
         </div>
 
@@ -2590,7 +2618,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.3.1';
+const APP_VERSION = 'v2.4.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -9333,6 +9361,7 @@ const worldPredictionApp = (function() {
           if (!isFinite(lat) || !isFinite(lng)) continue;
           all.push({
             id: 'ac_' + icao,
+            icao24: icao,
             type: 'aircraft',
             callsign: callsign || icao,
             country,
@@ -9352,6 +9381,63 @@ const worldPredictionApp = (function() {
       } catch (e) {
         console.warn('[world-v2] OpenSky fail', e);
         return [];
+      }
+    },
+
+    // 個別機体の現在飛行中のトラック (離陸から現在までの完全な航路)
+    async fetchAircraftTrack(icao24) {
+      const url = `https://opensky-network.org/api/tracks/all?icao24=${encodeURIComponent(icao24)}&time=0`;
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const r = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('Track HTTP ' + r.status);
+        const j = await r.json();
+        // path: [[time, lat, lng, baro_altitude, true_track, on_ground], ...]
+        const path = j.path || [];
+        const waypoints = path
+          .map(p => ({ time: p[0] * 1000, lat: p[1], lng: p[2], alt: p[3], heading: p[4], onGround: p[5] }))
+          .filter(w => isFinite(w.lat) && isFinite(w.lng));
+        return {
+          icao24: j.icao24,
+          callsign: (j.callsign || '').trim(),
+          startTime: j.startTime * 1000,
+          endTime: j.endTime * 1000,
+          waypoints,
+        };
+      } catch (e) {
+        clearTimeout(t);
+        throw e;
+      }
+    },
+
+    // 機体の直近フライト情報 (出発空港 ICAO コード等)
+    async fetchAircraftFlight(icao24, hoursBack = 24) {
+      const end = Math.floor(Date.now() / 1000);
+      const begin = end - hoursBack * 3600;
+      const url = `https://opensky-network.org/api/flights/aircraft?icao24=${encodeURIComponent(icao24)}&begin=${begin}&end=${end}`;
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const r = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) throw new Error('Flight HTTP ' + r.status);
+        const j = await r.json();
+        // 配列で返る。最新のフライト (lastSeen が最も新しいもの)
+        if (!Array.isArray(j) || !j.length) return null;
+        const latest = j.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))[0];
+        return {
+          icao24: latest.icao24,
+          callsign: (latest.callsign || '').trim(),
+          departure: latest.estDepartureAirport,
+          arrival: latest.estArrivalAirport,
+          firstSeen: latest.firstSeen * 1000,
+          lastSeen: latest.lastSeen * 1000,
+        };
+      } catch (e) {
+        clearTimeout(t);
+        throw e;
       }
     },
   };
@@ -9536,13 +9622,20 @@ const worldPredictionApp = (function() {
   let globe = null;
   let lmap = null;
   let mapMarkers = [];
-  let mapTrailLines = [];   // Leaflet 用の航跡 polyline
+  let mapTrailLines = [];       // Leaflet 用の航跡 polyline (全機の短期軌跡)
+  let mapSelectedTrack = null;  // Leaflet 用の選択中機体の完全航路
+  let mapSelectedMarkers = [];  // 出発空港マーカーなど
   let currentView = 'globe';
 
   // 航空機の軌跡: icao24 -> [{lat, lng, ts, alt}, ...] (最大 TRAIL_MAX 件)
   const aircraftTrails = new Map();
   const TRAIL_MAX_POINTS  = 12;            // 1機あたりの最大保持点数
   const TRAIL_MAX_AGE_MS  = 15 * 60 * 1000; // 15分以上古い点は削除
+
+  // 選択中航空機の詳細トラック (クリックで取得)
+  let selectedAircraft = null; // { icao24, callsign, track:{waypoints,...}, flight:{departure,arrival,...} }
+  const trackCacheMs = 5 * 60 * 1000;
+  const trackCache = new Map(); // icao24 -> { track, flight, ts }
 
   function ensureGlobe() {
     if (globe) return globe;
@@ -9573,8 +9666,13 @@ const worldPredictionApp = (function() {
       .pathPointLng(p => p[1])
       .pathPointAlt(p => p[2] || 0.005)
       .pathColor(d => d.colors || ['rgba(34,211,238,0.15)', 'rgba(34,211,238,0.8)'])
-      .pathStroke(1.3)
-      .pathTransitionDuration(0);
+      .pathStroke(d => d.stroke || 1.3)
+      .pathTransitionDuration(0)
+      .onPointClick(d => {
+        if (d && d.src && d.src.type === 'aircraft') {
+          selectAircraft(d.src);
+        }
+      });
     const sizeGlobe = () => {
       const r = container.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) globe.width(r.width).height(r.height);
@@ -9669,8 +9767,20 @@ const worldPredictionApp = (function() {
           points: pts,
           // 古い点 → 新しい点 のグラデーション (薄→濃)
           colors: ['rgba(34,211,238,0.05)', 'rgba(34,211,238,0.85)'],
+          stroke: 1.3,
         });
       }
+    }
+    // 選択中機体の完全航路 (金色・太線) を末尾に追加 (最後に描かれて目立つ)
+    if (selectedAircraft && selectedAircraft.track && selectedAircraft.track.waypoints.length >= 2) {
+      const wp = selectedAircraft.track.waypoints;
+      const pts = wp.map(p => [p.lat, p.lng, Math.min(0.08, ((p.alt || 0) / 1000) * 0.004)]);
+      trailPaths.push({
+        icao: selectedAircraft.icao24,
+        points: pts,
+        colors: ['rgba(251,191,36,0.95)', 'rgba(251,191,36,0.95)'],
+        stroke: 2.5,
+      });
     }
     if (currentView === 'globe' || currentView === 'split') {
       const g = ensureGlobe();
@@ -9687,15 +9797,32 @@ const worldPredictionApp = (function() {
       if (m) {
         mapMarkers.forEach(mk => mk.remove());
         mapTrailLines.forEach(ln => ln.remove());
+        mapSelectedMarkers.forEach(mk => mk.remove());
+        mapSelectedMarkers = [];
+        const selIcao = selectedAircraft?.icao24;
         mapTrailLines = trailPaths.map(t => {
           const latlngs = t.points.map(p => [p[0], p[1]]);
+          const isSel = (t.icao === selIcao);
           return L.polyline(latlngs, {
-            color: '#22d3ee',
-            weight: 1.3,
-            opacity: 0.6,
-            dashArray: '3,4',
+            color: isSel ? '#fbbf24' : '#22d3ee',
+            weight: isSel ? 3.5 : 1.3,
+            opacity: isSel ? 0.95 : 0.6,
+            dashArray: isSel ? null : '3,4',
           }).addTo(m);
         });
+        // 選択中機体の出発地に「🛫」マーカー
+        if (selectedAircraft && selectedAircraft.track && selectedAircraft.track.waypoints.length >= 1) {
+          const first = selectedAircraft.track.waypoints[0];
+          const depIcon = L.divIcon({
+            className: 'aircraft-marker',
+            html: '<div class="ac-icon" style="color:#fbbf24;font-size:18px">🛫</div>',
+            iconSize: [22, 22], iconAnchor: [11, 11],
+          });
+          const depMarker = L.marker([first.lat, first.lng], { icon: depIcon, zIndexOffset: 800 })
+            .bindPopup(`<b>🛫 出発地点</b><br/>空港: ${selectedAircraft.flight?.departure || '不明'}<br/>${new Date(first.time).toLocaleString('ja-JP')}`)
+            .addTo(m);
+          mapSelectedMarkers.push(depMarker);
+        }
         mapMarkers = geoEvents.map(e => {
           // 航空機は専用マーカー (回転 ✈️ DivIcon)
           if (e.type === 'aircraft') {
@@ -9708,9 +9835,12 @@ const worldPredictionApp = (function() {
             });
             const altKm = (e.alt || 0) / 1000;
             const speed = (e.velocity || 0) * 3.6;
-            return L.marker([e.lat, e.lng], { icon }).bindPopup(
-              `<b>✈️ ${e.callsign}</b><br/>国: ${e.country || '?'}<br/>高度: ${altKm.toFixed(1)} km<br/>速度: ${speed.toFixed(0)} km/h`
+            const isSelected = selectedAircraft && selectedAircraft.icao24 === e.icao24;
+            const marker = L.marker([e.lat, e.lng], { icon, zIndexOffset: isSelected ? 1000 : 0 }).bindPopup(
+              `<b>✈️ ${e.callsign}</b><br/>国: ${e.country || '?'}<br/>高度: ${altKm.toFixed(1)} km<br/>速度: ${speed.toFixed(0)} km/h<br/><b>クリックで航路詳細を表示</b>`
             ).addTo(m);
+            marker.on('click', () => selectAircraft(e));
+            return marker;
           }
           let color = '#94a3b8', radius = 4, kind = 'ニュース';
           if (e.type === 'earthquake') {
@@ -9778,7 +9908,140 @@ const worldPredictionApp = (function() {
       lmap = null;
       mapMarkers = [];
       mapTrailLines = [];
+      mapSelectedTrack = null;
+      mapSelectedMarkers = [];
     }
+  }
+
+  // ──────────────────────────────────────────────
+  // 6-b. 航空機 詳細航路 (クリック時に取得・表示)
+  // ──────────────────────────────────────────────
+  async function selectAircraft(ac) {
+    if (!ac || !ac.icao24) return;
+    const icao = ac.icao24;
+    // パネルにローディング表示
+    renderSelectedAircraftPanel({ loading: true, ac });
+    // キャッシュチェック
+    const cached = trackCache.get(icao);
+    let track = null, flight = null;
+    if (cached && Date.now() - cached.ts < trackCacheMs) {
+      track = cached.track;
+      flight = cached.flight;
+    } else {
+      try {
+        const [tRes, fRes] = await Promise.allSettled([
+          worldDataService.fetchAircraftTrack(icao),
+          worldDataService.fetchAircraftFlight(icao, 24),
+        ]);
+        if (tRes.status === 'fulfilled') track = tRes.value;
+        if (fRes.status === 'fulfilled') flight = fRes.value;
+        trackCache.set(icao, { track, flight, ts: Date.now() });
+      } catch (e) {
+        console.warn('[world-v2] selectAircraft fetch failed', e);
+      }
+    }
+    selectedAircraft = { icao24: icao, current: ac, track, flight };
+    renderSelectedAircraftPanel({ ac, track, flight });
+    // 描画更新 (選択中の機体の航路を金色で目立たせる)
+    renderEvents([...cachedEvents, ...cachedAircraft]);
+  }
+
+  function clearSelectedAircraft() {
+    selectedAircraft = null;
+    const panel = document.getElementById('selectedAircraftCard');
+    if (panel) panel.style.display = 'none';
+    renderEvents([...cachedEvents, ...cachedAircraft]);
+  }
+
+  function renderSelectedAircraftPanel({ ac, track, flight, loading } = {}) {
+    const card = document.getElementById('selectedAircraftCard');
+    if (!card) return;
+    card.style.display = 'block';
+    if (loading) {
+      card.innerHTML = `<div class="card-title">
+        <span class="card-icon">✈️</span>
+        <span>選択中の機体: <b>${ac.callsign || ac.icao24}</b></span>
+        <button id="selAcClose" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px">✕ 閉じる</button>
+      </div>
+      <div style="padding:14px;font-size:12px;color:var(--text-secondary,#475569)">
+        🔄 航路データを取得中... (OpenSky /tracks/all)
+      </div>`;
+      document.getElementById('selAcClose')?.addEventListener('click', clearSelectedAircraft);
+      return;
+    }
+    const wp = (track && track.waypoints) || [];
+    const first = wp[0];
+    const last = wp[wp.length - 1] || ac;
+    const elapsedMs = first ? (Date.now() - first.time) : 0;
+    const elapsedMin = Math.round(elapsedMs / 60000);
+    const totalDistKm = (() => {
+      if (wp.length < 2) return 0;
+      let d = 0;
+      for (let i = 1; i < wp.length; i++) d += haversineKm(wp[i-1].lat, wp[i-1].lng, wp[i].lat, wp[i].lng);
+      return Math.round(d);
+    })();
+    const depAirport = flight?.departure || '不明';
+    const arrAirport = flight?.arrival || '飛行中 (着陸後判明)';
+    const altKm = ((ac.alt || last.alt || 0) / 1000).toFixed(1);
+    const speedKmh = ((ac.velocity || 0) * 3.6).toFixed(0);
+    card.innerHTML = `
+      <div class="card-title">
+        <span class="card-icon">✈️</span>
+        <span>選択中の機体: <b>${ac.callsign || ac.icao24}</b></span>
+        <span class="count-badge" style="background:rgba(34,211,238,0.2);color:#0e7490">${ac.country || '?'}</span>
+        <button id="selAcClose" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px">✕ 閉じる</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding:6px 0">
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">🛫 出発空港</div>
+          <div class="sel-ac-value">${depAirport}</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">🛬 到着空港</div>
+          <div class="sel-ac-value" style="font-size:12px;color:var(--text-secondary,#94a3b8)">${arrAirport}</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">⏱ 飛行時間</div>
+          <div class="sel-ac-value">${elapsedMin > 0 ? elapsedMin + ' 分' : '—'}</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">📏 飛行距離</div>
+          <div class="sel-ac-value">${totalDistKm > 0 ? totalDistKm + ' km' : '—'}</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">🛩 現在高度</div>
+          <div class="sel-ac-value">${altKm} km</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">💨 現在速度</div>
+          <div class="sel-ac-value">${speedKmh} km/h</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">📍 航路ウェイポイント</div>
+          <div class="sel-ac-value">${wp.length} 点</div>
+        </div>
+        <div class="sel-ac-stat">
+          <div class="sel-ac-label">🆔 ICAO24</div>
+          <div class="sel-ac-value" style="font-family:monospace;font-size:13px">${ac.icao24}</div>
+        </div>
+      </div>
+      ${wp.length === 0 ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:11.5px;color:#92400e">⚠️ この機体の詳細航路は取得できませんでした (OpenSky が記録していない可能性)</div>' : ''}
+      <small style="display:block;margin-top:10px;color:var(--text-secondary,#94a3b8);font-size:11px">
+        地球儀/地図上に <b style="color:#fbbf24">金色の太線</b> でこの機体の離陸からの完全な航路を表示中。
+        地球儀でクリック / 地図のマーカーをクリックすると別機に切替。
+      </small>
+    `;
+    document.getElementById('selAcClose')?.addEventListener('click', clearSelectedAircraft);
+  }
+
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   // ──────────────────────────────────────────────
