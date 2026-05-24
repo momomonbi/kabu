@@ -1896,6 +1896,103 @@ label {
   pointer-events: auto;
 }
 
+/* 🤖 Claude API ライブ活動カード */
+#apiActivityCard {
+  border: 1.5px solid rgba(139, 92, 246, 0.35);
+}
+.api-act-ind {
+  margin-left: 8px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11px; font-weight: 700;
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+.api-act-ind.running {
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  color: white;
+  animation: api-pulse 1.4s ease-in-out infinite;
+}
+.api-act-ind.success { background: rgba(34, 197, 94, 0.18); color: #15803d; }
+.api-act-ind.error   { background: rgba(239, 68, 68, 0.18); color: #b91c1c; }
+@keyframes api-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(0.95); }
+}
+
+.api-act-now {
+  margin: 8px 0;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.07), rgba(6,182,212,0.07));
+  border-radius: 10px;
+  border-left: 3px solid #8b5cf6;
+  font-size: 12.5px;
+  min-height: 40px;
+  display: flex; align-items: center; gap: 10px;
+}
+.api-act-now.idle {
+  background: rgba(15, 23, 42, 0.03);
+  border-left-color: rgba(148, 163, 184, 0.4);
+  color: var(--text-secondary, #94a3b8);
+}
+.api-act-now .api-spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(139,92,246,0.3);
+  border-top-color: #8b5cf6;
+  border-radius: 50%;
+  animation: api-spin 0.9s linear infinite;
+}
+@keyframes api-spin {
+  to { transform: rotate(360deg); }
+}
+
+.api-act-history {
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.api-act-row {
+  display: grid;
+  grid-template-columns: 64px 100px 1fr auto auto;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  align-items: center;
+  margin-bottom: 4px;
+  background: rgba(15, 23, 42, 0.03);
+}
+.api-act-row.success { border-left: 2px solid #22c55e; }
+.api-act-row.failed  { border-left: 2px solid #ef4444; }
+.api-act-row .api-row-time { color: var(--text-secondary, #94a3b8); font-variant-numeric: tabular-nums; }
+.api-act-row .api-row-purpose { font-weight: 700; }
+.api-act-row .api-row-detail { color: var(--text-secondary, #64748b); font-size: 11px; }
+.api-act-row .api-row-duration { font-size: 10.5px; color: var(--text-secondary, #94a3b8); }
+.api-act-row .api-row-status { font-size: 10.5px; font-weight: 700; }
+.api-act-row .api-row-status.success { color: #15803d; }
+.api-act-row .api-row-status.failed  { color: #b91c1c; }
+
+.api-act-totals {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.api-act-totals .api-tot {
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 8px;
+  font-size: 11px;
+}
+.api-act-totals .api-tot b {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #0f172a);
+}
+
 /* 選択中の航空機 詳細パネル */
 #selectedAircraftCard {
   border: 1.5px solid rgba(251, 191, 36, 0.5);
@@ -2468,8 +2565,8 @@ label {
           <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#22d3ee"></span> ✈️ 飛行中の航空機 (OpenSky)</div>
-          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.1),rgba(34,211,238,0.85));border-radius:2px;width:18px;height:3px"></span> 🛤 短期軌跡 (過去12分)</div>
-          <div class="wl-row"><span class="wl-dot" style="background:#fbbf24;border-radius:2px;width:18px;height:3px"></span> 🛩 選択中の完全航路 (クリック)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.35),rgba(34,211,238,1));border-radius:2px;width:18px;height:3px"></span> 🛤 航空機の短期軌跡 (過去12分)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#fbbf24;border-radius:2px;width:18px;height:3px"></span> 🛩 選択中機体の完全航路 (クリック)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
           <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
         </div>
@@ -2486,6 +2583,18 @@ label {
     </div>
 
     <div class="card" id="selectedAircraftCard" style="display:none"></div>
+
+    <!-- 🤖 Claude API ライブ活動 -->
+    <div class="card" id="apiActivityCard">
+      <div class="card-title">
+        <span class="card-icon">🤖</span>
+        <span>Claude API ライブ活動</span>
+        <span id="apiActIndicator" class="api-act-ind idle">待機中</span>
+      </div>
+      <div id="apiActNow" class="api-act-now"></div>
+      <div id="apiActHistory" class="api-act-history"></div>
+      <div id="apiActTotals" class="api-act-totals"></div>
+    </div>
 
     <div class="card" id="accuracyCard">
       <div class="card-title">
@@ -2618,7 +2727,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.4.0';
+const APP_VERSION = 'v2.5.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -9056,6 +9165,121 @@ const worldPredictionApp = (function() {
     return { close, date: row.Date, time: row.Time };
   }
 
+  // ──────────────────────────────────────────────
+  // 🤖 Claude API ライブ活動トラッカー
+  // ──────────────────────────────────────────────
+  const apiActivity = {
+    current: null,            // { purpose, model, detail, startTs }
+    history: [],              // [{ purpose, model, detail, startTs, endTs, status, info }, ...] 最大 12
+    totalToday: { calls: 0, success: 0, failed: 0 },
+    today: new Date().toDateString(),
+  };
+
+  function apiActResetIfNewDay() {
+    const td = new Date().toDateString();
+    if (td !== apiActivity.today) {
+      apiActivity.totalToday = { calls: 0, success: 0, failed: 0 };
+      apiActivity.today = td;
+    }
+  }
+
+  function apiActStart(purpose, model, detail) {
+    apiActResetIfNewDay();
+    apiActivity.current = { purpose, model, detail, startTs: Date.now() };
+    apiActivity.totalToday.calls++;
+    renderApiActivity();
+  }
+
+  function apiActEnd(success, info = {}) {
+    if (!apiActivity.current) return;
+    const entry = {
+      ...apiActivity.current,
+      endTs: Date.now(),
+      status: success ? 'success' : 'failed',
+      info,
+    };
+    apiActivity.history.unshift(entry);
+    if (apiActivity.history.length > 12) apiActivity.history.length = 12;
+    apiActivity.current = null;
+    if (success) apiActivity.totalToday.success++;
+    else apiActivity.totalToday.failed++;
+    renderApiActivity();
+  }
+
+  function renderApiActivity() {
+    const ind = document.getElementById('apiActIndicator');
+    const now = document.getElementById('apiActNow');
+    const hist = document.getElementById('apiActHistory');
+    const tot = document.getElementById('apiActTotals');
+    if (!ind || !now || !hist || !tot) return;
+
+    // インジケータ
+    if (apiActivity.current) {
+      ind.textContent = '実行中';
+      ind.className = 'api-act-ind running';
+    } else if (apiActivity.history.length > 0) {
+      const last = apiActivity.history[0];
+      ind.textContent = last.status === 'success' ? '成功' : '失敗';
+      ind.className = 'api-act-ind ' + (last.status === 'success' ? 'success' : 'error');
+    } else {
+      ind.textContent = '待機中';
+      ind.className = 'api-act-ind idle';
+    }
+
+    // 現在の活動
+    if (apiActivity.current) {
+      const c = apiActivity.current;
+      const elapsedSec = ((Date.now() - c.startTs) / 1000).toFixed(1);
+      now.className = 'api-act-now';
+      now.innerHTML = `<span class="api-spinner"></span>
+        <div style="flex:1">
+          <div style="font-weight:700">${c.purpose}</div>
+          <div style="font-size:11px;color:var(--text-secondary,#64748b);margin-top:2px">
+            モデル: ${c.model} / ${c.detail || ''} / 経過: ${elapsedSec}s
+          </div>
+        </div>`;
+    } else {
+      now.className = 'api-act-now idle';
+      now.innerHTML = apiActivity.history.length === 0
+        ? '🌙 まだ Claude API は呼ばれていません。「🔄 今すぐ翻訳」または「🧠 今すぐムード補正」ボタンで手動実行できます。'
+        : `🌙 待機中。次の自動実行: 翻訳=イベント更新時 / ムード補正=30分ごと`;
+    }
+
+    // 履歴
+    if (apiActivity.history.length === 0) {
+      hist.innerHTML = '';
+    } else {
+      hist.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text-secondary,#475569);margin:8px 0 4px">直近の呼び出し履歴 (最新順)</div>' +
+        apiActivity.history.map(h => {
+          const t = new Date(h.startTs).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const dur = ((h.endTs - h.startTs) / 1000).toFixed(1);
+          const infoStr = h.status === 'success'
+            ? (typeof h.info.summary === 'string' ? h.info.summary : (h.info.applied !== undefined ? `+${h.info.applied}件` : 'OK'))
+            : (h.info.error ? String(h.info.error).slice(0, 50) : 'エラー');
+          return `<div class="api-act-row ${h.status}">
+            <span class="api-row-time">${t}</span>
+            <span class="api-row-purpose">${h.purpose}</span>
+            <span class="api-row-detail">${(h.detail || '').slice(0, 40)} ${infoStr ? '→ ' + infoStr : ''}</span>
+            <span class="api-row-duration">${dur}s</span>
+            <span class="api-row-status ${h.status}">${h.status === 'success' ? '✓' : '✕'}</span>
+          </div>`;
+        }).join('');
+    }
+
+    // 合計
+    apiActResetIfNewDay();
+    const t = apiActivity.totalToday;
+    tot.innerHTML = `
+      <div class="api-tot"><span style="color:var(--text-secondary,#94a3b8)">今日の総呼出数</span><b>${t.calls}</b></div>
+      <div class="api-tot"><span style="color:#15803d">成功</span><b>${t.success}</b></div>
+      <div class="api-tot"><span style="color:#b91c1c">失敗</span><b>${t.failed}</b></div>
+      <div class="api-tot"><span style="color:var(--text-secondary,#94a3b8)">成功率</span><b>${t.calls ? Math.round(t.success / t.calls * 100) : 0}%</b></div>
+    `;
+  }
+
+  // 経過時間ライブ更新用の interval (worldPrediction.activate で開始)
+  let apiActTicker = null;
+
   const worldDataService = {
     async fetchUsdJpy() {
       const r = await fetch('https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY');
@@ -9752,7 +9976,10 @@ const worldPredictionApp = (function() {
     return { lat: e.lat, lng: e.lng, color, altitude, radius, label, src: e };
   }
 
-  function renderEvents(events) {
+  function renderEvents() {
+    // モジュール状態 (cachedEvents + cachedAircraft) から常に取得
+    // → setView / activate / 単体イベントどこから呼ばれても航空機が消えない
+    const events = [...(cachedEvents || []), ...(cachedAircraft || [])];
     const geoEvents = events.filter(e => isFinite(e.lat) && isFinite(e.lng));
     const trailsEnabled = document.getElementById('worldAircraftTrailEnable')?.checked !== false;
     // 軌跡用 paths データを作成 (2点以上保持してる機体のみ)
@@ -9766,8 +9993,9 @@ const worldPredictionApp = (function() {
           icao,
           points: pts,
           // 古い点 → 新しい点 のグラデーション (薄→濃)
-          colors: ['rgba(34,211,238,0.05)', 'rgba(34,211,238,0.85)'],
-          stroke: 1.3,
+          // 古い→新しい のグラデーション (薄いが見える→濃い)
+          colors: ['rgba(34,211,238,0.35)', 'rgba(34,211,238,1)'],
+          stroke: 2.2,
         });
       }
     }
@@ -9805,9 +10033,10 @@ const worldPredictionApp = (function() {
           const isSel = (t.icao === selIcao);
           return L.polyline(latlngs, {
             color: isSel ? '#fbbf24' : '#22d3ee',
-            weight: isSel ? 3.5 : 1.3,
-            opacity: isSel ? 0.95 : 0.6,
-            dashArray: isSel ? null : '3,4',
+            weight: isSel ? 4 : 2.5,
+            opacity: isSel ? 0.95 : 0.9,
+            // 実線で目立たせる
+            dashArray: null,
           }).addTo(m);
         });
         // 選択中機体の出発地に「🛫」マーカー
@@ -9892,7 +10121,7 @@ const worldPredictionApp = (function() {
       if (lmap) setTimeout(() => lmap.invalidateSize(), 120);
     }
     // 既存イベントを再描画
-    if (latestEvents.length) renderEvents(latestEvents);
+    if (latestEvents.length) renderEvents();
   }
 
   function disposeVisualization() {
@@ -9940,17 +10169,29 @@ const worldPredictionApp = (function() {
         console.warn('[world-v2] selectAircraft fetch failed', e);
       }
     }
+    // OpenSky に詳細トラックが無い場合、ローカル蓄積の短期軌跡をフォールバックとして使用
+    if ((!track || !track.waypoints || track.waypoints.length === 0)) {
+      const localTrail = aircraftTrails.get(icao);
+      if (localTrail && localTrail.length >= 2) {
+        track = {
+          icao24: icao,
+          callsign: ac.callsign,
+          waypoints: localTrail.map(p => ({ time: p.ts, lat: p.lat, lng: p.lng, alt: p.alt })),
+          fromLocalCache: true,
+        };
+      }
+    }
     selectedAircraft = { icao24: icao, current: ac, track, flight };
     renderSelectedAircraftPanel({ ac, track, flight });
     // 描画更新 (選択中の機体の航路を金色で目立たせる)
-    renderEvents([...cachedEvents, ...cachedAircraft]);
+    renderEvents();
   }
 
   function clearSelectedAircraft() {
     selectedAircraft = null;
     const panel = document.getElementById('selectedAircraftCard');
     if (panel) panel.style.display = 'none';
-    renderEvents([...cachedEvents, ...cachedAircraft]);
+    renderEvents();
   }
 
   function renderSelectedAircraftPanel({ ac, track, flight, loading } = {}) {
@@ -10025,7 +10266,7 @@ const worldPredictionApp = (function() {
           <div class="sel-ac-value" style="font-family:monospace;font-size:13px">${ac.icao24}</div>
         </div>
       </div>
-      ${wp.length === 0 ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:11.5px;color:#92400e">⚠️ この機体の詳細航路は取得できませんでした (OpenSky が記録していない可能性)</div>' : ''}
+      ${wp.length === 0 ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:11.5px;color:#92400e">⚠️ この機体の詳細航路は取得できませんでした (OpenSky 未記録 + 短期軌跡もまだ蓄積中)。1〜2分後にもう一度クリックしてください。</div>' : (track?.fromLocalCache ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(6,182,212,0.1);border-radius:8px;font-size:11.5px;color:#0e7490">ℹ️ OpenSky に詳細航路が無いため、ローカル蓄積の短期軌跡 (' + wp.length + '点) を金線で表示中。</div>' : '')}
       <small style="display:block;margin-top:10px;color:var(--text-secondary,#94a3b8);font-size:11px">
         地球儀/地図上に <b style="color:#fbbf24">金色の太線</b> でこの機体の離陸からの完全な航路を表示中。
         地球儀でクリック / 地図のマーカーをクリックすると別機に切替。
@@ -10201,6 +10442,7 @@ const worldPredictionApp = (function() {
     }
     translationInFlight = true;
     setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を Haiku に投入中…`, '');
+    apiActStart('🈁 日本語翻訳', 'claude-haiku-4-5', `${needs.length}件のイベント翻訳`);
     const btn = document.getElementById('worldTranslateNow');
     if (btn) btn.disabled = true;
     const items = needs.map((e, i) => ({
@@ -10247,19 +10489,22 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
       if (applied > 0) {
         saveTranslateCache();
         renderEventsTimeline(latestEvents);
-        renderEvents(latestEvents);
+        renderEvents();
         const total = events.length;
         const cached = events.filter(e => translateCache.has(e.id)).length;
         setStatusPill('wsl-translate', `翻訳: +${applied}件 完了 (合計 ${cached}/${total})`, 'ok');
+        apiActEnd(true, { applied, summary: `+${applied}件 日本語化` });
         if (manual) toast(`${applied}件のイベントを日本語化しました`, 'success');
       } else {
         setStatusPill('wsl-translate', '翻訳: 0件成功 (パース失敗の可能性)', 'warn');
         console.warn('[world-v2] translation parse 0 matches. Raw output:', acc.slice(0, 500));
+        apiActEnd(false, { error: 'パース 0件 (Haiku 出力形式不一致)' });
         if (manual) toast('翻訳パース失敗。コンソールを確認してください', 'warning', 4000);
       }
     } catch (e) {
       console.warn('[world-v2] translation failed', e);
       setStatusPill('wsl-translate', '翻訳: 失敗 (' + (e.message || 'unknown').slice(0, 30) + ')', 'err');
+      apiActEnd(false, { error: e.message });
       if (manual) toast('翻訳失敗: ' + (e.message || 'unknown'), 'error', 4000);
     } finally {
       translationInFlight = false;
@@ -10493,6 +10738,7 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
       return;
     }
     setStatusPill('wsl-claude', 'Claude補正: 実行中…', '');
+    apiActStart('🧠 ムード補正', 'claude-haiku-4-5', `${SYMBOLS.length}銘柄 + 直近イベント分析`);
     const symList = SYMBOLS.map(s => `"${s}"`).join(', ');
     const prompt = `以下は世界の現在状況です。今後10分間の市場ムードを各銘柄ごとに予測してください。
 
@@ -10554,10 +10800,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         applied++;
       }
       setStatusPill('wsl-claude', `Claude補正: ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
+      apiActEnd(true, { applied, summary: `${applied}銘柄に補正適用` });
       renderAccuracyDashboard();
     } catch (e) {
       console.warn('[world-v2] claude adjust failed', e);
       setStatusPill('wsl-claude', 'Claude補正: 失敗', 'err');
+      apiActEnd(false, { error: e.message });
     }
   }
 
@@ -10641,7 +10889,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     renderEventsTimeline(cachedEvents);
     // 航空機と一緒に再描画
-    renderEvents([...cachedEvents, ...cachedAircraft]);
+    renderEvents();
     // 日本語要約 (Claude Haiku) は非同期でバックグラウンド実行 (API Key 未設定なら何もしない)
     translateEvents(cachedEvents);
     const counts = {
@@ -10663,7 +10911,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       cachedAircraft = [];
       aircraftTrails.clear();
       // 既存のイベントだけで再描画 (飛行機マーカーと軌跡を消す)
-      renderEvents(cachedEvents);
+      renderEvents();
       return;
     }
     try {
@@ -10696,7 +10944,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         }
       }
       // イベント + 航空機 を統合描画 (軌跡は renderEvents 内で aircraftTrails 参照)
-      renderEvents([...cachedEvents, ...cachedAircraft]);
+      renderEvents();
       const acPart = cachedAircraft.length ? ` ✈️${cachedAircraft.length}` : '';
       // wsl-events ピルに航空機件数を上書き反映 (最新カウントを維持)
       const ev = document.getElementById('wsl-events');
@@ -10854,7 +11102,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
           toast('✈️ 航空機表示 OFF', 'info', 2500);
           cachedAircraft = [];
           aircraftTrails.clear();
-          renderEvents(cachedEvents);
+          renderEvents();
         }
       });
     }
@@ -10871,7 +11119,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
           toast('🛤 航路描画 OFF', 'info', 2500);
         }
         // 即時再描画
-        renderEvents([...cachedEvents, ...cachedAircraft]);
+        renderEvents();
       });
     }
     loadTranslateCache();
@@ -10930,6 +11178,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     hideMainUI();
     document.getElementById('worldPredictionPanel')?.classList.add('active');
     updateApiKeyWarning();
+    renderApiActivity(); // API活動カード初期描画
     await loadBiasCache();
     setView(currentView);
     cleanupOldPredictions(); // バックグラウンドで古いレコード削除
@@ -10943,6 +11192,10 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     timers.events   = setInterval(tickEvents, EVENTS_TICK_MS);
     timers.claude   = setInterval(tickClaudeAdjust, CLAUDE_TICK_MS);
     timers.aircraft = setInterval(tickAircraft, AIRCRAFT_TICK_MS);
+    // API活動カードの経過時間を 1秒毎にライブ更新 (current がある時のみ意味あり)
+    apiActTicker = setInterval(() => {
+      if (apiActivity.current) renderApiActivity();
+    }, 1000);
     toast('🌍 世界予測 v2 起動。データ取得を開始します。', 'success');
   }
 
@@ -10953,6 +11206,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     Object.keys(timers).forEach(k => delete timers[k]);
     for (const t of scheduledTimeouts) clearTimeout(t);
     scheduledTimeouts.clear();
+    if (apiActTicker) { clearInterval(apiActTicker); apiActTicker = null; }
     disposeVisualization();
     document.getElementById('worldPredictionPanel')?.classList.remove('active');
     restoreMainUI();
