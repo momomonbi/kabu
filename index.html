@@ -1878,6 +1878,49 @@ label {
 
 .world-event-item.humanitarian { border-left-color: #10b981; background: rgba(16,185,129,0.05); }
 .world-event-item.space-weather { border-left-color: #fbbf24; background: rgba(251,191,36,0.06); }
+
+/* 世界予測 設定 */
+.world-settings-list { display: grid; gap: 14px; }
+.world-setting-row {
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+.world-setting-row .ws-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 700;
+  cursor: pointer;
+  color: var(--text-primary, #0f172a);
+}
+.world-setting-row .ws-name { display: inline-block; }
+.world-setting-row .ws-desc {
+  margin: 6px 0 0 26px;
+  font-size: 11.5px; line-height: 1.55;
+  color: var(--text-secondary, #475569);
+}
+.world-setting-row .ws-desc b {
+  color: #b45309;
+  font-weight: 700;
+}
+.world-setting-row .ws-action-btn {
+  margin: 8px 0 0 26px;
+  padding: 6px 14px;
+  font-size: 12px; font-weight: 700;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+  border: 0;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.world-setting-row .ws-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(6, 182, 212, 0.32);
+}
+.world-setting-row .ws-action-btn:disabled {
+  opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none;
+}
 .world-viewport.split {
   display: grid; grid-template-rows: 1fr 1fr; gap: 4px;
   height: 70vh; min-height: 520px;
@@ -2305,6 +2348,7 @@ label {
       <div class="world-status-line" id="worldStatusLine">
         <span class="pill" id="wsl-prices">価格: 待機中</span>
         <span class="pill" id="wsl-events">イベント: 待機中</span>
+        <span class="pill" id="wsl-translate">翻訳: 待機中</span>
         <span class="pill" id="wsl-claude">Claude補正: 未実行</span>
       </div>
       <div class="world-tabs" role="radiogroup">
@@ -2370,16 +2414,51 @@ label {
         <span class="card-icon">⚙</span>
         <span>世界予測 設定</span>
       </div>
-      <div style="display:flex;gap:14px;flex-wrap:wrap">
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-          <input type="checkbox" id="worldClaudeAdjEnable" checked /> 30分ごとに Claude API でムード補正 (Haiku 4.5)
-        </label>
-        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-          <input type="checkbox" id="worldFastVerifyMode" /> ⚡ 高速検証モード (10秒で検証 / テスト用)
-        </label>
+      <div class="world-settings-list">
+        <!-- 日本語翻訳 -->
+        <div class="world-setting-row">
+          <label class="ws-label">
+            <input type="checkbox" id="worldTranslateEnable" checked />
+            <span class="ws-name">🈁 世界イベントを日本語で要約</span>
+          </label>
+          <p class="ws-desc">
+            英語の地震・災害・ニュースのタイトルを Claude Haiku 4.5 で日本語に翻訳します。
+            翻訳結果は localStorage にキャッシュされ、同じイベントは再翻訳されません。
+            <b>※ 上部の Anthropic API キーが必要</b> (API キー未設定の場合は英語のまま表示)。
+          </p>
+          <button type="button" id="worldTranslateNow" class="ws-action-btn">🔄 今すぐ翻訳を実行</button>
+        </div>
+
+        <!-- Claude ムード補正 -->
+        <div class="world-setting-row">
+          <label class="ws-label">
+            <input type="checkbox" id="worldClaudeAdjEnable" checked />
+            <span class="ws-name">🧠 30分ごとに Claude AI でムード補正</span>
+          </label>
+          <p class="ws-desc">
+            30分ごとに、現在の5銘柄価格 + 直近の地震/災害/ニュースを Claude Haiku 4.5 に渡し、
+            「今後10分の市場ムード補正係数 (0.99〜1.01)」を取得して予測値に反映します。
+            線形回帰だけでは捉えられない「材料イベント」を予測に組み込む目的。
+            <b>※ Anthropic API キーが必要</b>。OFF にすると線形回帰 + 誤差バイアスのみで予測。
+          </p>
+        </div>
+
+        <!-- 高速検証 -->
+        <div class="world-setting-row">
+          <label class="ws-label">
+            <input type="checkbox" id="worldFastVerifyMode" />
+            <span class="ws-name">⚡ 高速検証モード (テスト用)</span>
+          </label>
+          <p class="ws-desc">
+            通常は予測してから 10分後 に実値と照合して精度を測りますが、
+            このモードを ON にすると <b>10秒後</b> に検証します。
+            すぐ精度ダッシュボードに数字を出して動作確認したい時用。本番では OFF。
+          </p>
+        </div>
       </div>
-      <small style="display:block;margin-top:8px;color:var(--text-secondary, #94a3b8);font-size:11px">
-        Stooq (原油/金/S&amp;P500) は CORS 非対応のため、内蔵プロキシ (corsproxy.io / cors.lol / allorigins) を自動で順に試行します。設定は不要です。
+      <small style="display:block;margin-top:10px;color:var(--text-secondary, #94a3b8);font-size:11px;line-height:1.5">
+        💡 <b>データソースについて</b>: 原油/金/S&amp;P500 はリアルタイム (Yahoo Finance / CoinGecko) を最優先、
+        取得失敗時のみ Stooq (15-20分遅延) にフォールバックします。CORS 非対応のソースは内蔵プロキシで自動経由。設定は不要です。
       </small>
     </div>
   </div>
@@ -2391,7 +2470,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.0.0';
+const APP_VERSION = 'v2.2.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -8749,9 +8828,9 @@ const worldPredictionApp = (function() {
   const SYMBOL_META = {
     USDJPY: { label: 'USD/JPY', emoji: '💴', unit: '円',      decimals: 3, threshold: 0.0008 },
     BTC:    { label: 'Bitcoin', emoji: '🪙', unit: 'USD',     decimals: 0, threshold: 0.0015 },
-    WTI:    { label: 'WTI原油', emoji: '🛢', unit: 'USD/bbl', decimals: 2, threshold: 0.002,  delayed: true },
-    GOLD:   { label: '金',      emoji: '🥇', unit: 'USD/oz',  decimals: 2, threshold: 0.0008, delayed: true },
-    SPX:    { label: 'S&P500',  emoji: '📈', unit: 'pt',      decimals: 2, threshold: 0.0008, delayed: true },
+    WTI:    { label: 'WTI原油', emoji: '🛢', unit: 'USD/bbl', decimals: 2, threshold: 0.002 },
+    GOLD:   { label: '金',      emoji: '🥇', unit: 'USD/oz',  decimals: 2, threshold: 0.0008 },
+    SPX:    { label: 'S&P500',  emoji: '📈', unit: 'pt',      decimals: 2, threshold: 0.0008 },
   };
   const SYMBOLS = Object.keys(SYMBOL_META);
 
@@ -8851,9 +8930,66 @@ const worldPredictionApp = (function() {
       if (!parsed) throw new Error('Stooq parse fail: ' + symbol);
       return { price: parsed.close, ts: Date.now(), source: 'stooq:' + symbol, date: parsed.date };
     },
-    fetchWTI()  { return this.fetchStooqSymbol('cl.f'); },
-    fetchGold() { return this.fetchStooqSymbol('gc.f'); },
-    fetchSPX()  { return this.fetchStooqSymbol('^spx'); },
+
+    // Yahoo Finance v8 chart endpoint (CORSプロキシ経由、ほぼリアルタイム)
+    async fetchYahooSymbol(symbol) {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+      const r = await fetchWithProxy(url);
+      const j = await r.json();
+      const result = j?.chart?.result?.[0];
+      if (!result) throw new Error('Yahoo no result: ' + symbol);
+      const meta = result.meta || {};
+      const price = meta.regularMarketPrice;
+      if (!isFinite(price)) throw new Error('Yahoo no price: ' + symbol);
+      return {
+        price,
+        ts: (meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now()),
+        source: 'yahoo:' + symbol,
+        marketState: meta.marketState || 'UNKNOWN',
+      };
+    },
+
+    // CoinGecko の Tether Gold (XAUT): 1トークン = 1 troy oz の物理金、24h リアルタイム
+    async fetchXautGold() {
+      const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether-gold,pax-gold&vs_currencies=usd');
+      if (!r.ok) throw new Error('CoinGecko HTTP ' + r.status);
+      const j = await r.json();
+      const xaut = j['tether-gold']?.usd;
+      const paxg = j['pax-gold']?.usd;
+      // 両方とれていれば平均、片方なら使えるほうを採用 (アービトラージで両方ともスポット±2%以内)
+      let price;
+      let source;
+      if (isFinite(xaut) && isFinite(paxg)) {
+        price = (xaut + paxg) / 2;
+        source = 'coingecko:xaut+paxg';
+      } else if (isFinite(xaut)) { price = xaut; source = 'coingecko:xaut'; }
+      else if (isFinite(paxg))   { price = paxg; source = 'coingecko:paxg'; }
+      else throw new Error('CoinGecko: gold token price missing');
+      return { price, ts: Date.now(), source };
+    },
+
+    // 各銘柄: Yahoo Finance リアルタイム → Stooq (遅延) の順にフォールバック
+    async fetchWTI() {
+      try { return await this.fetchYahooSymbol('CL=F'); }
+      catch (e) { console.warn('[world-v2] WTI Yahoo fail, fallback stooq', e.message); return await this.fetchStooqSymbol('cl.f'); }
+    },
+    async fetchGold() {
+      // 1st: CoinGecko XAUT/PAXG (no auth, no proxy, real-time)
+      // 2nd: Yahoo Finance GC=F (real-time via proxy)
+      // 3rd: Stooq (遅延)
+      try { return await this.fetchXautGold(); }
+      catch (e1) {
+        try { return await this.fetchYahooSymbol('GC=F'); }
+        catch (e2) {
+          console.warn('[world-v2] GOLD primary/secondary fail, stooq fallback', e1.message, e2.message);
+          return await this.fetchStooqSymbol('gc.f');
+        }
+      }
+    },
+    async fetchSPX() {
+      try { return await this.fetchYahooSymbol('%5EGSPC'); } // ^GSPC
+      catch (e) { console.warn('[world-v2] SPX Yahoo fail, fallback stooq', e.message); return await this.fetchStooqSymbol('^spx'); }
+    },
 
     async fetchEarthquakes(hours = 48) {
       // M2.5 以上に拡大 (24h ≒ 100-300件、48h でより多く取得)
@@ -9498,24 +9634,49 @@ const worldPredictionApp = (function() {
     }
     return { title: e.title || e.place || '', category: jaCat };
   }
-  async function translateEvents(events) {
+  let translationInFlight = false;
+  async function translateEvents(events, opts = {}) {
+    const { manual = false } = opts;
+    // OFF なら何もしない
+    const enabled = document.getElementById('worldTranslateEnable');
+    if (enabled && !enabled.checked) {
+      setStatusPill('wsl-translate', '翻訳: OFF', '');
+      return;
+    }
     const apiKeyEl = document.getElementById('apiKey');
     const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
-    if (!apiKey) return; // 無設定なら翻訳しない (英語のままタイムライン表示)
+    if (!apiKey) {
+      setStatusPill('wsl-translate', '翻訳: API Key未設定 (英語表示)', 'warn');
+      if (manual) toast('Anthropic API キーを上部 ⚙ から設定してください', 'warning', 5000);
+      return;
+    }
+    if (translationInFlight) {
+      if (manual) toast('翻訳実行中です…', 'info', 2500);
+      return;
+    }
     // 翻訳対象: キャッシュ未登録 かつ 既に英語タイトル
     const needs = events.filter(e => {
       if (!e.id) return false;
       if (translateCache.has(e.id)) return false;
       const t = e.title || e.place || '';
       if (!t) return false;
-      // 日本語が含まれていればスキップ
+      // 日本語が含まれていればスキップ (キャッシュにも登録、再判定不要)
       if (/[ぁ-んァ-ヶ一-龯]/.test(t)) {
         translateCache.set(e.id, { title: t, ts: Date.now() });
         return false;
       }
       return true;
     }).slice(0, 25); // 1回 25件まで
-    if (!needs.length) return;
+    if (!needs.length) {
+      const total = events.length;
+      const cached = events.filter(e => translateCache.has(e.id)).length;
+      setStatusPill('wsl-translate', `翻訳: 完了 (${cached}/${total} 件)`, 'ok');
+      return;
+    }
+    translationInFlight = true;
+    setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を Haiku に投入中…`, '');
+    const btn = document.getElementById('worldTranslateNow');
+    if (btn) btn.disabled = true;
     const items = needs.map((e, i) => ({
       idx: i,
       text: (e.title || e.place || '').slice(0, 200),
@@ -9535,33 +9696,48 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
         prompt,
         system: 'あなたは英日翻訳者です。指定形式の行のみ出力します。',
         useTools: false,
-        maxTokens: 1200,
+        maxTokens: 1500,
         onEvent: (p) => {
           if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
             acc += p.delta.text;
           }
         }
       });
+      // パーサーは寛容に: 「IDX:N:」「IDX N:」「N:」のいずれも許容
       const lines = acc.split(/\r?\n/);
       let applied = 0;
       for (const line of lines) {
-        const m = line.match(/^\s*IDX:\s*(\d+)\s*[:：]\s*(.+?)\s*$/);
+        const m = line.match(/^\s*(?:IDX[\s:：-]*)?(\d+)\s*[:：．.]\s*(.+?)\s*$/);
         if (!m) continue;
         const idx = parseInt(m[1], 10);
-        const ja = m[2].replace(/^\[[^\]]+\]\s*/, ''); // 万一 [type] が残ってたら除去
+        let ja = m[2].replace(/^\[[^\]]+\]\s*/, ''); // 万一 [type] が残ってたら除去
+        ja = ja.replace(/^[「『"'"]|["'』」]$/g, ''); // 引用符を除去
         if (!isFinite(idx) || idx < 0 || idx >= needs.length) continue;
         const ev = needs[idx];
+        if (!ja || ja.length < 1) continue;
         translateCache.set(ev.id, { title: ja, ts: Date.now() });
         applied++;
       }
       if (applied > 0) {
         saveTranslateCache();
-        // 表示を更新
         renderEventsTimeline(latestEvents);
         renderEvents(latestEvents);
+        const total = events.length;
+        const cached = events.filter(e => translateCache.has(e.id)).length;
+        setStatusPill('wsl-translate', `翻訳: +${applied}件 完了 (合計 ${cached}/${total})`, 'ok');
+        if (manual) toast(`${applied}件のイベントを日本語化しました`, 'success');
+      } else {
+        setStatusPill('wsl-translate', '翻訳: 0件成功 (パース失敗の可能性)', 'warn');
+        console.warn('[world-v2] translation parse 0 matches. Raw output:', acc.slice(0, 500));
+        if (manual) toast('翻訳パース失敗。コンソールを確認してください', 'warning', 4000);
       }
     } catch (e) {
       console.warn('[world-v2] translation failed', e);
+      setStatusPill('wsl-translate', '翻訳: 失敗 (' + (e.message || 'unknown').slice(0, 30) + ')', 'err');
+      if (manual) toast('翻訳失敗: ' + (e.message || 'unknown'), 'error', 4000);
+    } finally {
+      translationInFlight = false;
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -9998,6 +10174,21 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         localStorage.setItem(CLAUDE_ADJ_LS, claudeEl.checked ? '1' : '0');
       });
     }
+    // 翻訳トグル
+    const transEl = document.getElementById('worldTranslateEnable');
+    if (transEl) {
+      const stored = localStorage.getItem('world_translate_enable_v1');
+      if (stored !== null) transEl.checked = (stored === '1');
+      transEl.addEventListener('change', () => {
+        localStorage.setItem('world_translate_enable_v1', transEl.checked ? '1' : '0');
+        if (transEl.checked) translateEvents(latestEvents, { manual: true });
+        else setStatusPill('wsl-translate', '翻訳: OFF', '');
+      });
+    }
+    // 「今すぐ翻訳を実行」ボタン
+    document.getElementById('worldTranslateNow')?.addEventListener('click', () => {
+      translateEvents(latestEvents, { manual: true });
+    });
     loadTranslateCache();
     renderInitialPriceCards();
     renderEventsTimeline([]);
