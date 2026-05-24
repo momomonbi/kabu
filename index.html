@@ -1882,21 +1882,65 @@ label {
 /* 世界予測 設定 */
 .world-settings-list { display: grid; gap: 14px; }
 .world-setting-row {
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: rgba(15, 23, 42, 0.03);
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.05);
 }
 .world-setting-row .ws-label {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 12px;
   font-size: 13.5px; font-weight: 700;
   cursor: pointer;
   color: var(--text-primary, #0f172a);
+  user-select: none;
 }
-.world-setting-row .ws-name { display: inline-block; }
+.world-setting-row .ws-name { flex: 1; }
+
+/* ✨ カスタムトグルスイッチ — グローバル input スタイルを完全上書き */
+.world-setting-row .ws-label > input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 44px !important;
+  height: 24px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  background: rgba(148, 163, 184, 0.5) !important;
+  border-radius: 100px !important;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  display: inline-block !important;
+  box-shadow: none !important;
+}
+.world-setting-row .ws-label > input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}
+.world-setting-row .ws-label > input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
+}
+.world-setting-row .ws-label > input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+}
+.world-setting-row .ws-label > input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.35) !important;
+}
+
 .world-setting-row .ws-desc {
-  margin: 6px 0 0 26px;
-  font-size: 11.5px; line-height: 1.55;
+  margin: 8px 0 0 56px;
+  font-size: 12px; line-height: 1.6;
   color: var(--text-secondary, #475569);
 }
 .world-setting-row .ws-desc b {
@@ -1904,9 +1948,9 @@ label {
   font-weight: 700;
 }
 .world-setting-row .ws-action-btn {
-  margin: 8px 0 0 26px;
-  padding: 6px 14px;
-  font-size: 12px; font-weight: 700;
+  margin: 10px 0 0 56px;
+  padding: 8px 18px;
+  font-size: 12.5px; font-weight: 700;
   background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
   color: white;
   border: 0;
@@ -1921,6 +1965,21 @@ label {
 .world-setting-row .ws-action-btn:disabled {
   opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none;
 }
+
+/* API Key 未設定の警告バナー (設定カード内) */
+.world-apikey-warning {
+  margin: 10px 0;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.12);
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.5;
+  display: none;
+}
+.world-apikey-warning.visible { display: block; }
+.world-apikey-warning b { color: #78350f; }
 .world-viewport.split {
   display: grid; grid-template-rows: 1fr 1fr; gap: 4px;
   height: 70vh; min-height: 520px;
@@ -2414,46 +2473,58 @@ label {
         <span class="card-icon">⚙</span>
         <span>世界予測 設定</span>
       </div>
+      <div class="world-apikey-warning" id="worldApiKeyWarning">
+        ⚠️ <b>Anthropic API キーが未設定です。</b>
+        日本語翻訳 / Claude ムード補正を使うには、ページ上部 (⚙ ボタン) から API キーを設定してください。
+        未設定でも 価格・イベント取得・予測 機能はすべて動作します。
+      </div>
       <div class="world-settings-list">
         <!-- 日本語翻訳 -->
         <div class="world-setting-row">
-          <label class="ws-label">
+          <label class="ws-label" for="worldTranslateEnable">
             <input type="checkbox" id="worldTranslateEnable" checked />
             <span class="ws-name">🈁 世界イベントを日本語で要約</span>
           </label>
           <p class="ws-desc">
-            英語の地震・災害・ニュースのタイトルを Claude Haiku 4.5 で日本語に翻訳します。
+            ← 左の <b>青いトグル</b> をクリックして ON/OFF。
+            ON にすると、英語の地震・災害・ニュースのタイトルを Claude Haiku 4.5 で日本語に翻訳します。
             翻訳結果は localStorage にキャッシュされ、同じイベントは再翻訳されません。
-            <b>※ 上部の Anthropic API キーが必要</b> (API キー未設定の場合は英語のまま表示)。
+            <b>※ Anthropic API キーが必要</b> (未設定なら英語のまま表示)。
           </p>
           <button type="button" id="worldTranslateNow" class="ws-action-btn">🔄 今すぐ翻訳を実行</button>
         </div>
 
         <!-- Claude ムード補正 -->
         <div class="world-setting-row">
-          <label class="ws-label">
+          <label class="ws-label" for="worldClaudeAdjEnable">
             <input type="checkbox" id="worldClaudeAdjEnable" checked />
             <span class="ws-name">🧠 30分ごとに Claude AI でムード補正</span>
           </label>
           <p class="ws-desc">
-            30分ごとに、現在の5銘柄価格 + 直近の地震/災害/ニュースを Claude Haiku 4.5 に渡し、
+            ← 左の <b>青いトグル</b> で ON/OFF。<br/>
+            ON にすると 30分に1回、現在の5銘柄価格 + 直近の地震/災害/ニュースを Claude Haiku 4.5 に渡し、
             「今後10分の市場ムード補正係数 (0.99〜1.01)」を取得して予測値に反映します。
-            線形回帰だけでは捉えられない「材料イベント」を予測に組み込む目的。
-            <b>※ Anthropic API キーが必要</b>。OFF にすると線形回帰 + 誤差バイアスのみで予測。
+            線形回帰だけでは捉えられない「材料イベント」 (例: 大地震直後の円安一時停止) を予測に組み込む目的。
+            <b>※ Anthropic API キーが必要</b>。OFF にすると線形回帰 + 誤差バイアスのみで予測。<br/>
+            「今すぐ実行」を押すと、30分待たずに即座に1回ムード補正を行います。
           </p>
+          <button type="button" id="worldClaudeAdjNow" class="ws-action-btn">🧠 今すぐムード補正を実行</button>
         </div>
 
         <!-- 高速検証 -->
         <div class="world-setting-row">
-          <label class="ws-label">
+          <label class="ws-label" for="worldFastVerifyMode">
             <input type="checkbox" id="worldFastVerifyMode" />
             <span class="ws-name">⚡ 高速検証モード (テスト用)</span>
           </label>
           <p class="ws-desc">
-            通常は予測してから 10分後 に実値と照合して精度を測りますが、
-            このモードを ON にすると <b>10秒後</b> に検証します。
-            すぐ精度ダッシュボードに数字を出して動作確認したい時用。本番では OFF。
+            ← 左の <b>青いトグル</b> で ON/OFF。<br/>
+            通常は予測してから <b>10分後</b> に実値と照合して精度を測ります。
+            このモードを ON にすると、新しい予測は <b>10秒後</b> に検証されます。
+            「サンプル予測+即検証」を押すと、その場で 5銘柄取得→予測→10秒後検証→精度ダッシュボード更新まで一気に走ります (高速検証モードは自動 ON)。<br/>
+            <b>※ 本番運用では OFF</b> (バイアス補正が短期ノイズに引きずられるため)。動作確認用。
           </p>
+          <button type="button" id="worldFastVerifyTest" class="ws-action-btn">🧪 サンプル予測 + 即検証</button>
         </div>
       </div>
       <small style="display:block;margin-top:10px;color:var(--text-secondary, #94a3b8);font-size:11px;line-height:1.5">
@@ -2470,7 +2541,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.2.0';
+const APP_VERSION = 'v2.2.1';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -8987,8 +9058,18 @@ const worldPredictionApp = (function() {
       }
     },
     async fetchSPX() {
-      try { return await this.fetchYahooSymbol('%5EGSPC'); } // ^GSPC
-      catch (e) { console.warn('[world-v2] SPX Yahoo fail, fallback stooq', e.message); return await this.fetchStooqSymbol('^spx'); }
+      // ^GSPC は生で渡す (fetchYahooSymbol が encodeURIComponent するので二重エンコード回避)
+      try { return await this.fetchYahooSymbol('^GSPC'); }
+      catch (e1) {
+        // 2nd: SPY ETF (S&P500 連動、価格は約1/10)
+        try {
+          const r = await this.fetchYahooSymbol('SPY');
+          return { ...r, price: r.price * 10, source: r.source + ':x10' };
+        } catch (e2) {
+          console.warn('[world-v2] SPX Yahoo fail, fallback stooq', e1.message, e2.message);
+          return await this.fetchStooqSymbol('^spx');
+        }
+      }
     },
 
     async fetchEarthquakes(hours = 48) {
@@ -9635,23 +9716,36 @@ const worldPredictionApp = (function() {
     return { title: e.title || e.place || '', category: jaCat };
   }
   let translationInFlight = false;
+  function updateApiKeyWarning() {
+    const apiKeyEl = document.getElementById('apiKey');
+    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    const warn = document.getElementById('worldApiKeyWarning');
+    if (warn) warn.classList.toggle('visible', !apiKey);
+  }
   async function translateEvents(events, opts = {}) {
     const { manual = false } = opts;
+    updateApiKeyWarning();
     // OFF なら何もしない
     const enabled = document.getElementById('worldTranslateEnable');
     if (enabled && !enabled.checked) {
       setStatusPill('wsl-translate', '翻訳: OFF', '');
+      if (manual) toast('翻訳トグルが OFF です。左のトグルを ON にしてください', 'warning', 4000);
       return;
     }
     const apiKeyEl = document.getElementById('apiKey');
     const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
     if (!apiKey) {
       setStatusPill('wsl-translate', '翻訳: API Key未設定 (英語表示)', 'warn');
-      if (manual) toast('Anthropic API キーを上部 ⚙ から設定してください', 'warning', 5000);
+      if (manual) toast('⚠️ ページ上部の ⚙ から Anthropic API キーを設定してください', 'warning', 6000);
       return;
     }
     if (translationInFlight) {
       if (manual) toast('翻訳実行中です…', 'info', 2500);
+      return;
+    }
+    if (!events || events.length === 0) {
+      setStatusPill('wsl-translate', '翻訳: イベント未取得', 'warn');
+      if (manual) toast('まだイベントが取得されていません。少し待ってから再度お試しください', 'warning', 5000);
       return;
     }
     // 翻訳対象: キャッシュ未登録 かつ 既に英語タイトル
@@ -9670,7 +9764,8 @@ const worldPredictionApp = (function() {
     if (!needs.length) {
       const total = events.length;
       const cached = events.filter(e => translateCache.has(e.id)).length;
-      setStatusPill('wsl-translate', `翻訳: 完了 (${cached}/${total} 件)`, 'ok');
+      setStatusPill('wsl-translate', `翻訳: 全件翻訳済 (${cached}/${total})`, 'ok');
+      if (manual) toast(`既に全 ${cached} 件が翻訳済です (キャッシュ済み)`, 'success', 3500);
       return;
     }
     translationInFlight = true;
@@ -10116,10 +10211,37 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       'ok');
   }
 
-  async function tickClaudeAdjust() {
-    if (!document.getElementById('worldClaudeAdjEnable')?.checked) return;
-    const summary = buildContextSummary(lastPrices, cachedEvents);
-    await claudeAdjustOnce(summary);
+  async function tickClaudeAdjust(opts = {}) {
+    const { manual = false } = opts;
+    updateApiKeyWarning();
+    if (!document.getElementById('worldClaudeAdjEnable')?.checked) {
+      if (manual) {
+        toast('Claude ムード補正のトグルが OFF です。左のトグルを ON にしてください', 'warning', 4000);
+        setStatusPill('wsl-claude', 'Claude補正: OFF', '');
+      }
+      return;
+    }
+    const apiKeyEl = document.getElementById('apiKey');
+    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) {
+      setStatusPill('wsl-claude', 'Claude補正: API Key未設定', 'warn');
+      if (manual) toast('⚠️ ページ上部の ⚙ から Anthropic API キーを設定してください', 'warning', 6000);
+      return;
+    }
+    if (!Object.keys(lastPrices).length) {
+      setStatusPill('wsl-claude', 'Claude補正: 価格未取得', 'warn');
+      if (manual) toast('まだ価格が取得されていません。少し待ってから再度お試しください', 'warning', 5000);
+      return;
+    }
+    const btn = document.getElementById('worldClaudeAdjNow');
+    if (btn) btn.disabled = true;
+    try {
+      const summary = buildContextSummary(lastPrices, cachedEvents);
+      await claudeAdjustOnce(summary);
+      if (manual) toast('✅ Claude ムード補正を実行しました', 'success', 3000);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -10189,6 +10311,37 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     document.getElementById('worldTranslateNow')?.addEventListener('click', () => {
       translateEvents(latestEvents, { manual: true });
     });
+    // 「今すぐムード補正を実行」ボタン
+    document.getElementById('worldClaudeAdjNow')?.addEventListener('click', () => {
+      tickClaudeAdjust({ manual: true });
+    });
+    // 「サンプル予測 + 即検証」ボタン
+    document.getElementById('worldFastVerifyTest')?.addEventListener('click', async () => {
+      const fastEl = document.getElementById('worldFastVerifyMode');
+      if (!fastEl?.checked) {
+        fastEl.checked = true;
+        localStorage.setItem(FAST_VERIFY_LS, '1');
+        toast('⚡ 高速検証モードを自動 ON にしました', 'info', 3500);
+      }
+      const btn = document.getElementById('worldFastVerifyTest');
+      if (btn) btn.disabled = true;
+      try {
+        toast('🔄 価格取得 → 予測 → 10秒後に検証します…', 'info', 4000);
+        await tickPrices();
+        setTimeout(() => {
+          toast('✅ 検証完了。下の「予測精度」カードを確認してください', 'success', 4500);
+          renderAccuracyDashboard();
+        }, 11000);
+      } finally {
+        setTimeout(() => { if (btn) btn.disabled = false; }, 12000);
+      }
+    });
+    // API キー入力欄の変更で警告バナーを更新
+    const apiKeyMonitor = document.getElementById('apiKey');
+    if (apiKeyMonitor) {
+      apiKeyMonitor.addEventListener('input', updateApiKeyWarning);
+      apiKeyMonitor.addEventListener('change', updateApiKeyWarning);
+    }
     loadTranslateCache();
     renderInitialPriceCards();
     renderEventsTimeline([]);
@@ -10244,6 +10397,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     active = true;
     hideMainUI();
     document.getElementById('worldPredictionPanel')?.classList.add('active');
+    updateApiKeyWarning();
     await loadBiasCache();
     setView(currentView);
     cleanupOldPredictions(); // バックグラウンドで古いレコード削除
