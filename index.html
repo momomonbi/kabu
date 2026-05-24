@@ -1777,6 +1777,24 @@ label {
   box-shadow: 0 6px 18px rgba(6, 182, 212, 0.32);
 }
 
+.world-back-btn {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: var(--text-primary, #0f172a);
+  font-size: 12px; font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 100px;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.15s;
+}
+.world-back-btn:hover {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+  border-color: transparent;
+  transform: translateX(-2px);
+}
+
 .world-viewport {
   position: relative;
   width: 100%; height: 50vh; min-height: 360px;
@@ -1784,6 +1802,82 @@ label {
   background: #050816;
   box-shadow: inset 0 0 60px rgba(6, 182, 212, 0.08);
 }
+
+/* 判例オーバーレイ */
+.world-legend {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 12px 10px 12px;
+  color: white;
+  font-size: 11px;
+  z-index: 500;
+  max-width: 200px;
+  pointer-events: auto;
+  transition: max-height 0.25s ease, padding 0.25s ease;
+  max-height: 400px; overflow: hidden;
+}
+.world-legend.collapsed {
+  max-height: 30px;
+  padding-top: 6px; padding-bottom: 6px;
+}
+.world-legend.collapsed .wl-row { display: none; }
+.world-legend .wl-title {
+  font-weight: 700; font-size: 11.5px;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a5f3fc;
+  display: flex; align-items: center; gap: 6px;
+}
+.world-legend .wl-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 2px 0;
+  line-height: 1.3;
+}
+.world-legend .wl-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+  flex-shrink: 0;
+}
+.world-legend .wl-toggle {
+  position: absolute;
+  top: 6px; right: 8px;
+  background: transparent; border: 0;
+  color: white; cursor: pointer;
+  font-size: 14px; padding: 2px 6px;
+  border-radius: 4px;
+}
+.world-legend .wl-toggle:hover { background: rgba(255,255,255,0.12); }
+.world-legend.collapsed .wl-toggle { transform: rotate(-90deg); }
+
+.world-events-filter {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 6px 0 10px;
+}
+.world-events-filter .wef-btn {
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid transparent;
+  color: var(--text-secondary, #475569);
+  font-size: 11.5px; font-weight: 600;
+  padding: 5px 10px; border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.world-events-filter .wef-btn:hover { color: var(--text-primary, #0f172a); }
+.world-events-filter .wef-btn.active {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.world-event-item.humanitarian { border-left-color: #10b981; background: rgba(16,185,129,0.05); }
+.world-event-item.space-weather { border-left-color: #fbbf24; background: rgba(251,191,36,0.06); }
 .world-viewport.split {
   display: grid; grid-template-rows: 1fr 1fr; gap: 4px;
   height: 70vh; min-height: 520px;
@@ -2203,6 +2297,7 @@ label {
   <div id="worldPredictionPanel" class="world-panel">
     <div class="card">
       <div class="card-title">
+        <button type="button" id="worldBackHome" class="world-back-btn" title="銘柄分析ホームに戻る">← ホーム</button>
         <span class="card-icon">🌍</span>
         <span>世界予測システム v2</span>
         <span class="count-badge" id="worldClock">--:--</span>
@@ -2220,6 +2315,18 @@ label {
       <div id="worldViewport" class="world-viewport">
         <div id="globeContainer" class="globe-container"></div>
         <div id="mapContainer" class="map-container" style="display:none"></div>
+        <!-- 判例オーバーレイ -->
+        <div class="world-legend" id="worldLegend">
+          <div class="wl-title">判例</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#ef4444;width:14px;height:14px"></span> 大地震 (M6+)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#f59e0b;width:11px;height:11px"></span> 中地震 (M5+)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#06b6d4;width:8px;height:8px"></span> 小地震 (M3+)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#8b5cf6"></span> 自然災害 (火山/火災/洪水)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
+          <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
+        </div>
       </div>
     </div>
 
@@ -2244,8 +2351,16 @@ label {
     <div class="card">
       <div class="card-title">
         <span class="card-icon">🌐</span>
-        <span>世界イベント (地震・自然災害・ニュース)</span>
+        <span>世界イベント (地震・災害・人道危機・宇宙天気・ニュース)</span>
         <span class="count-badge" id="worldEventsBadge">0件</span>
+      </div>
+      <div class="world-events-filter" id="worldEventsFilter">
+        <button type="button" class="wef-btn active" data-filter="all">全て</button>
+        <button type="button" class="wef-btn" data-filter="earthquake">🌋 地震</button>
+        <button type="button" class="wef-btn" data-filter="eonet">🌪 自然災害</button>
+        <button type="button" class="wef-btn" data-filter="humanitarian">🆘 人道</button>
+        <button type="button" class="wef-btn" data-filter="space">☀️ 宇宙天気</button>
+        <button type="button" class="wef-btn" data-filter="news">📰 ニュース</button>
       </div>
       <div id="worldEventsTimeline" class="world-events-timeline"></div>
     </div>
@@ -2255,21 +2370,17 @@ label {
         <span class="card-icon">⚙</span>
         <span>世界予測 設定</span>
       </div>
-      <div style="display:grid;gap:10px">
-        <div>
-          <label style="display:block;font-size:12px;color:var(--text-secondary, #475569);font-weight:600;margin-bottom:4px">カスタム CORS プロキシ URL (任意)</label>
-          <input id="worldProxyInput" placeholder="https://corsproxy.io/?" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(15,23,42,0.12);font-size:13px" />
-          <small style="color:var(--text-secondary, #94a3b8);font-size:11px">Stooq (原油/金/S&amp;P500) は CORS 非対応のためプロキシ経由で取得します。空欄なら corsproxy.io / cors.lol / allorigins を順に試行。</small>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-            <input type="checkbox" id="worldClaudeAdjEnable" checked /> 30分ごとに Claude API でムード補正 (Haiku 4.5)
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-            <input type="checkbox" id="worldFastVerifyMode" /> ⚡ 高速検証モード (10秒で検証 / テスト用)
-          </label>
-        </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="worldClaudeAdjEnable" checked /> 30分ごとに Claude API でムード補正 (Haiku 4.5)
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="worldFastVerifyMode" /> ⚡ 高速検証モード (10秒で検証 / テスト用)
+        </label>
       </div>
+      <small style="display:block;margin-top:8px;color:var(--text-secondary, #94a3b8);font-size:11px">
+        Stooq (原油/金/S&amp;P500) は CORS 非対応のため、内蔵プロキシ (corsproxy.io / cors.lol / allorigins) を自動で順に試行します。設定は不要です。
+      </small>
     </div>
   </div>
 </div>
@@ -8744,9 +8855,10 @@ const worldPredictionApp = (function() {
     fetchGold() { return this.fetchStooqSymbol('gc.f'); },
     fetchSPX()  { return this.fetchStooqSymbol('^spx'); },
 
-    async fetchEarthquakes(hours = 24) {
+    async fetchEarthquakes(hours = 48) {
+      // M2.5 以上に拡大 (24h ≒ 100-300件、48h でより多く取得)
       const start = new Date(Date.now() - hours * 3600 * 1000).toISOString();
-      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${start}&minmagnitude=4.0&orderby=time&limit=100`;
+      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${start}&minmagnitude=2.5&orderby=time&limit=200`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('USGS HTTP ' + r.status);
       const j = await r.json();
@@ -8763,8 +8875,9 @@ const worldPredictionApp = (function() {
       }));
     },
 
-    async fetchEonetEvents(days = 7) {
-      const url = `https://eonet.gsfc.nasa.gov/api/v3/events?days=${days}&status=open&limit=50`;
+    async fetchEonetEvents(days = 30) {
+      // 30日に拡大 (open status のみ — 進行中の災害)
+      const url = `https://eonet.gsfc.nasa.gov/api/v3/events?days=${days}&status=open&limit=100`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('EONET HTTP ' + r.status);
       const j = await r.json();
@@ -8792,28 +8905,194 @@ const worldPredictionApp = (function() {
       return out;
     },
 
-    async fetchGdeltNews(query = '(market OR economy OR earthquake OR crisis)') {
-      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&format=json&maxrecords=15&sort=DateDesc&timespan=1h`;
+    async fetchGdeltNews() {
+      // 複数クエリで多様性を確保: 経済/災害/紛争/技術
+      const queries = [
+        '(market OR economy OR inflation OR "interest rate")',
+        '(earthquake OR tsunami OR volcano OR wildfire OR flood)',
+        '(war OR conflict OR "geopolitical tension" OR sanctions)',
+        '(AI OR semiconductor OR "energy crisis")',
+      ];
+      const all = [];
+      const seen = new Set();
+      await Promise.allSettled(queries.map(async (q) => {
+        const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=ArtList&format=json&maxrecords=20&sort=DateDesc&timespan=3h`;
+        try {
+          const r = await fetch(url);
+          if (!r.ok) return;
+          const text = await r.text();
+          let j;
+          try { j = JSON.parse(text); } catch (_) { return; }
+          for (const a of (j.articles || [])) {
+            const id = 'gdelt_' + (a.url || a.title || '').slice(0, 80);
+            if (seen.has(id)) continue;
+            seen.add(id);
+            all.push({
+              id,
+              type: 'news',
+              title: a.title || '(no title)',
+              time: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime() : Date.now(),
+              url: a.url,
+              domain: a.domain,
+              topic: q,
+              lat: null, lng: null,
+            });
+          }
+        } catch (_) {}
+      }));
+      // 新しい順に並べて上位30件
+      return all.sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 30);
+    },
+
+    async fetchReliefweb() {
+      // Reliefweb: 人道危機・自然災害の包括的データベース (CORS対応・無認証)
+      const url = 'https://api.reliefweb.int/v1/disasters?profile=list&limit=30&sort[]=date:desc'
+                + '&fields[include][]=name'
+                + '&fields[include][]=primary_country'
+                + '&fields[include][]=type'
+                + '&fields[include][]=date'
+                + '&fields[include][]=status'
+                + '&fields[include][]=glide';
       try {
         const r = await fetch(url);
-        if (!r.ok) throw new Error('GDELT HTTP ' + r.status);
-        const text = await r.text();
-        // GDELT は時々 HTML を返すので safety
-        let j;
-        try { j = JSON.parse(text); } catch (_) { return []; }
-        return (j.articles || []).map(a => ({
-          id: 'gdelt_' + (a.url || a.title || '').slice(0, 64),
-          type: 'news',
-          title: a.title || '(no title)',
-          time: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime() : Date.now(),
-          url: a.url,
-          domain: a.domain,
-          lat: null, lng: null, // GDELT基本APIは座標を返さない
-        }));
+        if (!r.ok) throw new Error('Reliefweb HTTP ' + r.status);
+        const j = await r.json();
+        return (j.data || []).map(d => {
+          const f = d.fields || {};
+          const country = f.primary_country || {};
+          const loc = COUNTRY_COORDS[country.iso3] || COUNTRY_COORDS[country.name] || null;
+          return {
+            id: 'rw_' + d.id,
+            type: 'humanitarian',
+            title: f.name || '(no title)',
+            category: ((f.type && f.type[0] && f.type[0].name) || 'Disaster'),
+            country: country.name || '?',
+            countryISO3: country.iso3 || null,
+            status: f.status || '',
+            time: f.date && f.date.created ? new Date(f.date.created).getTime() : Date.now(),
+            url: `https://reliefweb.int/disaster/${d.id}`,
+            lat: loc ? loc[0] : null,
+            lng: loc ? loc[1] : null,
+          };
+        });
       } catch (e) {
+        console.warn('[world-v2] reliefweb fail', e);
         return [];
       }
     },
+
+    async fetchSpaceWeather() {
+      // NOAA Space Weather Prediction Center (CORS対応・無認証)
+      try {
+        const [alertsR, kindexR] = await Promise.allSettled([
+          fetch('https://services.swpc.noaa.gov/products/alerts.json'),
+          fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+        ]);
+        const out = [];
+        // アラート (太陽フレア、地磁気嵐など)
+        if (alertsR.status === 'fulfilled' && alertsR.value.ok) {
+          const alerts = await alertsR.value.json();
+          const recent = (alerts || []).slice(0, 8);
+          for (const a of recent) {
+            const issueT = a.issue_datetime ? new Date(a.issue_datetime.replace(' ', 'T') + 'Z').getTime() : Date.now();
+            // 一行目を抜粋 (例: "SPACE WEATHER MESSAGE CODE: ALTK04 ...")
+            const msg = (a.message || '').split('\n').slice(0, 3).join(' ').slice(0, 200);
+            out.push({
+              id: 'sw_' + a.product_id + '_' + issueT,
+              type: 'space-weather',
+              title: msg || '(space weather alert)',
+              category: 'NOAA SWPC',
+              time: issueT,
+              // 太陽は地球の昼側上空にあるので、現在の太陽直下の経度に置く (概算)
+              lat: 0,
+              lng: (-((new Date().getUTCHours() + new Date().getUTCMinutes() / 60) / 24) * 360 + 180) % 360 - 180,
+              url: 'https://www.swpc.noaa.gov/',
+            });
+          }
+        }
+        // K-index 最新 (地磁気活動)
+        if (kindexR.status === 'fulfilled' && kindexR.value.ok) {
+          const k = await kindexR.value.json();
+          if (Array.isArray(k) && k.length >= 2) {
+            const last = k[k.length - 1];
+            const headers = k[0];
+            const idxTime = headers.indexOf('time_tag');
+            const idxK = headers.indexOf('Kp');
+            const kVal = parseFloat(last[idxK]);
+            if (isFinite(kVal)) {
+              out.push({
+                id: 'sw_kindex_latest',
+                type: 'space-weather',
+                title: `地磁気 Kp指数: ${kVal.toFixed(2)} ${kVal >= 5 ? '⚡ 嵐レベル' : kVal >= 4 ? '注意' : '平穏'}`,
+                category: 'Kp Index',
+                time: last[idxTime] ? new Date(last[idxTime] + 'Z').getTime() : Date.now(),
+                lat: 78.0, lng: 15.0, // 北極圏 (オーロラ帯)
+                url: 'https://www.swpc.noaa.gov/products/planetary-k-index',
+              });
+            }
+          }
+        }
+        return out;
+      } catch (e) {
+        console.warn('[world-v2] space weather fail', e);
+        return [];
+      }
+    },
+  };
+
+  // 国名/ISO3 → 大まかな中心座標 (Reliefweb 用)
+  // 主要国のみ網羅。未登録国はタイムラインのみ表示 (地図上は無し)
+  const COUNTRY_COORDS = {
+    'AFG': [33.9, 67.7], 'Afghanistan': [33.9, 67.7],
+    'ALB': [41.2, 20.2], 'DZA': [28.0, 1.7], 'AGO': [-11.2, 17.9],
+    'ARG': [-38.4, -63.6], 'ARM': [40.1, 45.0], 'AUS': [-25.3, 133.8], 'Australia': [-25.3, 133.8],
+    'AUT': [47.5, 14.6], 'AZE': [40.1, 47.6], 'BGD': [23.7, 90.4], 'Bangladesh': [23.7, 90.4],
+    'BLR': [53.7, 27.9], 'BEL': [50.5, 4.5], 'BEN': [9.3, 2.3], 'BTN': [27.5, 90.4],
+    'BOL': [-16.3, -63.6], 'BIH': [43.9, 17.7], 'BWA': [-22.3, 24.7], 'BRA': [-14.2, -51.9], 'Brazil': [-14.2, -51.9],
+    'BFA': [12.2, -1.6], 'BDI': [-3.4, 29.9], 'KHM': [12.6, 104.9], 'CMR': [7.4, 12.4],
+    'CAN': [56.1, -106.3], 'Canada': [56.1, -106.3], 'CAF': [6.6, 20.9], 'TCD': [15.5, 18.7],
+    'CHL': [-35.7, -71.5], 'Chile': [-35.7, -71.5], 'CHN': [35.9, 104.2], 'China': [35.9, 104.2],
+    'COL': [4.6, -74.3], 'Colombia': [4.6, -74.3], 'COM': [-11.9, 43.9], 'COG': [-0.2, 15.8],
+    'COD': [-4.0, 21.8], 'CRI': [9.7, -83.8], 'CIV': [7.5, -5.5], 'HRV': [45.1, 15.2],
+    'CUB': [21.5, -77.8], 'CYP': [35.1, 33.4], 'CZE': [49.8, 15.5], 'DNK': [56.3, 9.5],
+    'DJI': [11.8, 42.6], 'DOM': [18.7, -70.2], 'ECU': [-1.8, -78.2], 'Ecuador': [-1.8, -78.2],
+    'EGY': [26.8, 30.8], 'Egypt': [26.8, 30.8], 'SLV': [13.8, -88.9], 'GNQ': [1.7, 10.3],
+    'ERI': [15.2, 39.8], 'EST': [58.6, 25.0], 'ETH': [9.1, 40.5], 'Ethiopia': [9.1, 40.5],
+    'FJI': [-17.7, 178.1], 'FIN': [61.9, 25.7], 'FRA': [46.2, 2.2], 'France': [46.2, 2.2],
+    'GAB': [-0.8, 11.6], 'GMB': [13.4, -15.5], 'GEO': [42.3, 43.4], 'DEU': [51.2, 10.4], 'Germany': [51.2, 10.4],
+    'GHA': [7.9, -1.0], 'GRC': [39.1, 21.8], 'GTM': [15.8, -90.2], 'GIN': [9.9, -9.7],
+    'GNB': [11.8, -15.2], 'GUY': [4.9, -58.9], 'HTI': [18.9, -72.3], 'Haiti': [18.9, -72.3],
+    'HND': [15.2, -86.2], 'HUN': [47.2, 19.5], 'ISL': [64.9, -19.0], 'IND': [20.6, 78.9], 'India': [20.6, 78.9],
+    'IDN': [-0.8, 113.9], 'Indonesia': [-0.8, 113.9], 'IRN': [32.4, 53.7], 'Iran': [32.4, 53.7],
+    'IRQ': [33.2, 43.7], 'Iraq': [33.2, 43.7], 'IRL': [53.4, -8.2], 'ISR': [31.0, 34.9], 'Israel': [31.0, 34.9],
+    'ITA': [41.9, 12.6], 'Italy': [41.9, 12.6], 'JAM': [18.1, -77.3], 'JPN': [36.2, 138.3], 'Japan': [36.2, 138.3],
+    'JOR': [30.6, 36.2], 'KAZ': [48.0, 66.9], 'KEN': [-0.0, 37.9], 'PRK': [40.3, 127.5],
+    'KOR': [35.9, 127.8], 'Korea': [35.9, 127.8], 'KWT': [29.3, 47.5], 'KGZ': [41.2, 74.8],
+    'LAO': [19.9, 102.5], 'LVA': [56.9, 24.6], 'LBN': [33.9, 35.9], 'Lebanon': [33.9, 35.9],
+    'LSO': [-29.6, 28.2], 'LBR': [6.4, -9.4], 'LBY': [26.3, 17.2], 'LTU': [55.2, 23.9],
+    'LUX': [49.8, 6.1], 'MDG': [-18.8, 47.0], 'MWI': [-13.3, 34.3], 'MYS': [4.2, 101.9],
+    'MLI': [17.6, -4.0], 'MRT': [21.0, -10.9], 'MEX': [23.6, -102.5], 'Mexico': [23.6, -102.5],
+    'MDA': [47.4, 28.4], 'MNG': [46.9, 103.8], 'MNE': [42.7, 19.4], 'MAR': [31.8, -7.1],
+    'MOZ': [-18.7, 35.5], 'MMR': [21.9, 95.9], 'Myanmar': [21.9, 95.9], 'NAM': [-22.9, 18.5],
+    'NPL': [28.4, 84.1], 'Nepal': [28.4, 84.1], 'NLD': [52.1, 5.3], 'NZL': [-40.9, 174.9], 'New Zealand': [-40.9, 174.9],
+    'NIC': [12.9, -85.2], 'NER': [17.6, 8.1], 'NGA': [9.1, 8.7], 'Nigeria': [9.1, 8.7],
+    'NOR': [60.5, 8.5], 'OMN': [21.5, 55.9], 'PAK': [30.4, 69.3], 'Pakistan': [30.4, 69.3],
+    'PAN': [8.5, -80.8], 'PNG': [-6.3, 143.9], 'PRY': [-23.4, -58.4], 'PER': [-9.2, -75.0],
+    'PHL': [12.9, 121.8], 'Philippines': [12.9, 121.8], 'POL': [51.9, 19.1], 'PRT': [39.4, -8.2],
+    'PRI': [18.2, -66.6], 'QAT': [25.4, 51.2], 'ROU': [45.9, 24.97], 'RUS': [61.5, 105.3], 'Russia': [61.5, 105.3],
+    'RWA': [-1.9, 29.9], 'SAU': [23.9, 45.1], 'SEN': [14.5, -14.5], 'SRB': [44.0, 21.0],
+    'SLE': [8.5, -11.8], 'SGP': [1.4, 103.8], 'SVK': [48.7, 19.7], 'SVN': [46.2, 14.9],
+    'SOM': [5.2, 46.2], 'Somalia': [5.2, 46.2], 'ZAF': [-30.6, 22.9], 'SSD': [6.9, 31.3],
+    'ESP': [40.5, -3.7], 'Spain': [40.5, -3.7], 'LKA': [7.9, 80.8], 'SDN': [12.9, 30.2], 'Sudan': [12.9, 30.2],
+    'SUR': [3.9, -56.0], 'SWE': [60.1, 18.6], 'CHE': [46.8, 8.2], 'SYR': [34.8, 38.997], 'Syria': [34.8, 38.997],
+    'TJK': [38.9, 71.3], 'TZA': [-6.4, 34.9], 'THA': [15.9, 100.99], 'Thailand': [15.9, 100.99],
+    'TLS': [-8.9, 125.7], 'TGO': [8.6, 0.8], 'TON': [-21.2, -175.2], 'TTO': [10.7, -61.2],
+    'TUN': [33.9, 9.5], 'TUR': [38.96, 35.2], 'Turkey': [38.96, 35.2], 'TKM': [38.97, 59.6],
+    'UGA': [1.4, 32.3], 'UKR': [48.4, 31.2], 'Ukraine': [48.4, 31.2], 'ARE': [23.4, 53.8],
+    'GBR': [55.4, -3.4], 'UK': [55.4, -3.4], 'USA': [37.1, -95.7], 'United States': [37.1, -95.7],
+    'URY': [-32.5, -55.8], 'UZB': [41.4, 64.6], 'VUT': [-15.4, 166.96], 'VEN': [6.4, -66.6],
+    'VNM': [14.1, 108.3], 'Vietnam': [14.1, 108.3], 'YEM': [15.6, 48.5], 'Yemen': [15.6, 48.5],
+    'ZMB': [-13.1, 27.9], 'ZWE': [-19.0, 29.2],
   };
 
   // ──────────────────────────────────────────────
@@ -8995,20 +9274,35 @@ const worldPredictionApp = (function() {
 
   function eventToVisualPoint(e) {
     let color, altitude, radius, label;
+    const ja = jaDisplay(e); // 日本語タイトル
     if (e.type === 'earthquake') {
       const m = e.mag || 0;
       color = m >= 6 ? '#ef4444' : m >= 5 ? '#f59e0b' : '#06b6d4';
       altitude = Math.min(0.5, m / 20);
       radius = Math.max(0.25, m * 0.18);
-      label = `<div style="background:rgba(15,23,42,0.9);color:white;padding:6px 10px;border-radius:6px;font-size:12px">
-                 <b>M${m}</b> ${e.place}<br/><small>${shortDate(e.time)}</small>
+      label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
+                 <b>🌋 M${m} 地震</b><br/>${ja.title}<br/><small>${shortDate(e.time)}</small>
                </div>`;
     } else if (e.type === 'eonet') {
       color = '#8b5cf6';
       altitude = 0.08;
       radius = 0.4;
-      label = `<div style="background:rgba(15,23,42,0.9);color:white;padding:6px 10px;border-radius:6px;font-size:12px">
-                 <b>🌋 ${e.category}</b><br/>${e.title}
+      label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
+                 <b>🌪 ${ja.category}</b><br/>${ja.title}
+               </div>`;
+    } else if (e.type === 'humanitarian') {
+      color = '#10b981';
+      altitude = 0.12;
+      radius = 0.45;
+      label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
+                 <b>🆘 人道危機: ${ja.category}</b><br/>${ja.title}<br/><small>${e.country || ''}</small>
+               </div>`;
+    } else if (e.type === 'space-weather') {
+      color = '#fbbf24';
+      altitude = 0.18;
+      radius = 0.5;
+      label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:280px">
+                 <b>☀️ 宇宙天気</b><br/>${ja.title}
                </div>`;
     } else {
       color = '#94a3b8';
@@ -9034,20 +9328,25 @@ const worldPredictionApp = (function() {
       if (m) {
         mapMarkers.forEach(mk => mk.remove());
         mapMarkers = geoEvents.map(e => {
-          let color = '#94a3b8', radius = 4;
+          let color = '#94a3b8', radius = 4, kind = 'ニュース';
           if (e.type === 'earthquake') {
             color = e.mag >= 6 ? '#ef4444' : e.mag >= 5 ? '#f59e0b' : '#06b6d4';
             radius = Math.max(4, (e.mag || 3) * 2);
+            kind = `🌋 M${e.mag} 地震`;
           } else if (e.type === 'eonet') {
-            color = '#8b5cf6';
-            radius = 6;
+            color = '#8b5cf6'; radius = 6; kind = '🌪 自然災害';
+          } else if (e.type === 'humanitarian') {
+            color = '#10b981'; radius = 7; kind = '🆘 人道危機';
+          } else if (e.type === 'space-weather') {
+            color = '#fbbf24'; radius = 8; kind = '☀️ 宇宙天気';
           }
+          const ja = jaDisplay(e);
           return L.circleMarker([e.lat, e.lng], {
             radius, color, fillColor: color, fillOpacity: 0.55, weight: 1.2
           }).bindPopup(
-            `<b>${e.type === 'earthquake' ? 'M' + e.mag : (e.category || e.type)}</b><br/>
-             ${(e.place || e.title || '').replace(/[<>]/g, '')}<br/>
-             <small>${shortDate(e.time)}</small>`
+            `<b>${kind}</b><br/>
+             ${ja.title.replace(/[<>]/g, '')}<br/>
+             <small>${shortDate(e.time)}${e.country ? ' / ' + e.country : ''}</small>`
           ).addTo(m);
         });
       }
@@ -9152,38 +9451,160 @@ const worldPredictionApp = (function() {
     if (predEl) predEl.innerHTML = `<span class="wpc-error">取得失敗: ${err.message || 'unknown'}</span>`;
   }
 
+  // ──────────────────────────────────────────────
+  // 日本語表示ヘルパ (カテゴリ辞書 + Claude翻訳キャッシュ)
+  // ──────────────────────────────────────────────
+  const CATEGORY_JA = {
+    'Wildfires': '山火事', 'Volcanoes': '火山活動', 'Severe Storms': '暴風雨',
+    'Floods': '洪水', 'Sea and Lake Ice': '海氷・湖氷', 'Earthquakes': '地震',
+    'Drought': '干ばつ', 'Dust and Haze': '砂塵・霧', 'Landslides': '地滑り',
+    'Manmade': '人為的災害', 'Snow': '豪雪', 'Temperature Extremes': '極端気温',
+    'Water Color': '海洋異常', 'Tropical Cyclone': '熱帯低気圧',
+    'Cold Wave': '寒波', 'Heat Wave': '熱波', 'Epidemic': '感染症流行',
+    'Conflict': '紛争', 'Drought': '干ばつ', 'Fire': '火災', 'Flash Flood': '鉄砲水',
+    'Flood': '洪水', 'Insect Infestation': '害虫被害', 'Land Slide': '地滑り',
+    'Mud Slide': '土石流', 'Other': 'その他', 'Severe Local Storm': '局地暴風',
+    'Snow Avalanche': '雪崩', 'Storm Surge': '高潮', 'Tsunami': '津波',
+    'Volcano': '火山', 'Wild Fire': '山火事', 'Technological Disaster': '技術災害',
+    'Population Movement': '住民避難', 'Complex Emergency': '複合危機',
+    'Land Slide': '地滑り', 'Earthquake': '地震', 'event': 'イベント',
+  };
+  const TRANSLATE_LS_KEY = 'world_translate_cache_v1';
+  const translateCache = new Map(); // id -> {title: ja, ts}
+  function loadTranslateCache() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TRANSLATE_LS_KEY) || '{}');
+      Object.entries(raw).forEach(([id, v]) => translateCache.set(id, v));
+    } catch (_) {}
+  }
+  function saveTranslateCache() {
+    try {
+      const obj = {};
+      // 1000件超えたら古い順に削除
+      const arr = Array.from(translateCache.entries()).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 1000);
+      arr.forEach(([id, v]) => { obj[id] = v; });
+      localStorage.setItem(TRANSLATE_LS_KEY, JSON.stringify(obj));
+    } catch (_) {}
+  }
+  function jaDisplay(e) {
+    const cached = translateCache.get(e.id);
+    const jaCat = CATEGORY_JA[e.category] || e.category || '';
+    if (cached && cached.title) {
+      return { title: cached.title, category: jaCat };
+    }
+    // 地震の "10km E of Tokyo, Japan" 形式は機械的に少しだけ整形
+    if (e.type === 'earthquake' && e.place) {
+      return { title: e.place, category: jaCat };
+    }
+    return { title: e.title || e.place || '', category: jaCat };
+  }
+  async function translateEvents(events) {
+    const apiKeyEl = document.getElementById('apiKey');
+    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) return; // 無設定なら翻訳しない (英語のままタイムライン表示)
+    // 翻訳対象: キャッシュ未登録 かつ 既に英語タイトル
+    const needs = events.filter(e => {
+      if (!e.id) return false;
+      if (translateCache.has(e.id)) return false;
+      const t = e.title || e.place || '';
+      if (!t) return false;
+      // 日本語が含まれていればスキップ
+      if (/[ぁ-んァ-ヶ一-龯]/.test(t)) {
+        translateCache.set(e.id, { title: t, ts: Date.now() });
+        return false;
+      }
+      return true;
+    }).slice(0, 25); // 1回 25件まで
+    if (!needs.length) return;
+    const items = needs.map((e, i) => ({
+      idx: i,
+      text: (e.title || e.place || '').slice(0, 200),
+      type: e.type,
+    }));
+    const prompt = `以下の世界イベント (英語) を、1つずつ日本語の短い要約 (40字以内) に変換してください。
+
+各項目を「IDX:N: 日本語要約」の形式で1行ずつ出力。前後の説明文や JSON、コードフェンスは一切不要。
+専門用語はカタカナ化、地名は和名/カタカナ。
+
+${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
+    let acc = '';
+    try {
+      await streamFetch({
+        apiKey,
+        model: 'claude-haiku-4-5',
+        prompt,
+        system: 'あなたは英日翻訳者です。指定形式の行のみ出力します。',
+        useTools: false,
+        maxTokens: 1200,
+        onEvent: (p) => {
+          if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
+            acc += p.delta.text;
+          }
+        }
+      });
+      const lines = acc.split(/\r?\n/);
+      let applied = 0;
+      for (const line of lines) {
+        const m = line.match(/^\s*IDX:\s*(\d+)\s*[:：]\s*(.+?)\s*$/);
+        if (!m) continue;
+        const idx = parseInt(m[1], 10);
+        const ja = m[2].replace(/^\[[^\]]+\]\s*/, ''); // 万一 [type] が残ってたら除去
+        if (!isFinite(idx) || idx < 0 || idx >= needs.length) continue;
+        const ev = needs[idx];
+        translateCache.set(ev.id, { title: ja, ts: Date.now() });
+        applied++;
+      }
+      if (applied > 0) {
+        saveTranslateCache();
+        // 表示を更新
+        renderEventsTimeline(latestEvents);
+        renderEvents(latestEvents);
+      }
+    } catch (e) {
+      console.warn('[world-v2] translation failed', e);
+    }
+  }
+
   let latestEvents = [];
+  let eventFilter = 'all'; // 'all' | 'earthquake' | 'eonet' | 'humanitarian' | 'space' | 'news'
   function renderEventsTimeline(events) {
     const el = document.getElementById('worldEventsTimeline');
     const badge = document.getElementById('worldEventsBadge');
     if (!el) return;
-    const sorted = events.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 60);
+    const filterMap = { earthquake: 'earthquake', eonet: 'eonet', humanitarian: 'humanitarian', space: 'space-weather', news: 'news' };
+    const filtered = eventFilter === 'all' ? events : events.filter(e => e.type === filterMap[eventFilter]);
+    const sorted = filtered.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 80);
+    if (badge) badge.textContent = events.length + '件 (表示 ' + sorted.length + ')';
     if (!sorted.length) {
-      el.innerHTML = '<div style="padding:12px;color:var(--text-secondary,#94a3b8);font-size:12px">まだイベントがありません。データ取得中…</div>';
-      if (badge) badge.textContent = '0件';
+      el.innerHTML = '<div style="padding:12px;color:var(--text-secondary,#94a3b8);font-size:12px">該当イベントがありません。データ取得中…</div>';
       return;
     }
     el.innerHTML = sorted.map(ev => {
-      let klass, title;
+      const ja = jaDisplay(ev);
+      const safeTitle = (ja.title || '').replace(/[<>]/g, '');
+      let klass, body;
       if (ev.type === 'earthquake') {
         klass = ev.mag >= 6 ? 'eq-major' : 'eq-minor';
-        title = `🌋 <b>M${ev.mag}</b> ${(ev.place || '').replace(/[<>]/g, '')}`;
-        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a>`;
+        body = `🌋 <b>M${ev.mag} 地震</b> ${safeTitle}`;
       } else if (ev.type === 'eonet') {
         klass = 'disaster';
-        title = `🌪 <b>${ev.category}</b> ${(ev.title || '').replace(/[<>]/g, '')}`;
-        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a>`;
+        body = `🌪 <b>${ja.category}</b> ${safeTitle}`;
+      } else if (ev.type === 'humanitarian') {
+        klass = 'humanitarian';
+        body = `🆘 <b>${ja.category}</b> ${safeTitle}${ev.country ? ` <small style="opacity:0.7">(${ev.country})</small>` : ''}`;
+      } else if (ev.type === 'space-weather') {
+        klass = 'space-weather';
+        body = `☀️ <b>宇宙天気</b> ${safeTitle}`;
       } else {
         klass = 'news';
-        title = `📰 ${(ev.title || '').replace(/[<>]/g, '')}`;
-        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a> <small style="opacity:0.6">${ev.domain || ''}</small>`;
+        body = `📰 ${safeTitle}${ev.domain ? ` <small style="opacity:0.6">${ev.domain}</small>` : ''}`;
       }
+      const linked = ev.url ? `<a href="${ev.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${body}</a>` : body;
       return `<div class="world-event-item ${klass}">
         <span class="wei-time">${shortTime(ev.time)}</span>
-        <span class="wei-body">${title}</span>
+        <span class="wei-body">${linked}</span>
       </div>`;
     }).join('');
-    if (badge) badge.textContent = sorted.length + '件';
   }
 
   async function renderAccuracyDashboard() {
@@ -9470,15 +9891,20 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
 
   async function tickEvents() {
     setStatusPill('wsl-events', 'イベント: 取得中…', '');
-    const [eqs, eonet, news] = await Promise.allSettled([
-      worldDataService.fetchEarthquakes(24),
-      worldDataService.fetchEonetEvents(7),
+    // 5系列のデータソースを並列取得 (失敗しても他は処理)
+    const [eqs, eonet, news, relief, space] = await Promise.allSettled([
+      worldDataService.fetchEarthquakes(48),
+      worldDataService.fetchEonetEvents(30),
       worldDataService.fetchGdeltNews(),
+      worldDataService.fetchReliefweb(),
+      worldDataService.fetchSpaceWeather(),
     ]);
     const merged = [
-      ...(eqs.status === 'fulfilled' ? eqs.value : []),
-      ...(eonet.status === 'fulfilled' ? eonet.value : []),
-      ...(news.status === 'fulfilled' ? news.value : []),
+      ...(eqs.status    === 'fulfilled' ? eqs.value    : []),
+      ...(eonet.status  === 'fulfilled' ? eonet.value  : []),
+      ...(news.status   === 'fulfilled' ? news.value   : []),
+      ...(relief.status === 'fulfilled' ? relief.value : []),
+      ...(space.status  === 'fulfilled' ? space.value  : []),
     ];
     // 重複排除 (id ベース)
     const seen = new Map();
@@ -9500,7 +9926,18 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     renderEventsTimeline(cachedEvents);
     renderEvents(cachedEvents);
-    setStatusPill('wsl-events', `イベント: ${cachedEvents.length}件 @ ${shortTime(Date.now())}`, 'ok');
+    // 日本語要約 (Claude Haiku) は非同期でバックグラウンド実行 (API Key 未設定なら何もしない)
+    translateEvents(cachedEvents);
+    const counts = {
+      eq: eqs.status === 'fulfilled' ? eqs.value.length : 0,
+      eonet: eonet.status === 'fulfilled' ? eonet.value.length : 0,
+      news: news.status === 'fulfilled' ? news.value.length : 0,
+      relief: relief.status === 'fulfilled' ? relief.value.length : 0,
+      space: space.status === 'fulfilled' ? space.value.length : 0,
+    };
+    setStatusPill('wsl-events',
+      `🌋${counts.eq} 🌪${counts.eonet} 🆘${counts.relief} ☀️${counts.space} 📰${counts.news} @ ${shortTime(Date.now())}`,
+      'ok');
   }
 
   async function tickClaudeAdjust() {
@@ -9522,19 +9959,28 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     document.querySelectorAll('.world-tab').forEach(btn => {
       btn.addEventListener('click', () => setView(btn.dataset.view));
     });
+    // ホーム復帰ボタン (新規分析モードへ切替)
+    document.getElementById('worldBackHome')?.addEventListener('click', () => {
+      const newBtn = document.querySelector('.mode-option[data-mode="new"]');
+      if (newBtn) newBtn.click();
+    });
+    // 判例の折りたたみ
+    document.getElementById('worldLegendToggle')?.addEventListener('click', () => {
+      document.getElementById('worldLegend')?.classList.toggle('collapsed');
+    });
+    // イベントフィルタ
+    document.querySelectorAll('.wef-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.wef-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        eventFilter = btn.dataset.filter;
+        renderEventsTimeline(latestEvents);
+      });
+    });
     // 更新ボタン
     document.getElementById('worldRefreshBtn')?.addEventListener('click', () => {
       tickPrices(); tickEvents();
     });
-    // プロキシ入力
-    const proxyInput = document.getElementById('worldProxyInput');
-    if (proxyInput) {
-      proxyInput.value = localStorage.getItem(PROXY_LS_KEY) || '';
-      proxyInput.addEventListener('change', () => {
-        localStorage.setItem(PROXY_LS_KEY, proxyInput.value.trim());
-        toast('プロキシ設定を保存しました', 'success');
-      });
-    }
     // 高速検証モード
     const fastEl = document.getElementById('worldFastVerifyMode');
     if (fastEl) {
@@ -9552,6 +9998,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         localStorage.setItem(CLAUDE_ADJ_LS, claudeEl.checked ? '1' : '0');
       });
     }
+    loadTranslateCache();
     renderInitialPriceCards();
     renderEventsTimeline([]);
     renderAccuracyDashboard();
