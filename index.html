@@ -1750,7 +1750,207 @@ label {
   background: rgba(245, 158, 11, 0.18); color: #b45309;
   border-radius: 100px;
 }
+
+/* ========================================================================
+   世界予測システム v2 (World Prediction v2)
+   ======================================================================== */
+.world-panel { display: none; margin-top: 18px; }
+.world-panel.active { display: block; }
+
+.world-tabs {
+  display: inline-flex; gap: 4px;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 4px; border-radius: 100px;
+  margin-bottom: 14px;
+}
+.world-tab {
+  background: transparent; border: 0; cursor: pointer;
+  padding: 8px 16px; border-radius: 100px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-secondary, #475569);
+  transition: all 0.18s;
+}
+.world-tab:hover { color: var(--text-primary, #0f172a); }
+.world-tab.active {
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  color: white;
+  box-shadow: 0 6px 18px rgba(6, 182, 212, 0.32);
+}
+
+.world-viewport {
+  position: relative;
+  width: 100%; height: 50vh; min-height: 360px;
+  border-radius: 18px; overflow: hidden;
+  background: #050816;
+  box-shadow: inset 0 0 60px rgba(6, 182, 212, 0.08);
+}
+.world-viewport.split {
+  display: grid; grid-template-rows: 1fr 1fr; gap: 4px;
+  height: 70vh; min-height: 520px;
+}
+.globe-container, .map-container {
+  width: 100%; height: 100%;
+  position: relative;
+}
+.globe-container canvas { display: block; }
+.map-container { background: #0f172a; }
+.leaflet-container { background: #0f172a; }
+.leaflet-popup-content-wrapper { font-size: 12px; }
+
+.world-prices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.world-price-card {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.5));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.world-price-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+.world-price-card .wpc-label {
+  font-size: 11.5px; font-weight: 700;
+  color: var(--text-secondary, #475569);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  display: flex; align-items: center; gap: 4px;
+}
+.world-price-card .wpc-current {
+  font-size: 22px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 2px;
+  color: var(--text-primary, #0f172a);
+}
+.world-price-card .wpc-unit {
+  font-size: 11px; color: var(--text-secondary, #94a3b8);
+  margin-left: 4px;
+}
+.world-price-card .wpc-predicted {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.world-price-card .wpc-arrow {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+}
+.world-price-card .wpc-arrow.up   { background: rgba(34,197,94,0.16);  color: #15803d; }
+.world-price-card .wpc-arrow.down { background: rgba(239,68,68,0.16);  color: #b91c1c; }
+.world-price-card .wpc-arrow.flat { background: rgba(148,163,184,0.18); color: #475569; }
+.world-price-card .wpc-meta {
+  display: flex; justify-content: space-between;
+  font-size: 10.5px; color: var(--text-secondary, #94a3b8);
+  margin-top: 6px;
+}
+.world-price-card .wpc-error  { color: #b91c1c; font-size: 11px; }
+.world-price-card.loading { opacity: 0.55; }
+.world-price-card.stale   { border-color: rgba(245, 158, 11, 0.35); }
+
+.world-events-timeline {
+  max-height: 32vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.world-event-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  background: rgba(15, 23, 42, 0.03);
+  border-left: 3px solid #94a3b8;
+}
+.world-event-item.eq-major { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.06); }
+.world-event-item.eq-minor { border-left-color: #f59e0b; }
+.world-event-item.disaster { border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.05); }
+.world-event-item.news     { border-left-color: #06b6d4; }
+.world-event-item .wei-time { color: var(--text-secondary, #94a3b8); font-size: 11px; min-width: 64px; }
+.world-event-item .wei-body { flex: 1; }
+.world-event-item .wei-body a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+
+.accuracy-dashboard { display: grid; gap: 6px; }
+.accuracy-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) auto auto auto;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.accuracy-row .mape-good { color: #15803d; font-weight: 700; }
+.accuracy-row .mape-mid  { color: #b45309; font-weight: 700; }
+.accuracy-row .mape-bad  { color: #b91c1c; font-weight: 700; }
+
+.world-toast-stack {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.world-toast {
+  pointer-events: auto;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  color: white;
+  font-size: 12.5px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  animation: worldToastIn 0.25s ease-out;
+}
+.world-toast.error   { background: rgba(185, 28, 28, 0.94); }
+.world-toast.warning { background: rgba(180, 83, 9, 0.94); }
+.world-toast.success { background: rgba(21, 128, 61, 0.94); }
+@keyframes worldToastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#worldClock { font-variant-numeric: tabular-nums; }
+
+.world-status-line {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary, #94a3b8);
+  margin: 6px 0 12px;
+}
+.world-status-line .pill {
+  padding: 3px 9px;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 100px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.world-status-line .pill.ok   { color: #15803d; background: rgba(34,197,94,0.1); }
+.world-status-line .pill.warn { color: #b45309; background: rgba(245,158,11,0.1); }
+.world-status-line .pill.err  { color: #b91c1c; background: rgba(239,68,68,0.1); }
+
+@media (max-width: 720px) {
+  .world-viewport { height: 42vh; min-height: 280px; }
+  .world-viewport.split { height: auto; grid-template-rows: 42vh 42vh; }
+  .world-prices-grid { grid-template-columns: repeat(2, 1fr); }
+  .world-tab { padding: 7px 12px; font-size: 12px; }
+}
 </style>
+
+<!-- 🌍 World Prediction v2 — 3D globe / 2D map libraries (defer順保証) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script defer src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
 </head>
 <body>
 <div class="bg-mesh"></div>
@@ -1819,6 +2019,7 @@ label {
       <button type="button" class="mode-option innovative" data-mode="bottom-up">👀 日常気づき逆算</button>
       <button type="button" class="mode-option innovative" data-mode="council">🥊 投資家5人会議</button>
       <button type="button" class="mode-option innovative" data-mode="future-letter">💌 未来からの手紙</button>
+      <button type="button" class="mode-option innovative" data-mode="world-v2">🌍 世界予測 v2</button>
     </div>
 
     <div class="review-notice" id="reviewNotice">
@@ -1997,20 +2198,99 @@ label {
       <button class="history-btn danger" id="clearAllHistory">🗑 全削除</button>
     </div>
   </div>
+
+  <!-- 🌍 世界予測システム v2 -->
+  <div id="worldPredictionPanel" class="world-panel">
+    <div class="card">
+      <div class="card-title">
+        <span class="card-icon">🌍</span>
+        <span>世界予測システム v2</span>
+        <span class="count-badge" id="worldClock">--:--</span>
+      </div>
+      <div class="world-status-line" id="worldStatusLine">
+        <span class="pill" id="wsl-prices">価格: 待機中</span>
+        <span class="pill" id="wsl-events">イベント: 待機中</span>
+        <span class="pill" id="wsl-claude">Claude補正: 未実行</span>
+      </div>
+      <div class="world-tabs" role="radiogroup">
+        <button type="button" class="world-tab active" data-view="globe">🌐 3D 地球儀</button>
+        <button type="button" class="world-tab" data-view="map">🗺 2D 地図</button>
+        <button type="button" class="world-tab" data-view="split">📐 上下分割</button>
+      </div>
+      <div id="worldViewport" class="world-viewport">
+        <div id="globeContainer" class="globe-container"></div>
+        <div id="mapContainer" class="map-container" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="card-icon warm">💹</span>
+        <span>5銘柄 リアルタイム + 10分後予測</span>
+        <button type="button" id="worldRefreshBtn" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px" title="即座に更新">🔄 更新</button>
+      </div>
+      <div id="worldPricesGrid" class="world-prices-grid"></div>
+    </div>
+
+    <div class="card" id="accuracyCard">
+      <div class="card-title">
+        <span class="card-icon green">📊</span>
+        <span>予測精度 (直近24h)</span>
+        <span class="count-badge" id="accuracySampleBadge">0件</span>
+      </div>
+      <div id="accuracyDashboard" class="accuracy-dashboard"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="card-icon">🌐</span>
+        <span>世界イベント (地震・自然災害・ニュース)</span>
+        <span class="count-badge" id="worldEventsBadge">0件</span>
+      </div>
+      <div id="worldEventsTimeline" class="world-events-timeline"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span class="card-icon">⚙</span>
+        <span>世界予測 設定</span>
+      </div>
+      <div style="display:grid;gap:10px">
+        <div>
+          <label style="display:block;font-size:12px;color:var(--text-secondary, #475569);font-weight:600;margin-bottom:4px">カスタム CORS プロキシ URL (任意)</label>
+          <input id="worldProxyInput" placeholder="https://corsproxy.io/?" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(15,23,42,0.12);font-size:13px" />
+          <small style="color:var(--text-secondary, #94a3b8);font-size:11px">Stooq (原油/金/S&amp;P500) は CORS 非対応のためプロキシ経由で取得します。空欄なら corsproxy.io / cors.lol / allorigins を順に試行。</small>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="worldClaudeAdjEnable" checked /> 30分ごとに Claude API でムード補正 (Haiku 4.5)
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="worldFastVerifyMode" /> ⚡ 高速検証モード (10秒で検証 / テスト用)
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<div class="world-toast-stack" id="worldToastStack"></div>
 
 <script>
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v1.19.0';
-const APP_VERSION_DATE = '2026-05-23';
+const APP_VERSION = 'v2.0.0';
+const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
 const DB_NAME = 'stock_analyzer_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'analyses';
+const STORE_WORLD_PRED = 'world_predictions';
+const STORE_WORLD_EVENTS = 'world_events';
+const STORE_WORLD_BIAS = 'world_bias';
 // ★ Anthropic Web 検索の料金: $10 / 1,000 検索 = $0.01 / 検索
 const WEB_SEARCH_COST_USD = 0.01;
 
@@ -2694,7 +2974,13 @@ document.querySelectorAll('.mode-option').forEach(opt => {
   opt.addEventListener('click', () => {
     document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('active'));
     opt.classList.add('active');
+    const prevMode = currentMode;
     currentMode = opt.dataset.mode;
+    // 世界予測モードから他モードへ切替時はポーリング停止
+    if (prevMode === 'world-v2' && currentMode !== 'world-v2'
+        && typeof worldPredictionApp !== 'undefined') {
+      worldPredictionApp.deactivate();
+    }
     if (currentMode === 'new') {
       selectedHistoryIds.clear();
       reviewNotice.classList.remove('active');
@@ -2736,6 +3022,11 @@ document.querySelectorAll('.mode-option').forEach(opt => {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '💌 未来からの手紙モード:';
       reviewNoticeText.textContent = '5年後のあなたが ★ 成功・失敗・凡庸 ★ の3シナリオで手紙を書きます。各銘柄ごとに3通。心理的距離を作って衝動買い・確証バイアスに対抗する独自UX。';
+    } else if (currentMode === 'world-v2') {
+      selectedHistoryIds.clear();
+      reviewNotice.classList.remove('active');
+      // 世界予測モード: 既存の分析UIを隠し、専用パネルを起動
+      if (typeof worldPredictionApp !== 'undefined') worldPredictionApp.activate();
     } else {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '考察モード:';
@@ -2837,9 +3128,27 @@ function openDB() {
     req.onsuccess = () => resolve(req.result);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
+      const oldVersion = e.oldVersion;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
         store.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+      // v1 → v2: 世界予測システム v2 のストアを追加 (既存ストアは触らない)
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains(STORE_WORLD_PRED)) {
+          const ps = db.createObjectStore(STORE_WORLD_PRED, { keyPath: 'id', autoIncrement: true });
+          ps.createIndex('symbol', 'symbol', { unique: false });
+          ps.createIndex('predictedAt', 'predictedAt', { unique: false });
+          ps.createIndex('verified', 'verified', { unique: false });
+        }
+        if (!db.objectStoreNames.contains(STORE_WORLD_EVENTS)) {
+          const es = db.createObjectStore(STORE_WORLD_EVENTS, { keyPath: 'id' });
+          es.createIndex('timestamp', 'timestamp', { unique: false });
+          es.createIndex('type', 'type', { unique: false });
+        }
+        if (!db.objectStoreNames.contains(STORE_WORLD_BIAS)) {
+          db.createObjectStore(STORE_WORLD_BIAS, { keyPath: 'symbol' });
+        }
       }
     };
   });
@@ -8292,6 +8601,1038 @@ ${articleText}
   }
 
   thermoBtn.addEventListener('click', measureMarketThermometer);
+})();
+
+/* ════════════════════════════════════════════════════════════════════════
+   🌍 世界予測システム v2 (World Prediction v2)
+   - 価格: USD/JPY, BTC, WTI, GOLD, S&P500 (現在 + 10分後予測 + 矢印)
+   - 自然災害: USGS地震, NASA EONET
+   - ニュース: GDELT
+   - 予測: ハイブリッド (クライアント線形回帰 + 30分ごと Claude Haiku 補正)
+   - 学習: 10分後検証 → 誤差ベース バイアス補正 → 精度ダッシュボード
+   ════════════════════════════════════════════════════════════════════════ */
+const worldPredictionApp = (function() {
+
+  // ──────────────────────────────────────────────
+  // 1. 定数・設定
+  // ──────────────────────────────────────────────
+  const PROXY_LS_KEY      = 'world_cors_proxy_v1';
+  const FAST_VERIFY_LS    = 'world_fast_verify_v1';
+  const CLAUDE_ADJ_LS     = 'world_claude_adj_v1';
+  const PREDICTION_HORIZON_MS = 10 * 60 * 1000; // 10分
+  const FAST_VERIFY_MS    = 10 * 1000;          // テスト用 10秒
+  const PRICE_TICK_MS     = 60 * 1000;          // 価格ポーリング 1分
+  const EVENTS_TICK_MS    = 2 * 60 * 1000;      // 地震 2分
+  const EONET_TICK_MS     = 5 * 60 * 1000;      // 自然災害 5分
+  const NEWS_TICK_MS      = 5 * 60 * 1000;      // ニュース 5分
+  const CLAUDE_TICK_MS    = 30 * 60 * 1000;     // Claude補正 30分
+  const HISTORY_MAX       = 60;                 // 直近 N tick (回帰用)
+  const PRED_TTL_DAYS     = 30;                 // 古い予測の削除TTL
+
+  const PROXIES = [
+    (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+    (u) => 'https://api.cors.lol/?url=' + encodeURIComponent(u),
+    (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  ];
+
+  const SYMBOL_META = {
+    USDJPY: { label: 'USD/JPY', emoji: '💴', unit: '円',      decimals: 3, threshold: 0.0008 },
+    BTC:    { label: 'Bitcoin', emoji: '🪙', unit: 'USD',     decimals: 0, threshold: 0.0015 },
+    WTI:    { label: 'WTI原油', emoji: '🛢', unit: 'USD/bbl', decimals: 2, threshold: 0.002,  delayed: true },
+    GOLD:   { label: '金',      emoji: '🥇', unit: 'USD/oz',  decimals: 2, threshold: 0.0008, delayed: true },
+    SPX:    { label: 'S&P500',  emoji: '📈', unit: 'pt',      decimals: 2, threshold: 0.0008, delayed: true },
+  };
+  const SYMBOLS = Object.keys(SYMBOL_META);
+
+  // ──────────────────────────────────────────────
+  // 2. ユーティリティ
+  // ──────────────────────────────────────────────
+  function fmt(n, decimals) {
+    if (n === null || n === undefined || !isFinite(n)) return '—';
+    return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  function shortTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  }
+  function shortDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + shortTime(ts);
+  }
+
+  let toastStack;
+  function toast(message, type = 'info', ms = 3500) {
+    if (!toastStack) toastStack = document.getElementById('worldToastStack');
+    if (!toastStack) return;
+    const el = document.createElement('div');
+    el.className = 'world-toast ' + type;
+    el.textContent = message;
+    toastStack.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, ms - 300);
+    setTimeout(() => el.remove(), ms);
+  }
+
+  function setStatusPill(id, text, klass = '') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'pill' + (klass ? ' ' + klass : '');
+  }
+
+  // ──────────────────────────────────────────────
+  // 3. データ取得層 (worldDataService)
+  // ──────────────────────────────────────────────
+  async function fetchWithProxy(url, opts = {}) {
+    const custom = (localStorage.getItem(PROXY_LS_KEY) || '').trim();
+    const customFn = custom ? [(u) => custom + (custom.includes('=') ? '' : encodeURIComponent(u))] : [];
+    const list = [...customFn, ...PROXIES];
+    let lastErr;
+    for (const proxy of list) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 9000);
+        const r = await fetch(proxy(url), { signal: ctrl.signal, ...opts });
+        clearTimeout(t);
+        if (r.ok) return r;
+        lastErr = new Error('HTTP ' + r.status);
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error('全プロキシ失敗');
+  }
+
+  function parseStooqCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return null;
+    const headers = lines[0].split(',').map(s => s.trim());
+    const values  = lines[1].split(',').map(s => s.trim());
+    if (values[0] === 'N/D' || values[0] === '') return null;
+    const row = {};
+    headers.forEach((h, i) => { row[h] = values[i]; });
+    const close = parseFloat(row.Close);
+    if (!isFinite(close)) return null;
+    return { close, date: row.Date, time: row.Time };
+  }
+
+  const worldDataService = {
+    async fetchUsdJpy() {
+      const r = await fetch('https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY');
+      if (!r.ok) throw new Error('Frankfurter HTTP ' + r.status);
+      const j = await r.json();
+      return { price: j.rates.JPY, ts: Date.now(), source: 'frankfurter', date: j.date };
+    },
+
+    async fetchBitcoin() {
+      const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+      if (!r.ok) throw new Error('CoinGecko HTTP ' + r.status);
+      const j = await r.json();
+      return { price: j.bitcoin.usd, ts: Date.now(), source: 'coingecko' };
+    },
+
+    async fetchStooqSymbol(symbol) {
+      const url = `https://stooq.com/q/l/?s=${symbol}&i=d&f=sd2t2ohlcv`;
+      const r = await fetchWithProxy(url);
+      const text = await r.text();
+      const parsed = parseStooqCSV(text);
+      if (!parsed) throw new Error('Stooq parse fail: ' + symbol);
+      return { price: parsed.close, ts: Date.now(), source: 'stooq:' + symbol, date: parsed.date };
+    },
+    fetchWTI()  { return this.fetchStooqSymbol('cl.f'); },
+    fetchGold() { return this.fetchStooqSymbol('gc.f'); },
+    fetchSPX()  { return this.fetchStooqSymbol('^spx'); },
+
+    async fetchEarthquakes(hours = 24) {
+      const start = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+      const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${start}&minmagnitude=4.0&orderby=time&limit=100`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('USGS HTTP ' + r.status);
+      const j = await r.json();
+      return (j.features || []).map(f => ({
+        id: 'eq_' + f.id,
+        type: 'earthquake',
+        mag: f.properties.mag,
+        place: f.properties.place || '?',
+        time: f.properties.time,
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0],
+        depth: f.geometry.coordinates[2],
+        url: f.properties.url,
+      }));
+    },
+
+    async fetchEonetEvents(days = 7) {
+      const url = `https://eonet.gsfc.nasa.gov/api/v3/events?days=${days}&status=open&limit=50`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('EONET HTTP ' + r.status);
+      const j = await r.json();
+      const out = [];
+      for (const ev of (j.events || [])) {
+        const g = (ev.geometry || [])[0];
+        if (!g || !Array.isArray(g.coordinates)) continue;
+        let lat = null, lng = null;
+        if (g.type === 'Point') {
+          [lng, lat] = g.coordinates;
+        } else if (g.type === 'Polygon' && g.coordinates[0] && g.coordinates[0][0]) {
+          [lng, lat] = g.coordinates[0][0];
+        }
+        if (lat === null || lng === null) continue;
+        out.push({
+          id: 'eonet_' + ev.id,
+          type: 'eonet',
+          category: (ev.categories[0] || {}).title || 'event',
+          title: ev.title,
+          time: new Date(g.date).getTime(),
+          lat, lng,
+          url: (ev.sources && ev.sources[0] && ev.sources[0].url) || ev.link,
+        });
+      }
+      return out;
+    },
+
+    async fetchGdeltNews(query = '(market OR economy OR earthquake OR crisis)') {
+      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&format=json&maxrecords=15&sort=DateDesc&timespan=1h`;
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('GDELT HTTP ' + r.status);
+        const text = await r.text();
+        // GDELT は時々 HTML を返すので safety
+        let j;
+        try { j = JSON.parse(text); } catch (_) { return []; }
+        return (j.articles || []).map(a => ({
+          id: 'gdelt_' + (a.url || a.title || '').slice(0, 64),
+          type: 'news',
+          title: a.title || '(no title)',
+          time: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime() : Date.now(),
+          url: a.url,
+          domain: a.domain,
+          lat: null, lng: null, // GDELT基本APIは座標を返さない
+        }));
+      } catch (e) {
+        return [];
+      }
+    },
+  };
+
+  // ──────────────────────────────────────────────
+  // 4. IndexedDB ヘルパ (既存 openDB を再利用)
+  // ──────────────────────────────────────────────
+  async function dbTx(storeName, mode) {
+    const db = await openDB();
+    return db.transaction(storeName, mode).objectStore(storeName);
+  }
+  function reqToPromise(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    });
+  }
+  async function dbWorldPredAdd(rec) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readwrite');
+    return reqToPromise(store.add(rec));
+  }
+  async function dbWorldPredPut(rec) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readwrite');
+    return reqToPromise(store.put(rec));
+  }
+  async function dbWorldPredGet(id) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readonly');
+    return reqToPromise(store.get(id));
+  }
+  async function dbWorldPredAll() {
+    const store = await dbTx(STORE_WORLD_PRED, 'readonly');
+    return reqToPromise(store.getAll());
+  }
+  async function dbWorldPredBySymbol(symbol, limit = 20) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readonly');
+    const idx = store.index('symbol');
+    return new Promise((resolve, reject) => {
+      const out = [];
+      const req = idx.openCursor(IDBKeyRange.only(symbol), 'prev');
+      req.onsuccess = (e) => {
+        const c = e.target.result;
+        if (c && out.length < limit) { out.push(c.value); c.continue(); }
+        else resolve(out);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function dbWorldPredDelete(id) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readwrite');
+    return reqToPromise(store.delete(id));
+  }
+  async function dbWorldEventPut(rec) {
+    const store = await dbTx(STORE_WORLD_EVENTS, 'readwrite');
+    return reqToPromise(store.put(rec));
+  }
+  async function dbWorldBiasPut(rec) {
+    const store = await dbTx(STORE_WORLD_BIAS, 'readwrite');
+    return reqToPromise(store.put(rec));
+  }
+  async function dbWorldBiasAll() {
+    const store = await dbTx(STORE_WORLD_BIAS, 'readonly');
+    return reqToPromise(store.getAll());
+  }
+
+  // ──────────────────────────────────────────────
+  // 5. 予測エンジン (線形回帰 + バイアス補正)
+  // ──────────────────────────────────────────────
+  const histories = new Map(); // symbol -> [{ts, price}, ...]
+  const biasCache = new Map(); // symbol -> { avgError, sampleCount, lastUpdated }
+
+  function recordPrice(symbol, price, ts) {
+    let h = histories.get(symbol);
+    if (!h) { h = []; histories.set(symbol, h); }
+    h.push({ ts: ts || Date.now(), price });
+    if (h.length > HISTORY_MAX) h.shift();
+  }
+
+  function linearPredict(symbol, msAhead = PREDICTION_HORIZON_MS) {
+    const h = histories.get(symbol);
+    if (!h || h.length < 2) return null;
+    const t0 = h[0].ts;
+    const xs = h.map(p => (p.ts - t0) / 1000);
+    const ys = h.map(p => p.price);
+    const n = xs.length;
+    const meanX = xs.reduce((s, v) => s + v, 0) / n;
+    const meanY = ys.reduce((s, v) => s + v, 0) / n;
+    let num = 0, den = 0;
+    for (let i = 0; i < n; i++) {
+      num += (xs[i] - meanX) * (ys[i] - meanY);
+      den += (xs[i] - meanX) ** 2;
+    }
+    let slope = 0, intercept = meanY;
+    if (den > 0) {
+      slope = num / den;
+      intercept = meanY - slope * meanX;
+    }
+    const xAhead = ((Date.now() + msAhead) - t0) / 1000;
+    const raw = slope * xAhead + intercept;
+    // バイアス補正 (10分前に予測した分の平均誤差を引く)
+    const bias = biasCache.get(symbol);
+    const corrected = bias && isFinite(bias.avgError) ? raw - bias.avgError : raw;
+    // 信頼度: 残差の標準偏差 vs 平均価格
+    const residuals = ys.map((y, i) => y - (slope * xs[i] + intercept));
+    const stdRes = Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / n);
+    const noiseRatio = meanY > 0 ? stdRes / meanY : 0;
+    const confidence = Math.max(20, Math.min(95, Math.round(95 - noiseRatio * 5000)));
+    const current = h[h.length - 1].price;
+    const threshold = (SYMBOL_META[symbol] && SYMBOL_META[symbol].threshold) || 0.001;
+    const ratio = (corrected - current) / current;
+    const arrow = ratio > threshold ? 'up' : ratio < -threshold ? 'down' : 'flat';
+    return {
+      symbol,
+      current,
+      predicted: corrected,
+      raw,
+      biasApplied: bias ? bias.avgError : 0,
+      confidence,
+      arrow,
+      changePct: ratio * 100,
+      sampleCount: n,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // 6. ビジュアライゼーション (Globe + Leaflet)
+  // ──────────────────────────────────────────────
+  let globe = null;
+  let lmap = null;
+  let mapMarkers = [];
+  let currentView = 'globe';
+
+  function ensureGlobe() {
+    if (globe) return globe;
+    if (typeof Globe === 'undefined') return null;
+    const container = document.getElementById('globeContainer');
+    if (!container) return null;
+    globe = Globe()(container)
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .backgroundColor('rgba(5,8,22,1)')
+      .atmosphereColor('#06b6d4')
+      .atmosphereAltitude(0.15)
+      .pointLat(d => d.lat)
+      .pointLng(d => d.lng)
+      .pointColor(d => d.color)
+      .pointAltitude(d => d.altitude)
+      .pointRadius(d => d.radius)
+      .pointLabel(d => d.label)
+      .ringLat(d => d.lat)
+      .ringLng(d => d.lng)
+      .ringMaxRadius(d => d.maxR || 6)
+      .ringPropagationSpeed(3)
+      .ringRepeatPeriod(1500)
+      .ringColor(() => t => `rgba(239,68,68,${1 - t})`);
+    const sizeGlobe = () => {
+      const r = container.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) globe.width(r.width).height(r.height);
+    };
+    sizeGlobe();
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(sizeGlobe);
+      ro.observe(container);
+      globe._ro = ro;
+    }
+    return globe;
+  }
+
+  function ensureMap() {
+    if (lmap) return lmap;
+    if (typeof L === 'undefined') return null;
+    const container = document.getElementById('mapContainer');
+    if (!container) return null;
+    lmap = L.map(container, { zoomControl: true, attributionControl: true, preferCanvas: true })
+            .setView([20, 130], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 8, attribution: '© OpenStreetMap'
+    }).addTo(lmap);
+    setTimeout(() => lmap.invalidateSize(), 80);
+    return lmap;
+  }
+
+  function eventToVisualPoint(e) {
+    let color, altitude, radius, label;
+    if (e.type === 'earthquake') {
+      const m = e.mag || 0;
+      color = m >= 6 ? '#ef4444' : m >= 5 ? '#f59e0b' : '#06b6d4';
+      altitude = Math.min(0.5, m / 20);
+      radius = Math.max(0.25, m * 0.18);
+      label = `<div style="background:rgba(15,23,42,0.9);color:white;padding:6px 10px;border-radius:6px;font-size:12px">
+                 <b>M${m}</b> ${e.place}<br/><small>${shortDate(e.time)}</small>
+               </div>`;
+    } else if (e.type === 'eonet') {
+      color = '#8b5cf6';
+      altitude = 0.08;
+      radius = 0.4;
+      label = `<div style="background:rgba(15,23,42,0.9);color:white;padding:6px 10px;border-radius:6px;font-size:12px">
+                 <b>🌋 ${e.category}</b><br/>${e.title}
+               </div>`;
+    } else {
+      color = '#94a3b8';
+      altitude = 0.04;
+      radius = 0.2;
+      label = '';
+    }
+    return { lat: e.lat, lng: e.lng, color, altitude, radius, label, src: e };
+  }
+
+  function renderEvents(events) {
+    const geoEvents = events.filter(e => isFinite(e.lat) && isFinite(e.lng));
+    if (currentView === 'globe' || currentView === 'split') {
+      const g = ensureGlobe();
+      if (g) {
+        g.pointsData(geoEvents.map(eventToVisualPoint));
+        const bigEqs = geoEvents.filter(e => e.type === 'earthquake' && e.mag >= 6);
+        g.ringsData(bigEqs.map(e => ({ lat: e.lat, lng: e.lng, maxR: e.mag })));
+      }
+    }
+    if (currentView === 'map' || currentView === 'split') {
+      const m = ensureMap();
+      if (m) {
+        mapMarkers.forEach(mk => mk.remove());
+        mapMarkers = geoEvents.map(e => {
+          let color = '#94a3b8', radius = 4;
+          if (e.type === 'earthquake') {
+            color = e.mag >= 6 ? '#ef4444' : e.mag >= 5 ? '#f59e0b' : '#06b6d4';
+            radius = Math.max(4, (e.mag || 3) * 2);
+          } else if (e.type === 'eonet') {
+            color = '#8b5cf6';
+            radius = 6;
+          }
+          return L.circleMarker([e.lat, e.lng], {
+            radius, color, fillColor: color, fillOpacity: 0.55, weight: 1.2
+          }).bindPopup(
+            `<b>${e.type === 'earthquake' ? 'M' + e.mag : (e.category || e.type)}</b><br/>
+             ${(e.place || e.title || '').replace(/[<>]/g, '')}<br/>
+             <small>${shortDate(e.time)}</small>`
+          ).addTo(m);
+        });
+      }
+    }
+  }
+
+  function setView(view) {
+    currentView = view;
+    const vp = document.getElementById('worldViewport');
+    const gc = document.getElementById('globeContainer');
+    const mc = document.getElementById('mapContainer');
+    if (!vp || !gc || !mc) return;
+    vp.classList.toggle('split', view === 'split');
+    if (view === 'globe') {
+      gc.style.display = 'block'; mc.style.display = 'none';
+      gc.style.height = '100%'; gc.style.width = '100%';
+    } else if (view === 'map') {
+      gc.style.display = 'none'; mc.style.display = 'block';
+      mc.style.height = '100%'; mc.style.width = '100%';
+    } else { // split
+      gc.style.display = 'block'; mc.style.display = 'block';
+    }
+    document.querySelectorAll('.world-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.view === view);
+    });
+    if (view === 'globe' || view === 'split') ensureGlobe();
+    if (view === 'map' || view === 'split') {
+      ensureMap();
+      if (lmap) setTimeout(() => lmap.invalidateSize(), 120);
+    }
+    // 既存イベントを再描画
+    if (latestEvents.length) renderEvents(latestEvents);
+  }
+
+  function disposeVisualization() {
+    if (globe) {
+      try { if (globe._ro) globe._ro.disconnect(); } catch (_) {}
+      try { globe._destructor && globe._destructor(); } catch (_) {}
+      const c = document.getElementById('globeContainer');
+      if (c) c.innerHTML = '';
+      globe = null;
+    }
+    if (lmap) {
+      try { lmap.remove(); } catch (_) {}
+      lmap = null;
+      mapMarkers = [];
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 7. UI レンダリング (価格カード・タイムライン・精度)
+  // ──────────────────────────────────────────────
+  function renderInitialPriceCards() {
+    const grid = document.getElementById('worldPricesGrid');
+    if (!grid) return;
+    grid.innerHTML = SYMBOLS.map(sym => {
+      const m = SYMBOL_META[sym];
+      return `<div class="world-price-card loading" data-sym="${sym}">
+        <div class="wpc-label">${m.emoji} ${m.label}${m.delayed ? ' <span style="font-size:9px;color:#b45309;background:rgba(245,158,11,0.15);padding:1px 5px;border-radius:6px;font-weight:600">遅延</span>' : ''}</div>
+        <div class="wpc-current">— <span class="wpc-unit">${m.unit}</span></div>
+        <div class="wpc-predicted">
+          <span class="wpc-arrow flat">→</span>
+          <span class="wpc-pred-value">予測待機中…</span>
+        </div>
+        <div class="wpc-meta">
+          <span class="wpc-conf">信頼度 —</span>
+          <span class="wpc-source">—</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updatePriceCard(sym, fetchInfo, prediction) {
+    const card = document.querySelector(`.world-price-card[data-sym="${sym}"]`);
+    if (!card) return;
+    const m = SYMBOL_META[sym];
+    card.classList.remove('loading');
+    card.querySelector('.wpc-current').innerHTML =
+      `${fmt(fetchInfo.price, m.decimals)} <span class="wpc-unit">${m.unit}</span>`;
+    const arrowEl = card.querySelector('.wpc-arrow');
+    const predEl  = card.querySelector('.wpc-pred-value');
+    if (prediction) {
+      arrowEl.className = 'wpc-arrow ' + prediction.arrow;
+      arrowEl.textContent = prediction.arrow === 'up' ? '↑' : prediction.arrow === 'down' ? '↓' : '→';
+      const sign = prediction.changePct >= 0 ? '+' : '';
+      predEl.innerHTML = `${fmt(prediction.predicted, m.decimals)} <small style="opacity:0.7">(${sign}${prediction.changePct.toFixed(2)}%)</small>`;
+      card.querySelector('.wpc-conf').textContent = `信頼度 ${prediction.confidence}%`;
+    } else {
+      arrowEl.className = 'wpc-arrow flat';
+      arrowEl.textContent = '…';
+      predEl.textContent = `サンプル収集中 (${(histories.get(sym) || []).length}/2)`;
+    }
+    card.querySelector('.wpc-source').textContent = fetchInfo.source.split(':')[0];
+    card.title = `最終取得: ${shortTime(fetchInfo.ts)}`;
+  }
+
+  function markPriceCardError(sym, err) {
+    const card = document.querySelector(`.world-price-card[data-sym="${sym}"]`);
+    if (!card) return;
+    card.classList.add('stale');
+    const predEl = card.querySelector('.wpc-pred-value');
+    if (predEl) predEl.innerHTML = `<span class="wpc-error">取得失敗: ${err.message || 'unknown'}</span>`;
+  }
+
+  let latestEvents = [];
+  function renderEventsTimeline(events) {
+    const el = document.getElementById('worldEventsTimeline');
+    const badge = document.getElementById('worldEventsBadge');
+    if (!el) return;
+    const sorted = events.slice().sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 60);
+    if (!sorted.length) {
+      el.innerHTML = '<div style="padding:12px;color:var(--text-secondary,#94a3b8);font-size:12px">まだイベントがありません。データ取得中…</div>';
+      if (badge) badge.textContent = '0件';
+      return;
+    }
+    el.innerHTML = sorted.map(ev => {
+      let klass, title;
+      if (ev.type === 'earthquake') {
+        klass = ev.mag >= 6 ? 'eq-major' : 'eq-minor';
+        title = `🌋 <b>M${ev.mag}</b> ${(ev.place || '').replace(/[<>]/g, '')}`;
+        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a>`;
+      } else if (ev.type === 'eonet') {
+        klass = 'disaster';
+        title = `🌪 <b>${ev.category}</b> ${(ev.title || '').replace(/[<>]/g, '')}`;
+        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a>`;
+      } else {
+        klass = 'news';
+        title = `📰 ${(ev.title || '').replace(/[<>]/g, '')}`;
+        if (ev.url) title = `<a href="${ev.url}" target="_blank" rel="noopener">${title}</a> <small style="opacity:0.6">${ev.domain || ''}</small>`;
+      }
+      return `<div class="world-event-item ${klass}">
+        <span class="wei-time">${shortTime(ev.time)}</span>
+        <span class="wei-body">${title}</span>
+      </div>`;
+    }).join('');
+    if (badge) badge.textContent = sorted.length + '件';
+  }
+
+  async function renderAccuracyDashboard() {
+    const container = document.getElementById('accuracyDashboard');
+    const badge = document.getElementById('accuracySampleBadge');
+    if (!container) return;
+    const cutoff = Date.now() - 24 * 3600 * 1000;
+    let all = [];
+    try { all = await dbWorldPredAll(); } catch (_) {}
+    const recent = all.filter(r => r.predictedAt > cutoff && r.verified === 'verified');
+    if (badge) badge.textContent = recent.length + '件';
+    if (!recent.length) {
+      container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary,#94a3b8);padding:6px">まだ検証済み予測がありません。10分後の自動検証 (または ⚡ 高速検証モード) で精度が表示されます。</div>';
+      return;
+    }
+    const bySymbol = {};
+    recent.forEach(r => {
+      (bySymbol[r.symbol] = bySymbol[r.symbol] || []).push(r);
+    });
+    let html = '';
+    for (const sym of SYMBOLS) {
+      const arr = bySymbol[sym];
+      const meta = SYMBOL_META[sym];
+      if (!arr || !arr.length) {
+        html += `<div class="accuracy-row">
+          <span>${meta.emoji} ${meta.label}</span>
+          <span style="color:var(--text-secondary,#94a3b8)">— 検証データなし</span>
+          <span></span><span></span>
+        </div>`;
+        continue;
+      }
+      const mape = arr.reduce((s, r) => s + Math.abs(r.errorPct || 0), 0) / arr.length;
+      const mapeClass = mape < 0.3 ? 'mape-good' : mape < 1.0 ? 'mape-mid' : 'mape-bad';
+      const bias = biasCache.get(sym);
+      html += `<div class="accuracy-row">
+        <span>${meta.emoji} ${meta.label}</span>
+        <span><span class="${mapeClass}">MAPE ${mape.toFixed(3)}%</span></span>
+        <span>サンプル ${arr.length}</span>
+        <span style="color:var(--text-secondary,#94a3b8)">補正 ${bias ? fmt(bias.avgError, meta.decimals) : '0'}</span>
+      </div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  // ──────────────────────────────────────────────
+  // 8. 学習ロジック (10分後検証 + バイアス更新)
+  // ──────────────────────────────────────────────
+  function verifyDelayMs() {
+    return document.getElementById('worldFastVerifyMode')?.checked ? FAST_VERIFY_MS : PREDICTION_HORIZON_MS;
+  }
+
+  const FETCHERS = {
+    USDJPY: () => worldDataService.fetchUsdJpy(),
+    BTC:    () => worldDataService.fetchBitcoin(),
+    WTI:    () => worldDataService.fetchWTI(),
+    GOLD:   () => worldDataService.fetchGold(),
+    SPX:    () => worldDataService.fetchSPX(),
+  };
+
+  async function verifyPrediction(predictionId, symbol) {
+    try {
+      const rec = await dbWorldPredGet(predictionId);
+      if (!rec || rec.verified === 'verified') return;
+      const fetcher = FETCHERS[symbol];
+      if (!fetcher) return;
+      const { price } = await fetcher();
+      rec.actualPrice = price;
+      rec.error = price - rec.predicted10min;
+      rec.errorPct = rec.predicted10min !== 0 ? ((price - rec.predicted10min) / rec.predicted10min) * 100 : 0;
+      rec.verified = 'verified';
+      rec.verifiedAt = Date.now();
+      await dbWorldPredPut(rec);
+      // バイアス更新 (直近10件の verified の平均誤差)
+      const recent = await dbWorldPredBySymbol(symbol, 30);
+      const verified = recent.filter(r => r.verified === 'verified' && isFinite(r.error)).slice(0, 10);
+      if (verified.length >= 2) {
+        const avgErr = verified.reduce((s, r) => s + r.error, 0) / verified.length;
+        const bias = { symbol, avgError: avgErr, sampleCount: verified.length, lastUpdated: Date.now() };
+        await dbWorldBiasPut(bias);
+        biasCache.set(symbol, bias);
+      }
+      renderAccuracyDashboard();
+    } catch (e) {
+      console.warn('[world-v2] verify failed', symbol, e);
+    }
+  }
+
+  const scheduledTimeouts = new Set();
+  function scheduleVerify(predictionId, symbol, delayMs) {
+    const t = setTimeout(() => {
+      scheduledTimeouts.delete(t);
+      verifyPrediction(predictionId, symbol);
+    }, delayMs);
+    scheduledTimeouts.add(t);
+  }
+
+  async function reconcilePending() {
+    let all = [];
+    try { all = await dbWorldPredAll(); } catch (_) { return; }
+    const now = Date.now();
+    for (const rec of all) {
+      if (rec.verified === 'verified') continue;
+      const elapsed = now - rec.predictedAt;
+      if (elapsed >= PREDICTION_HORIZON_MS) {
+        // 過去 pending: 即時検証
+        verifyPrediction(rec.id, rec.symbol);
+      } else {
+        // 未到来 pending: 残り時間で再スケジュール
+        scheduleVerify(rec.id, rec.symbol, PREDICTION_HORIZON_MS - elapsed);
+      }
+    }
+  }
+
+  async function cleanupOldPredictions() {
+    const cutoff = Date.now() - PRED_TTL_DAYS * 86400 * 1000;
+    let all = [];
+    try { all = await dbWorldPredAll(); } catch (_) { return; }
+    let deleted = 0;
+    for (const rec of all) {
+      if (rec.predictedAt < cutoff) {
+        await dbWorldPredDelete(rec.id);
+        deleted++;
+      }
+    }
+    if (deleted) console.log('[world-v2] cleaned up', deleted, 'old predictions');
+  }
+
+  async function loadBiasCache() {
+    try {
+      const all = await dbWorldBiasAll();
+      all.forEach(b => biasCache.set(b.symbol, b));
+    } catch (_) {}
+  }
+
+  // ──────────────────────────────────────────────
+  // 9. Claude API ムード補正 (30分ごと)
+  // ──────────────────────────────────────────────
+  function buildContextSummary(priceMap, events) {
+    const lines = [];
+    lines.push('### 現在価格');
+    for (const sym of SYMBOLS) {
+      const m = SYMBOL_META[sym];
+      const info = priceMap[sym];
+      if (info) lines.push(`- ${m.label}: ${fmt(info.price, m.decimals)} ${m.unit}`);
+    }
+    const eqs = events.filter(e => e.type === 'earthquake').slice(0, 5);
+    if (eqs.length) {
+      lines.push('\n### 直近の地震 (M4以上)');
+      eqs.forEach(e => lines.push(`- M${e.mag} ${e.place} (${shortDate(e.time)})`));
+    }
+    const eonet = events.filter(e => e.type === 'eonet').slice(0, 5);
+    if (eonet.length) {
+      lines.push('\n### 直近の自然災害');
+      eonet.forEach(e => lines.push(`- ${e.category}: ${e.title}`));
+    }
+    const news = events.filter(e => e.type === 'news').slice(0, 8);
+    if (news.length) {
+      lines.push('\n### 直近のニュース');
+      news.forEach(n => lines.push(`- ${n.title}`));
+    }
+    return lines.join('\n');
+  }
+
+  async function claudeAdjustOnce(contextSummary) {
+    const apiKeyEl = document.getElementById('apiKey');
+    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) {
+      setStatusPill('wsl-claude', 'Claude補正: API Key未設定', 'warn');
+      return;
+    }
+    const enabled = document.getElementById('worldClaudeAdjEnable')?.checked;
+    if (!enabled) {
+      setStatusPill('wsl-claude', 'Claude補正: OFF', '');
+      return;
+    }
+    setStatusPill('wsl-claude', 'Claude補正: 実行中…', '');
+    const symList = SYMBOLS.map(s => `"${s}"`).join(', ');
+    const prompt = `以下は世界の現在状況です。今後10分間の市場ムードを各銘柄ごとに予測してください。
+
+${contextSummary}
+
+各銘柄について、現在価格を基準にした「ムード補正係数 (multiplier)」を 0.995〜1.005 の範囲で返してください。
+- 1.000: 中立
+- > 1.000: 上昇ムード
+- < 1.000: 下落ムード
+- 大きく動きそうな材料があれば 0.99 〜 1.01 まで広げて可
+
+JSON のみで出力 (前後にコードフェンスや説明文を入れない):
+{
+  "USDJPY": {"multiplier": 1.001, "reason": "短い理由"},
+  "BTC":    {"multiplier": 1.002, "reason": "..."},
+  "WTI":    {"multiplier": 0.999, "reason": "..."},
+  "GOLD":   {"multiplier": 1.000, "reason": "..."},
+  "SPX":    {"multiplier": 1.001, "reason": "..."}
+}`;
+    let acc = '';
+    try {
+      await streamFetch({
+        apiKey,
+        model: 'claude-haiku-4-5',
+        prompt,
+        system: 'あなたは短期市場アナリスト AI です。指定 JSON 形式のみ出力します。',
+        useTools: false,
+        maxTokens: 800,
+        onEvent: (p) => {
+          if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
+            acc += p.delta.text;
+          }
+        }
+      });
+      const m = acc.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('JSON抽出失敗');
+      const j = JSON.parse(m[0]);
+      let applied = 0;
+      for (const sym of SYMBOLS) {
+        const adj = j[sym];
+        if (!adj || typeof adj.multiplier !== 'number' || !isFinite(adj.multiplier)) continue;
+        const mult = Math.max(0.98, Math.min(1.02, adj.multiplier));
+        // multiplier をバイアスに変換: 現在価格 * (1 - mult) ≈ avgError方向に加味
+        const h = histories.get(sym);
+        if (!h || !h.length) continue;
+        const current = h[h.length - 1].price;
+        const adjDiff = current * (1 - mult); // 正なら予測を下方に補正
+        const cur = biasCache.get(sym) || { avgError: 0, sampleCount: 0 };
+        // 減衰平均: 既存 70% + Claude意見 30%
+        const newBias = {
+          symbol: sym,
+          avgError: cur.avgError * 0.7 + adjDiff * 0.3,
+          sampleCount: cur.sampleCount + 1,
+          lastUpdated: Date.now(),
+          claudeReason: adj.reason || ''
+        };
+        await dbWorldBiasPut(newBias);
+        biasCache.set(sym, newBias);
+        applied++;
+      }
+      setStatusPill('wsl-claude', `Claude補正: ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
+      renderAccuracyDashboard();
+    } catch (e) {
+      console.warn('[world-v2] claude adjust failed', e);
+      setStatusPill('wsl-claude', 'Claude補正: 失敗', 'err');
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 10. ポーリングコントローラ
+  // ──────────────────────────────────────────────
+  const timers = {};
+  const lastPrices = {}; // symbol -> {price, ts, source}
+  let cachedEvents = []; // 結合された全イベント (price ticker と claude が参照)
+
+  async function tickPrices() {
+    setStatusPill('wsl-prices', '価格: 取得中…', '');
+    const promises = SYMBOLS.map(async sym => {
+      try {
+        const info = await FETCHERS[sym]();
+        lastPrices[sym] = info;
+        recordPrice(sym, info.price, info.ts);
+        const pred = linearPredict(sym);
+        updatePriceCard(sym, info, pred);
+        if (pred && pred.sampleCount >= 2) {
+          // DB 保存 + 10分後検証スケジュール
+          try {
+            const id = await dbWorldPredAdd({
+              symbol: sym,
+              predictedAt: Date.now(),
+              currentPrice: pred.current,
+              predicted10min: pred.predicted,
+              confidence: pred.confidence,
+              biasApplied: pred.biasApplied,
+              changePct: pred.changePct,
+              verified: 'pending',
+            });
+            scheduleVerify(id, sym, verifyDelayMs());
+          } catch (e) { console.warn('[world-v2] save pred failed', e); }
+        }
+      } catch (e) {
+        markPriceCardError(sym, e);
+      }
+    });
+    await Promise.allSettled(promises);
+    setStatusPill('wsl-prices', `価格: 更新 @ ${shortTime(Date.now())}`, 'ok');
+  }
+
+  async function tickEvents() {
+    setStatusPill('wsl-events', 'イベント: 取得中…', '');
+    const [eqs, eonet, news] = await Promise.allSettled([
+      worldDataService.fetchEarthquakes(24),
+      worldDataService.fetchEonetEvents(7),
+      worldDataService.fetchGdeltNews(),
+    ]);
+    const merged = [
+      ...(eqs.status === 'fulfilled' ? eqs.value : []),
+      ...(eonet.status === 'fulfilled' ? eonet.value : []),
+      ...(news.status === 'fulfilled' ? news.value : []),
+    ];
+    // 重複排除 (id ベース)
+    const seen = new Map();
+    for (const e of merged) {
+      if (!seen.has(e.id)) seen.set(e.id, e);
+    }
+    cachedEvents = Array.from(seen.values());
+    latestEvents = cachedEvents;
+    // DB 保存 (重複は put で上書き)
+    for (const e of cachedEvents) {
+      try {
+        await dbWorldEventPut({
+          id: e.id,
+          type: e.type,
+          timestamp: e.time || Date.now(),
+          data: e,
+        });
+      } catch (_) {}
+    }
+    renderEventsTimeline(cachedEvents);
+    renderEvents(cachedEvents);
+    setStatusPill('wsl-events', `イベント: ${cachedEvents.length}件 @ ${shortTime(Date.now())}`, 'ok');
+  }
+
+  async function tickClaudeAdjust() {
+    if (!document.getElementById('worldClaudeAdjEnable')?.checked) return;
+    const summary = buildContextSummary(lastPrices, cachedEvents);
+    await claudeAdjustOnce(summary);
+  }
+
+  // ──────────────────────────────────────────────
+  // 11. UI セットアップ / activate / deactivate
+  // ──────────────────────────────────────────────
+  let initialized = false;
+  let active = false;
+
+  function setupOnce() {
+    if (initialized) return;
+    initialized = true;
+    // タブ切替
+    document.querySelectorAll('.world-tab').forEach(btn => {
+      btn.addEventListener('click', () => setView(btn.dataset.view));
+    });
+    // 更新ボタン
+    document.getElementById('worldRefreshBtn')?.addEventListener('click', () => {
+      tickPrices(); tickEvents();
+    });
+    // プロキシ入力
+    const proxyInput = document.getElementById('worldProxyInput');
+    if (proxyInput) {
+      proxyInput.value = localStorage.getItem(PROXY_LS_KEY) || '';
+      proxyInput.addEventListener('change', () => {
+        localStorage.setItem(PROXY_LS_KEY, proxyInput.value.trim());
+        toast('プロキシ設定を保存しました', 'success');
+      });
+    }
+    // 高速検証モード
+    const fastEl = document.getElementById('worldFastVerifyMode');
+    if (fastEl) {
+      fastEl.checked = localStorage.getItem(FAST_VERIFY_LS) === '1';
+      fastEl.addEventListener('change', () => {
+        localStorage.setItem(FAST_VERIFY_LS, fastEl.checked ? '1' : '0');
+      });
+    }
+    // Claude補正トグル
+    const claudeEl = document.getElementById('worldClaudeAdjEnable');
+    if (claudeEl) {
+      const stored = localStorage.getItem(CLAUDE_ADJ_LS);
+      if (stored !== null) claudeEl.checked = (stored === '1');
+      claudeEl.addEventListener('change', () => {
+        localStorage.setItem(CLAUDE_ADJ_LS, claudeEl.checked ? '1' : '0');
+      });
+    }
+    renderInitialPriceCards();
+    renderEventsTimeline([]);
+    renderAccuracyDashboard();
+    // 時計
+    setInterval(() => {
+      const el = document.getElementById('worldClock');
+      if (el && active) el.textContent = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    }, 1000);
+  }
+
+  // 既存 UI を一時的に隠すための要素 ID リスト
+  const HIDE_IDS = ['apiCard', 'progress-panel', 'result', 'costSummary', 'historyCard'];
+  const HIDE_SELECTORS = ['.card:not(#worldPredictionPanel .card):not(#apiCard):not(#historyCard)', '.analyze-wrap'];
+  const hiddenElements = [];
+
+  function hideMainUI() {
+    hiddenElements.length = 0;
+    // ID で隠す
+    for (const id of HIDE_IDS) {
+      const el = document.getElementById(id);
+      if (el && el.style.display !== 'none') {
+        hiddenElements.push({ el, prev: el.style.display });
+        el.style.display = 'none';
+      }
+    }
+    // セレクタで隠す (主分析カード = `.card` 群、ただしworldパネルとapi/history以外)
+    document.querySelectorAll('.app > .card').forEach(card => {
+      if (card.id === 'apiCard' || card.id === 'historyCard') return; // 既に処理済
+      if (card.style.display !== 'none') {
+        hiddenElements.push({ el: card, prev: card.style.display });
+        card.style.display = 'none';
+      }
+    });
+    document.querySelectorAll('.app > .analyze-wrap, .app > #status, .app > .api-indicator').forEach(el => {
+      if (el.style.display !== 'none') {
+        hiddenElements.push({ el, prev: el.style.display });
+        el.style.display = 'none';
+      }
+    });
+  }
+
+  function restoreMainUI() {
+    for (const { el, prev } of hiddenElements) {
+      el.style.display = prev || '';
+    }
+    hiddenElements.length = 0;
+  }
+
+  async function activate() {
+    setupOnce();
+    if (active) return;
+    active = true;
+    hideMainUI();
+    document.getElementById('worldPredictionPanel')?.classList.add('active');
+    await loadBiasCache();
+    setView(currentView);
+    cleanupOldPredictions(); // バックグラウンドで古いレコード削除
+    await reconcilePending();
+    // 即時 tick
+    tickPrices();
+    tickEvents();
+    // 定期 tick
+    timers.prices = setInterval(tickPrices, PRICE_TICK_MS);
+    timers.events = setInterval(tickEvents, EVENTS_TICK_MS);
+    timers.claude = setInterval(tickClaudeAdjust, CLAUDE_TICK_MS);
+    toast('🌍 世界予測 v2 起動。データ取得を開始します。', 'success');
+  }
+
+  function deactivate() {
+    if (!active) return;
+    active = false;
+    Object.values(timers).forEach(t => clearInterval(t));
+    Object.keys(timers).forEach(k => delete timers[k]);
+    for (const t of scheduledTimeouts) clearTimeout(t);
+    scheduledTimeouts.clear();
+    disposeVisualization();
+    document.getElementById('worldPredictionPanel')?.classList.remove('active');
+    restoreMainUI();
+  }
+
+  return { activate, deactivate, _internal: { worldDataService, linearPredict, biasCache, histories } };
 })();
 </script>
 </body>
