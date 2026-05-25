@@ -1993,6 +1993,89 @@ label {
   color: var(--text-primary, #0f172a);
 }
 
+/* 💰 推定コスト */
+.api-cost-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
+}
+.api-cost-title {
+  font-size: 12.5px; font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 8px;
+  display: flex; align-items: center; flex-wrap: wrap;
+}
+.api-cost-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.api-cost-stats .cost-tile {
+  padding: 9px 12px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.06), rgba(6,182,212,0.06));
+  border-radius: 8px;
+  font-size: 11px;
+  border-left: 3px solid #22c55e;
+}
+.api-cost-stats .cost-tile.month  { border-left-color: #06b6d4; }
+.api-cost-stats .cost-tile.total  { border-left-color: #8b5cf6; }
+.api-cost-stats .cost-tile .cost-label {
+  color: var(--text-secondary, #64748b);
+  font-weight: 600;
+}
+.api-cost-stats .cost-tile .cost-value {
+  display: block;
+  font-size: 17px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #0f172a);
+  margin-top: 2px;
+}
+.api-cost-stats .cost-tile .cost-sub {
+  font-size: 10px;
+  color: var(--text-secondary, #94a3b8);
+  margin-top: 2px;
+}
+.api-cost-by-model {
+  font-size: 10.5px;
+  color: var(--text-secondary, #64748b);
+  margin-top: 4px;
+}
+
+.api-budget-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
+}
+.api-budget-row input[type="number"] {
+  width: 80px !important;
+  padding: 5px 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(15, 23, 42, 0.15) !important;
+  font-size: 12.5px !important;
+  font-variant-numeric: tabular-nums;
+}
+.api-budget-remaining {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.api-budget-remaining.ok    { color: #15803d; }
+.api-budget-remaining.warn  { color: #b45309; }
+.api-budget-remaining.danger { color: #b91c1c; }
+.api-cost-reset {
+  margin-left: auto;
+  padding: 5px 11px;
+  font-size: 11px; font-weight: 700;
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  border: 0;
+  border-radius: 100px;
+  cursor: pointer;
+}
+.api-cost-reset:hover { background: rgba(239, 68, 68, 0.2); }
+
 /* 選択中の航空機 詳細パネル */
 #selectedAircraftCard {
   border: 1.5px solid rgba(251, 191, 36, 0.5);
@@ -2594,6 +2677,22 @@ label {
       <div id="apiActNow" class="api-act-now"></div>
       <div id="apiActHistory" class="api-act-history"></div>
       <div id="apiActTotals" class="api-act-totals"></div>
+      <!-- 💰 推定コスト + 月予算 -->
+      <div class="api-cost-section">
+        <div class="api-cost-title">
+          💰 推定コスト
+          <span style="font-size:10.5px;font-weight:500;color:var(--text-secondary,#94a3b8);margin-left:6px">
+            (公式料金表でローカル計算 / Anthropic残高は <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener" style="color:#06b6d4">コンソール</a> で確認)
+          </span>
+        </div>
+        <div id="apiCostStats" class="api-cost-stats"></div>
+        <div class="api-budget-row">
+          <label style="font-size:11.5px;font-weight:700">📊 月予算 (USD):</label>
+          <input type="number" id="apiBudgetInput" min="0" step="0.5" placeholder="例: 5.00" />
+          <span id="apiBudgetRemaining" class="api-budget-remaining"></span>
+          <button type="button" id="apiCostReset" class="api-cost-reset" title="累計コストを 0 にリセット">🗑 リセット</button>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="accuracyCard">
@@ -2727,7 +2826,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.5.0';
+const APP_VERSION = 'v2.6.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -9168,6 +9267,64 @@ const worldPredictionApp = (function() {
   // ──────────────────────────────────────────────
   // 🤖 Claude API ライブ活動トラッカー
   // ──────────────────────────────────────────────
+  // ──────────────────────────────────────────────
+  // Anthropic 公開料金表 (USD per 1M tokens), 2026 時点
+  // 公式: https://www.anthropic.com/pricing#anthropic-api
+  // ──────────────────────────────────────────────
+  const MODEL_PRICING = {
+    'claude-haiku-4-5':   { input: 1.0,  output: 5.0  },
+    'claude-sonnet-4-6':  { input: 3.0,  output: 15.0 },
+    'claude-opus-4-6':    { input: 15.0, output: 75.0 },
+    'claude-opus-4-7':    { input: 15.0, output: 75.0 },
+  };
+  const FALLBACK_PRICE = { input: 3.0, output: 15.0 }; // 不明モデルは Sonnet 価格
+
+  function calcCostUSD(model, inTok, outTok) {
+    const p = MODEL_PRICING[model] || FALLBACK_PRICE;
+    return (inTok * p.input + outTok * p.output) / 1e6;
+  }
+
+  function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function monthKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  const COST_LS_TODAY_PREFIX = 'world_api_cost_day_';
+  const COST_LS_MONTH_PREFIX = 'world_api_cost_month_';
+  const COST_LS_TOTAL = 'world_api_cost_total';
+  const COST_LS_BUDGET = 'world_api_budget_monthly_usd';
+  const COST_LS_BY_MODEL_PREFIX = 'world_api_cost_model_';
+
+  function getCost(key) {
+    const v = parseFloat(localStorage.getItem(key));
+    return isFinite(v) ? v : 0;
+  }
+  function addCost(model, cost) {
+    if (!isFinite(cost) || cost <= 0) return;
+    const today = todayKey();
+    const month = monthKey();
+    localStorage.setItem(COST_LS_TODAY_PREFIX + today, String(getCost(COST_LS_TODAY_PREFIX + today) + cost));
+    localStorage.setItem(COST_LS_MONTH_PREFIX + month, String(getCost(COST_LS_MONTH_PREFIX + month) + cost));
+    localStorage.setItem(COST_LS_TOTAL, String(getCost(COST_LS_TOTAL) + cost));
+    localStorage.setItem(COST_LS_BY_MODEL_PREFIX + model, String(getCost(COST_LS_BY_MODEL_PREFIX + model) + cost));
+  }
+  function getCostStats() {
+    return {
+      today: getCost(COST_LS_TODAY_PREFIX + todayKey()),
+      month: getCost(COST_LS_MONTH_PREFIX + monthKey()),
+      total: getCost(COST_LS_TOTAL),
+      budget: parseFloat(localStorage.getItem(COST_LS_BUDGET)) || 0,
+      byModel: Object.keys(MODEL_PRICING).reduce((acc, m) => {
+        const v = getCost(COST_LS_BY_MODEL_PREFIX + m);
+        if (v > 0) acc[m] = v;
+        return acc;
+      }, {}),
+    };
+  }
+
   const apiActivity = {
     current: null,            // { purpose, model, detail, startTs }
     history: [],              // [{ purpose, model, detail, startTs, endTs, status, info }, ...] 最大 12
@@ -9192,11 +9349,17 @@ const worldPredictionApp = (function() {
 
   function apiActEnd(success, info = {}) {
     if (!apiActivity.current) return;
+    // 使用トークンからコスト計算 → localStorage に集計
+    let cost = 0;
+    if (success && (info.inputTokens || info.outputTokens)) {
+      cost = calcCostUSD(apiActivity.current.model, info.inputTokens || 0, info.outputTokens || 0);
+      addCost(apiActivity.current.model, cost);
+    }
     const entry = {
       ...apiActivity.current,
       endTs: Date.now(),
       status: success ? 'success' : 'failed',
-      info,
+      info: { ...info, cost },
     };
     apiActivity.history.unshift(entry);
     if (apiActivity.history.length > 12) apiActivity.history.length = 12;
@@ -9275,6 +9438,48 @@ const worldPredictionApp = (function() {
       <div class="api-tot"><span style="color:#b91c1c">失敗</span><b>${t.failed}</b></div>
       <div class="api-tot"><span style="color:var(--text-secondary,#94a3b8)">成功率</span><b>${t.calls ? Math.round(t.success / t.calls * 100) : 0}%</b></div>
     `;
+    // 💰 推定コスト + 予算
+    renderApiCost();
+  }
+
+  function renderApiCost() {
+    const statsEl = document.getElementById('apiCostStats');
+    const remEl = document.getElementById('apiBudgetRemaining');
+    if (!statsEl) return;
+    const s = getCostStats();
+    const byModelText = Object.keys(s.byModel).length
+      ? Object.entries(s.byModel).map(([m, v]) => `${m.replace('claude-', '')}: $${v.toFixed(4)}`).join(' / ')
+      : '';
+    statsEl.innerHTML = `
+      <div class="cost-tile today">
+        <span class="cost-label">📆 今日</span>
+        <span class="cost-value">$${s.today.toFixed(4)}</span>
+      </div>
+      <div class="cost-tile month">
+        <span class="cost-label">📅 今月 (${monthKey()})</span>
+        <span class="cost-value">$${s.month.toFixed(4)}</span>
+      </div>
+      <div class="cost-tile total">
+        <span class="cost-label">📊 累計</span>
+        <span class="cost-value">$${s.total.toFixed(4)}</span>
+        ${byModelText ? `<span class="cost-sub">${byModelText}</span>` : ''}
+      </div>
+    `;
+    if (remEl) {
+      if (s.budget > 0) {
+        const rem = s.budget - s.month;
+        const pct = (s.month / s.budget) * 100;
+        const cls = pct >= 95 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+        remEl.className = 'api-budget-remaining ' + cls;
+        remEl.innerHTML = rem >= 0
+          ? `残り <b>$${rem.toFixed(4)}</b> (${Math.min(100, pct).toFixed(1)}% 使用)`
+          : `⚠️ <b>予算超過 $${(-rem).toFixed(4)}</b> (${pct.toFixed(1)}%)`;
+      } else {
+        remEl.className = 'api-budget-remaining';
+        remEl.textContent = '(予算を入力すると残額表示)';
+        remEl.style.color = 'var(--text-secondary, #94a3b8)';
+      }
+    }
   }
 
   // 経過時間ライブ更新用の interval (worldPrediction.activate で開始)
@@ -10458,6 +10663,7 @@ const worldPredictionApp = (function() {
 ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     let acc = '';
     try {
+      let inTok = 0, outTok = 0;
       await streamFetch({
         apiKey,
         model: 'claude-haiku-4-5',
@@ -10468,6 +10674,12 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
         onEvent: (p) => {
           if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
             acc += p.delta.text;
+          }
+          if (p.type === 'message_start' && p.message?.usage) {
+            inTok = p.message.usage.input_tokens || 0;
+          }
+          if (p.type === 'message_delta' && p.usage) {
+            outTok = p.usage.output_tokens || outTok;
           }
         }
       });
@@ -10493,12 +10705,12 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
         const total = events.length;
         const cached = events.filter(e => translateCache.has(e.id)).length;
         setStatusPill('wsl-translate', `翻訳: +${applied}件 完了 (合計 ${cached}/${total})`, 'ok');
-        apiActEnd(true, { applied, summary: `+${applied}件 日本語化` });
+        apiActEnd(true, { applied, summary: `+${applied}件 日本語化`, inputTokens: inTok, outputTokens: outTok });
         if (manual) toast(`${applied}件のイベントを日本語化しました`, 'success');
       } else {
         setStatusPill('wsl-translate', '翻訳: 0件成功 (パース失敗の可能性)', 'warn');
         console.warn('[world-v2] translation parse 0 matches. Raw output:', acc.slice(0, 500));
-        apiActEnd(false, { error: 'パース 0件 (Haiku 出力形式不一致)' });
+        apiActEnd(false, { error: 'パース 0件 (Haiku 出力形式不一致)', inputTokens: inTok, outputTokens: outTok });
         if (manual) toast('翻訳パース失敗。コンソールを確認してください', 'warning', 4000);
       }
     } catch (e) {
@@ -10759,6 +10971,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   "SPX":    {"multiplier": 1.001, "reason": "..."}
 }`;
     let acc = '';
+    let inTok2 = 0, outTok2 = 0;
     try {
       await streamFetch({
         apiKey,
@@ -10771,6 +10984,8 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
           if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
             acc += p.delta.text;
           }
+          if (p.type === 'message_start' && p.message?.usage) inTok2 = p.message.usage.input_tokens || 0;
+          if (p.type === 'message_delta' && p.usage) outTok2 = p.usage.output_tokens || outTok2;
         }
       });
       const m = acc.match(/\{[\s\S]*\}/);
@@ -10800,12 +11015,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         applied++;
       }
       setStatusPill('wsl-claude', `Claude補正: ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
-      apiActEnd(true, { applied, summary: `${applied}銘柄に補正適用` });
+      apiActEnd(true, { applied, summary: `${applied}銘柄に補正適用`, inputTokens: inTok2, outputTokens: outTok2 });
       renderAccuracyDashboard();
     } catch (e) {
       console.warn('[world-v2] claude adjust failed', e);
       setStatusPill('wsl-claude', 'Claude補正: 失敗', 'err');
-      apiActEnd(false, { error: e.message });
+      apiActEnd(false, { error: e.message, inputTokens: inTok2, outputTokens: outTok2 });
     }
   }
 
@@ -11088,6 +11303,35 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       apiKeyMonitor.addEventListener('input', updateApiKeyWarning);
       apiKeyMonitor.addEventListener('change', updateApiKeyWarning);
     }
+    // 💰 月予算入力
+    const budgetEl = document.getElementById('apiBudgetInput');
+    if (budgetEl) {
+      const stored = localStorage.getItem(COST_LS_BUDGET);
+      if (stored) budgetEl.value = stored;
+      const save = () => {
+        const v = parseFloat(budgetEl.value);
+        if (isFinite(v) && v > 0) localStorage.setItem(COST_LS_BUDGET, String(v));
+        else localStorage.removeItem(COST_LS_BUDGET);
+        renderApiCost();
+      };
+      budgetEl.addEventListener('change', save);
+      budgetEl.addEventListener('input', save);
+    }
+    // 🗑 コストリセット
+    document.getElementById('apiCostReset')?.addEventListener('click', () => {
+      if (!confirm('累計コスト集計を 0 にリセットしますか? (Anthropic 側の実費には影響しません、ローカル表示のみ)')) return;
+      // 全 cost localStorage キーを削除
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith(COST_LS_TODAY_PREFIX) || k.startsWith(COST_LS_MONTH_PREFIX) || k.startsWith(COST_LS_BY_MODEL_PREFIX) || k === COST_LS_TOTAL)) {
+          keys.push(k);
+        }
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+      toast('🗑 累計コストをリセットしました', 'success', 3000);
+      renderApiCost();
+    });
     // 航空機表示トグル
     const acEl = document.getElementById('worldAircraftEnable');
     if (acEl) {
