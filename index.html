@@ -3022,7 +3022,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.0.1';
+const APP_VERSION = 'v3.0.2';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -11848,51 +11848,8 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       renderApiCost();
     });
 
-    // 🤖 AI プロバイダー切替
-    document.querySelectorAll('.ai-provider-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const p = tab.dataset.provider;
-        localStorage.setItem(AI_PROVIDER_LS, p);
-        applyAiProviderUI();
-        updateApiKeyWarning();
-        const lbl = p === 'openai' ? `OpenAI ${getCurrentAiModel('translate')}` : 'Anthropic Claude Haiku 4.5';
-        toast(`🤖 AI プロバイダーを ${lbl} に切替`, 'success', 3500);
-      });
-    });
-    // OpenAI API key
-    const openaiKeyEl = document.getElementById('openaiApiKey');
-    if (openaiKeyEl) {
-      openaiKeyEl.value = localStorage.getItem(OPENAI_KEY_LS) || '';
-      const save = () => {
-        const v = openaiKeyEl.value.trim();
-        if (v) localStorage.setItem(OPENAI_KEY_LS, v);
-        else localStorage.removeItem(OPENAI_KEY_LS);
-        updateApiKeyWarning();
-      };
-      openaiKeyEl.addEventListener('change', save);
-      openaiKeyEl.addEventListener('input', save);
-    }
-    // OpenAI model
-    const openaiModelEl = document.getElementById('openaiModel');
-    if (openaiModelEl) {
-      const stored = localStorage.getItem(OPENAI_MODEL_LS);
-      if (stored) openaiModelEl.value = stored;
-      openaiModelEl.addEventListener('change', () => {
-        localStorage.setItem(OPENAI_MODEL_LS, openaiModelEl.value);
-        applyAiProviderUI();
-        toast(`🎯 モデルを ${openaiModelEl.value} に変更`, 'success', 3000);
-      });
-    }
-    // 自前 CORS プロキシ URL
-    const openaiProxyEl = document.getElementById('openaiCustomProxy');
-    if (openaiProxyEl) {
-      openaiProxyEl.value = localStorage.getItem('openai_cors_proxy_v1') || '';
-      openaiProxyEl.addEventListener('change', () => {
-        const v = openaiProxyEl.value.trim();
-        if (v) localStorage.setItem('openai_cors_proxy_v1', v);
-        else localStorage.removeItem('openai_cors_proxy_v1');
-      });
-    }
+    // 🤖 AI プロバイダー UI は initAiProviderUI() で wire-up 済 (load 時実行)
+    // → setupOnce では何もしない
 
     // 航空機表示トグル
     const acEl = document.getElementById('worldAircraftEnable');
@@ -12020,6 +11977,63 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     document.getElementById('worldPredictionPanel')?.classList.remove('active');
     restoreMainUI();
   }
+
+  // 🤖 AI プロバイダー UI の wire-up を即時実行 (setupOnce ではなく load 時に確定)
+  // → 世界予測モードに入らずともトップ API カードでタブ切替・OpenAI key 入力が動く
+  let aiProviderUiInited = false;
+  function initAiProviderUI() {
+    if (aiProviderUiInited) return;
+    aiProviderUiInited = true;
+    // プロバイダタブ
+    document.querySelectorAll('.ai-provider-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const p = tab.dataset.provider;
+        localStorage.setItem(AI_PROVIDER_LS, p);
+        applyAiProviderUI();
+        updateApiKeyWarning();
+        const lbl = p === 'openai' ? `OpenAI ${getCurrentAiModel('translate')}` : 'Anthropic Claude Haiku 4.5';
+        toast(`🤖 AI プロバイダーを ${lbl} に切替`, 'success', 3500);
+      });
+    });
+    // OpenAI APIキー
+    const openaiKeyEl = document.getElementById('openaiApiKey');
+    if (openaiKeyEl) {
+      openaiKeyEl.value = localStorage.getItem(OPENAI_KEY_LS) || '';
+      const save = () => {
+        const v = openaiKeyEl.value.trim();
+        if (v) localStorage.setItem(OPENAI_KEY_LS, v);
+        else localStorage.removeItem(OPENAI_KEY_LS);
+        updateApiKeyWarning();
+      };
+      openaiKeyEl.addEventListener('change', save);
+      openaiKeyEl.addEventListener('input', save);
+    }
+    // OpenAI モデル
+    const openaiModelEl = document.getElementById('openaiModel');
+    if (openaiModelEl) {
+      const stored = localStorage.getItem(OPENAI_MODEL_LS);
+      if (stored) openaiModelEl.value = stored;
+      openaiModelEl.addEventListener('change', () => {
+        localStorage.setItem(OPENAI_MODEL_LS, openaiModelEl.value);
+        applyAiProviderUI();
+        toast(`🎯 モデルを ${openaiModelEl.value} に変更`, 'success', 3000);
+      });
+    }
+    // 自前 CORS プロキシ URL
+    const openaiProxyEl = document.getElementById('openaiCustomProxy');
+    if (openaiProxyEl) {
+      openaiProxyEl.value = localStorage.getItem('openai_cors_proxy_v1') || '';
+      openaiProxyEl.addEventListener('change', () => {
+        const v = openaiProxyEl.value.trim();
+        if (v) localStorage.setItem('openai_cors_proxy_v1', v);
+        else localStorage.removeItem('openai_cors_proxy_v1');
+      });
+    }
+    // 初回描画
+    applyAiProviderUI();
+  }
+  // DOM 既に parse 済 (script は body 末尾) なので即時実行
+  initAiProviderUI();
 
   return { activate, deactivate, _internal: { worldDataService, linearPredict, biasCache, histories } };
 })();
