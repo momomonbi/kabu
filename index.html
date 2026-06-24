@@ -1896,6 +1896,79 @@ label {
   pointer-events: auto;
 }
 
+/* 🤖 AI プロバイダー設定カード */
+#aiProviderCard {
+  border: 1.5px solid rgba(139, 92, 246, 0.35);
+}
+.ai-provider-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin: 6px 0 12px;
+}
+.ai-provider-tab {
+  flex: 1; min-width: 200px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13.5px; font-weight: 700;
+  text-align: left;
+  color: var(--text-secondary, #475569);
+  display: flex; flex-direction: column; gap: 2px;
+  transition: all 0.18s;
+}
+.ai-provider-tab:hover { color: var(--text-primary, #0f172a); background: rgba(15, 23, 42, 0.07); }
+.ai-provider-tab small { font-size: 11px; font-weight: 500; opacity: 0.7; }
+.ai-provider-tab.active {
+  border-color: #8b5cf6;
+  background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(6,182,212,0.08));
+  color: var(--text-primary, #0f172a);
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.18);
+}
+.ai-provider-section { display: block; }
+.ai-provider-desc {
+  margin: 0;
+  padding: 10px 14px;
+  background: rgba(34, 197, 94, 0.08);
+  border-left: 3px solid #22c55e;
+  border-radius: 8px;
+  font-size: 12px; line-height: 1.55;
+  color: var(--text-secondary, #475569);
+}
+.ai-provider-desc b { color: var(--text-primary, #0f172a); }
+.ai-provider-warning {
+  padding: 11px 14px;
+  background: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+  border-radius: 8px;
+  font-size: 12px; line-height: 1.6;
+  color: #7f1d1d;
+  margin-bottom: 12px;
+}
+.ai-provider-warning b { color: #991b1b; }
+.ai-provider-fields {
+  display: grid; gap: 10px;
+}
+.ai-field { display: grid; gap: 4px; }
+.ai-field label {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+.ai-field input[type="password"],
+.ai-field input[type="text"],
+.ai-field select {
+  width: 100% !important;
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(15, 23, 42, 0.15) !important;
+  font-size: 12.5px !important;
+  font-family: inherit !important;
+}
+.ai-field small {
+  font-size: 10.5px;
+  color: var(--text-secondary, #94a3b8);
+}
+
 /* 🤖 Claude API ライブ活動カード */
 #apiActivityCard {
   border: 1.5px solid rgba(139, 92, 246, 0.35);
@@ -2743,6 +2816,63 @@ label {
 
     <div class="card" id="selectedAircraftCard" style="display:none"></div>
 
+    <!-- 🤖 AI プロバイダー設定 -->
+    <div class="card" id="aiProviderCard">
+      <div class="card-title">
+        <span class="card-icon">🤖</span>
+        <span>AI プロバイダー設定</span>
+        <span id="aiProviderBadge" class="count-badge" style="background:rgba(139,92,246,0.18);color:#7c3aed">Claude</span>
+      </div>
+      <div class="ai-provider-tabs" role="radiogroup">
+        <button type="button" class="ai-provider-tab active" data-provider="claude">
+          🟦 Anthropic Claude
+          <small>(既存・推奨)</small>
+        </button>
+        <button type="button" class="ai-provider-tab" data-provider="openai">
+          🟢 OpenAI GPT
+          <small>(GPT-5.4 / 5.5)</small>
+        </button>
+      </div>
+      <!-- Claude 側説明 -->
+      <div class="ai-provider-section" id="aiProviderClaudeSection">
+        <p class="ai-provider-desc">
+          ✅ <b>ブラウザから直接呼出可能</b> (`anthropic-dangerous-direct-browser-access` ヘッダ使用)。
+          API キーは上部の <b>⚙ API</b> から設定済みのものを利用。世界予測タスクは <b>Claude Haiku 4.5</b> 固定。
+        </p>
+      </div>
+      <!-- OpenAI 側設定 -->
+      <div class="ai-provider-section" id="aiProviderOpenaiSection" style="display:none">
+        <div class="ai-provider-warning">
+          ⚠️ <b>OpenAI API はブラウザ直接呼び出しに公式対応していません</b> (CORS 制約)。
+          内蔵 CORS プロキシ (corsproxy.io / api.cors.lol) 経由で動作させますが、
+          <b>API キーがプロキシサーバーを通過する</b>セキュリティリスクがあります。
+          本番用途では自前のバックエンドプロキシを推奨。
+        </div>
+        <div class="ai-provider-fields">
+          <div class="ai-field">
+            <label for="openaiApiKey">🔑 OpenAI API キー</label>
+            <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off" />
+          </div>
+          <div class="ai-field">
+            <label for="openaiModel">🎯 使用モデル</label>
+            <select id="openaiModel">
+              <option value="gpt-5.4-nano">gpt-5.4-nano ($0.20/$1.25 per MTok) - 最安・分類向け</option>
+              <option value="gpt-5.4-mini" selected>gpt-5.4-mini ($0.75/$4.50) - バランス型推奨</option>
+              <option value="gpt-5.4">gpt-5.4 ($2.50/$15.00) - 高品質汎用</option>
+              <option value="gpt-5.5">gpt-5.5 ($5.00/$30.00) - 最新フロンティア</option>
+              <option value="gpt-5.5-pro">gpt-5.5-pro ($30.00/$180.00) - 最高品質</option>
+              <option value="gpt-5">gpt-5 ($1.25/$10.00) - 旧フラッグシップ</option>
+            </select>
+          </div>
+          <div class="ai-field">
+            <label for="openaiCustomProxy">🌐 自前 CORS プロキシ URL (推奨)</label>
+            <input type="text" id="openaiCustomProxy" placeholder="例: https://my-worker.workers.dev/?url=" />
+            <small>空欄なら corsproxy.io 等を fallback。Cloudflare Worker 等で自前構築するとキー露出を最小化できます。</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 🤖 Claude API ライブ活動 -->
     <div class="card" id="apiActivityCard">
       <div class="card-title">
@@ -2902,7 +3032,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v2.7.0';
+const APP_VERSION = 'v3.0.0';
 const APP_VERSION_DATE = '2026-05-24';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -4754,6 +4884,157 @@ async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, si
       }
     }
   }
+}
+
+// ──────────────────────────────────────────────
+// 🤖 OpenAI Chat Completions API (ストリーミング)
+// CORS制約: api.openai.com は Access-Control-Allow-Origin を返さないため
+// 直接 fetch は失敗する。corsproxy.io / api.cors.lol で fallback。
+// ※ API key はプロキシサーバー経由なので露出リスクあり (UIで警告表示)
+// ──────────────────────────────────────────────
+const OPENAI_PROXIES = [
+  (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+  (url) => 'https://api.cors.lol/?url=' + encodeURIComponent(url),
+];
+
+async function openaiFetchWithProxy(url, opts) {
+  // 1st: 直接 fetch (まれに CORS 解除されている可能性、または別 origin で呼ばれている場合)
+  try {
+    const r = await fetch(url, opts);
+    if (r.ok || r.status >= 400) return r; // 4xx/5xx も返して上位でエラーハンドリング
+  } catch (_) {
+    // CORS / network — fall through
+  }
+  // 2nd: CORS プロキシ順次試行 (body は POST で渡すので header もコピーされる proxy が必要)
+  // 注: corsproxy.io 等は POST + custom headers を転送する
+  const custom = (localStorage.getItem('openai_cors_proxy_v1') || '').trim();
+  const list = custom ? [(u) => custom + encodeURIComponent(u), ...OPENAI_PROXIES] : OPENAI_PROXIES;
+  let lastErr;
+  for (const proxy of list) {
+    try {
+      const r = await fetch(proxy(url), opts);
+      if (r.ok || r.status >= 400) return r;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('OpenAI: 直接呼出 + 全プロキシ失敗');
+}
+
+async function streamFetchOpenAI({apiKey, model, prompt, system, onEvent, signal, maxTokens = 4000}) {
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: prompt });
+
+  const body = {
+    model,
+    messages,
+    stream: true,
+    stream_options: { include_usage: true },
+    max_completion_tokens: maxTokens,
+  };
+
+  const response = await openaiFetchWithProxy('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    let msg = `OpenAI APIエラー (${response.status})`;
+    try {
+      const j = JSON.parse(errText);
+      if (j.error?.message) msg += ': ' + j.error.message;
+    } catch { msg += ': ' + errText.slice(0, 200); }
+    throw new Error(msg);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        const chunk = JSON.parse(data);
+        // OpenAI SSE → Anthropic 互換イベントに変換 (上位コードが共通で扱えるよう)
+        const delta = chunk.choices?.[0]?.delta;
+        if (delta?.content) {
+          await onEvent({
+            type: 'content_block_delta',
+            delta: { type: 'text_delta', text: delta.content }
+          });
+        }
+        // usage は最終チャンクで届く (stream_options.include_usage)
+        if (chunk.usage) {
+          await onEvent({
+            type: 'message_start',
+            message: { usage: { input_tokens: chunk.usage.prompt_tokens || 0, output_tokens: chunk.usage.completion_tokens || 0 } }
+          });
+          await onEvent({
+            type: 'message_delta',
+            usage: { output_tokens: chunk.usage.completion_tokens || 0 }
+          });
+        }
+      } catch (e) {
+        console.warn('OpenAI SSE parse error:', data.slice(0, 100), e);
+      }
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
+// 統合 AI 呼び出し: プロバイダ設定 (claude / openai) でルーティング
+// ──────────────────────────────────────────────
+const AI_PROVIDER_LS = 'world_ai_provider_v1';      // 'claude' | 'openai'
+const OPENAI_KEY_LS  = 'openai_api_key_v1';
+const OPENAI_MODEL_LS = 'openai_model_v1';
+const DEFAULT_CLAUDE_MODEL = 'claude-haiku-4-5';
+const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+
+function getCurrentAiProvider() {
+  return localStorage.getItem(AI_PROVIDER_LS) || 'claude';
+}
+function getCurrentAiKey() {
+  const p = getCurrentAiProvider();
+  if (p === 'openai') return (localStorage.getItem(OPENAI_KEY_LS) || '').trim();
+  // Claude: 既存の input + storage の二段
+  const el = document.getElementById('apiKey');
+  return (el?.value.trim()) || localStorage.getItem(STORAGE_KEY) || '';
+}
+function getCurrentAiModel(taskType) {
+  // taskType: 'translate' | 'mood' — どちらも default モデルで対応
+  const p = getCurrentAiProvider();
+  if (p === 'openai') return localStorage.getItem(OPENAI_MODEL_LS) || DEFAULT_OPENAI_MODEL;
+  return DEFAULT_CLAUDE_MODEL; // Claude は世界予測タスクでは Haiku 固定
+}
+
+async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
+  const provider = getCurrentAiProvider();
+  const apiKey = getCurrentAiKey();
+  if (!apiKey) throw new Error(`${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key が未設定`);
+  const model = getCurrentAiModel(taskType);
+  if (provider === 'openai') {
+    await streamFetchOpenAI({ apiKey, model, prompt, system, onEvent, signal, maxTokens });
+  } else {
+    await streamFetch({ apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens });
+  }
+  return { provider, model };
 }
 
 // ===== Hybrid Mode (Opus 4.7 research → Haiku 4.5 writer) =====
@@ -9344,16 +9625,24 @@ const worldPredictionApp = (function() {
   // 🤖 Claude API ライブ活動トラッカー
   // ──────────────────────────────────────────────
   // ──────────────────────────────────────────────
-  // Anthropic 公開料金表 (USD per 1M tokens), 2026 時点
-  // 公式: https://www.anthropic.com/pricing#anthropic-api
+  // Anthropic + OpenAI 公開料金表 (USD per 1M tokens), 2026年5月時点
+  // 公式: https://www.anthropic.com/pricing, https://openai.com/api/pricing/
   // ──────────────────────────────────────────────
   const MODEL_PRICING = {
-    'claude-haiku-4-5':   { input: 1.0,  output: 5.0  },
-    'claude-sonnet-4-6':  { input: 3.0,  output: 15.0 },
-    'claude-opus-4-6':    { input: 15.0, output: 75.0 },
-    'claude-opus-4-7':    { input: 15.0, output: 75.0 },
+    // Anthropic Claude
+    'claude-haiku-4-5':   { input: 1.0,  output: 5.0,   provider: 'claude' },
+    'claude-sonnet-4-6':  { input: 3.0,  output: 15.0,  provider: 'claude' },
+    'claude-opus-4-6':    { input: 15.0, output: 75.0,  provider: 'claude' },
+    'claude-opus-4-7':    { input: 15.0, output: 75.0,  provider: 'claude' },
+    // OpenAI GPT-5 系 (2026年3-5月リリース)
+    'gpt-5':              { input: 1.25, output: 10.0,  provider: 'openai' },
+    'gpt-5.4':            { input: 2.5,  output: 15.0,  provider: 'openai' },
+    'gpt-5.4-mini':       { input: 0.75, output: 4.5,   provider: 'openai' },
+    'gpt-5.4-nano':       { input: 0.20, output: 1.25,  provider: 'openai' },
+    'gpt-5.5':            { input: 5.0,  output: 30.0,  provider: 'openai' },
+    'gpt-5.5-pro':        { input: 30.0, output: 180.0, provider: 'openai' },
   };
-  const FALLBACK_PRICE = { input: 3.0, output: 15.0 }; // 不明モデルは Sonnet 価格
+  const FALLBACK_PRICE = { input: 3.0, output: 15.0, provider: 'unknown' };
 
   function calcCostUSD(model, inTok, outTok) {
     const p = MODEL_PRICING[model] || FALLBACK_PRICE;
@@ -10801,10 +11090,35 @@ const worldPredictionApp = (function() {
   }
   let translationInFlight = false;
   function updateApiKeyWarning() {
-    const apiKeyEl = document.getElementById('apiKey');
-    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    const apiKey = getCurrentAiKey();
     const warn = document.getElementById('worldApiKeyWarning');
     if (warn) warn.classList.toggle('visible', !apiKey);
+  }
+  function applyAiProviderUI() {
+    const p = getCurrentAiProvider();
+    // タブ active
+    document.querySelectorAll('.ai-provider-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.provider === p);
+    });
+    // セクション表示
+    const cs = document.getElementById('aiProviderClaudeSection');
+    const os = document.getElementById('aiProviderOpenaiSection');
+    if (cs) cs.style.display = (p === 'claude') ? 'block' : 'none';
+    if (os) os.style.display = (p === 'openai') ? 'block' : 'none';
+    // バッジ
+    const badge = document.getElementById('aiProviderBadge');
+    if (badge) {
+      if (p === 'openai') {
+        const m = getCurrentAiModel('translate');
+        badge.textContent = `OpenAI ${m}`;
+        badge.style.background = 'rgba(34, 197, 94, 0.18)';
+        badge.style.color = '#15803d';
+      } else {
+        badge.textContent = 'Claude Haiku 4.5';
+        badge.style.background = 'rgba(139, 92, 246, 0.18)';
+        badge.style.color = '#7c3aed';
+      }
+    }
   }
   async function translateEvents(events, opts = {}) {
     const { manual = false } = opts;
@@ -10816,11 +11130,11 @@ const worldPredictionApp = (function() {
       if (manual) toast('翻訳トグルが OFF です。左のトグルを ON にしてください', 'warning', 4000);
       return;
     }
-    const apiKeyEl = document.getElementById('apiKey');
-    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    const provider = getCurrentAiProvider();
+    const apiKey = getCurrentAiKey();
     if (!apiKey) {
-      setStatusPill('wsl-translate', '翻訳: API Key未設定 (英語表示)', 'warn');
-      if (manual) toast('⚠️ ページ上部の ⚙ から Anthropic API キーを設定してください', 'warning', 6000);
+      setStatusPill('wsl-translate', `翻訳: ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key未設定 (英語表示)`, 'warn');
+      if (manual) toast(`⚠️ ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API キーを「🤖 AI プロバイダー」カードから設定してください`, 'warning', 6000);
       return;
     }
     if (translationInFlight) {
@@ -10853,8 +11167,10 @@ const worldPredictionApp = (function() {
       return;
     }
     translationInFlight = true;
-    setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を Haiku に投入中…`, '');
-    apiActStart('🈁 日本語翻訳', 'claude-haiku-4-5', `${needs.length}件のイベント翻訳`);
+    const activeModel = getCurrentAiModel('translate');
+    const providerLabel = provider === 'openai' ? 'OpenAI' : 'Haiku';
+    setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を ${providerLabel} に投入中…`, '');
+    apiActStart('🈁 日本語翻訳', activeModel, `${needs.length}件のイベント翻訳 / ${provider}`);
     const btn = document.getElementById('worldTranslateNow');
     if (btn) btn.disabled = true;
     const items = needs.map((e, i) => ({
@@ -10871,13 +11187,12 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     let acc = '';
     try {
       let inTok = 0, outTok = 0;
-      await streamFetch({
-        apiKey,
-        model: 'claude-haiku-4-5',
+      // プロバイダ (Claude / OpenAI) を自動ルーティング
+      const callMeta = await aiCall({
         prompt,
         system: 'あなたは英日翻訳者です。指定形式の行のみ出力します。',
-        useTools: false,
         maxTokens: 1500,
+        taskType: 'translate',
         onEvent: (p) => {
           if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
             acc += p.delta.text;
@@ -10890,6 +11205,8 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
           }
         }
       });
+      // apiActivity.current.model を実モデルに更新 (translateEvents 開始時は default 仮で記録)
+      if (apiActivity.current) apiActivity.current.model = callMeta.model;
       // パーサーは寛容に: 「IDX:N:」「IDX N:」「N:」のいずれも許容
       const lines = acc.split(/\r?\n/);
       let applied = 0;
@@ -11145,19 +11462,20 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
   }
 
   async function claudeAdjustOnce(contextSummary) {
-    const apiKeyEl = document.getElementById('apiKey');
-    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    const provider = getCurrentAiProvider();
+    const apiKey = getCurrentAiKey();
     if (!apiKey) {
-      setStatusPill('wsl-claude', 'Claude補正: API Key未設定', 'warn');
+      setStatusPill('wsl-claude', `ムード補正: ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key未設定`, 'warn');
       return;
     }
     const enabled = document.getElementById('worldClaudeAdjEnable')?.checked;
     if (!enabled) {
-      setStatusPill('wsl-claude', 'Claude補正: OFF', '');
+      setStatusPill('wsl-claude', 'ムード補正: OFF', '');
       return;
     }
-    setStatusPill('wsl-claude', 'Claude補正: 実行中…', '');
-    apiActStart('🧠 ムード補正', 'claude-haiku-4-5', `${SYMBOLS.length}銘柄 + 直近イベント分析`);
+    setStatusPill('wsl-claude', `ムード補正: 実行中… (${provider})`, '');
+    const activeModel = getCurrentAiModel('mood');
+    apiActStart('🧠 ムード補正', activeModel, `${SYMBOLS.length}銘柄 + 直近イベント分析 / ${provider}`);
     const symList = SYMBOLS.map(s => `"${s}"`).join(', ');
     const prompt = `以下は世界の現在状況です。今後10分間の市場ムードを各銘柄ごとに予測してください。
 
@@ -11180,13 +11498,11 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     let acc = '';
     let inTok2 = 0, outTok2 = 0;
     try {
-      await streamFetch({
-        apiKey,
-        model: 'claude-haiku-4-5',
+      await aiCall({
         prompt,
         system: 'あなたは短期市場アナリスト AI です。指定 JSON 形式のみ出力します。',
-        useTools: false,
         maxTokens: 800,
+        taskType: 'mood',
         onEvent: (p) => {
           if (p.type === 'content_block_delta' && p.delta && p.delta.type === 'text_delta') {
             acc += p.delta.text;
@@ -11221,12 +11537,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         biasCache.set(sym, newBias);
         applied++;
       }
-      setStatusPill('wsl-claude', `Claude補正: ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
+      setStatusPill('wsl-claude', `ムード補正 (${provider}): ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
       apiActEnd(true, { applied, summary: `${applied}銘柄に補正適用`, inputTokens: inTok2, outputTokens: outTok2 });
       renderAccuracyDashboard();
     } catch (e) {
-      console.warn('[world-v2] claude adjust failed', e);
-      setStatusPill('wsl-claude', 'Claude補正: 失敗', 'err');
+      console.warn('[world-v2] mood adjust failed', e);
+      setStatusPill('wsl-claude', `ムード補正 (${provider}): 失敗`, 'err');
       apiActEnd(false, { error: e.message, inputTokens: inTok2, outputTokens: outTok2 });
     }
   }
@@ -11541,6 +11857,53 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       toast('🗑 累計コストをリセットしました', 'success', 3000);
       renderApiCost();
     });
+
+    // 🤖 AI プロバイダー切替
+    document.querySelectorAll('.ai-provider-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const p = tab.dataset.provider;
+        localStorage.setItem(AI_PROVIDER_LS, p);
+        applyAiProviderUI();
+        updateApiKeyWarning();
+        const lbl = p === 'openai' ? `OpenAI ${getCurrentAiModel('translate')}` : 'Anthropic Claude Haiku 4.5';
+        toast(`🤖 AI プロバイダーを ${lbl} に切替`, 'success', 3500);
+      });
+    });
+    // OpenAI API key
+    const openaiKeyEl = document.getElementById('openaiApiKey');
+    if (openaiKeyEl) {
+      openaiKeyEl.value = localStorage.getItem(OPENAI_KEY_LS) || '';
+      const save = () => {
+        const v = openaiKeyEl.value.trim();
+        if (v) localStorage.setItem(OPENAI_KEY_LS, v);
+        else localStorage.removeItem(OPENAI_KEY_LS);
+        updateApiKeyWarning();
+      };
+      openaiKeyEl.addEventListener('change', save);
+      openaiKeyEl.addEventListener('input', save);
+    }
+    // OpenAI model
+    const openaiModelEl = document.getElementById('openaiModel');
+    if (openaiModelEl) {
+      const stored = localStorage.getItem(OPENAI_MODEL_LS);
+      if (stored) openaiModelEl.value = stored;
+      openaiModelEl.addEventListener('change', () => {
+        localStorage.setItem(OPENAI_MODEL_LS, openaiModelEl.value);
+        applyAiProviderUI();
+        toast(`🎯 モデルを ${openaiModelEl.value} に変更`, 'success', 3000);
+      });
+    }
+    // 自前 CORS プロキシ URL
+    const openaiProxyEl = document.getElementById('openaiCustomProxy');
+    if (openaiProxyEl) {
+      openaiProxyEl.value = localStorage.getItem('openai_cors_proxy_v1') || '';
+      openaiProxyEl.addEventListener('change', () => {
+        const v = openaiProxyEl.value.trim();
+        if (v) localStorage.setItem('openai_cors_proxy_v1', v);
+        else localStorage.removeItem('openai_cors_proxy_v1');
+      });
+    }
+
     // 航空機表示トグル
     const acEl = document.getElementById('worldAircraftEnable');
     if (acEl) {
@@ -11632,6 +11995,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     active = true;
     hideMainUI();
     document.getElementById('worldPredictionPanel')?.classList.add('active');
+    applyAiProviderUI();
     updateApiKeyWarning();
     renderApiActivity(); // API活動カード初期描画
     await loadBiasCache();
