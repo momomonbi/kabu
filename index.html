@@ -2557,6 +2557,9 @@ label {
       </div>
       <div class="notice">
         💡 Anthropic APIキーは <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> で取得。「💾」で localStorage に保存。Claude は<b>銘柄分析の全モード + 世界予測</b>に使えます。
+        <br/>🆕 対応モデル (2026-07 時点): <b>Opus 5 / Sonnet 5 / Haiku 4.5 / Fable 5</b>。
+        Opus 5・Sonnet 5・Fable 5 では<b>適応的思考 (adaptive thinking)</b> が有効で、
+        「🔍 検索の深さ」設定に応じて <code>effort</code> (low / medium / high) を自動調整しコストを抑えます。
       </div>
     </div>
     <!-- OpenAI セクション -->
@@ -2635,12 +2638,14 @@ label {
     <div class="field">
       <label for="model">使用モデル</label>
       <select id="model">
-        <option value="eco-hybrid" selected>🌱 エコ・ハイブリッド (Sonnet研究 → Haiku執筆) — 最適節約★★★★★</option>
-        <option value="hybrid">💎 プレミアム・ハイブリッド (Opus研究 → Haiku執筆) — 最高品質</option>
+        <option value="eco-hybrid" selected>🌱 エコ・ハイブリッド (Sonnet 5 研究 → Haiku 4.5 執筆) — 最適節約★★★★★</option>
+        <option value="hybrid">💎 プレミアム・ハイブリッド (Opus 5 研究 → Haiku 4.5 執筆) — 最高品質</option>
         <option value="claude-haiku-4-5">⚡ Haiku 4.5 単体 — 低コスト・高速</option>
-        <option value="claude-sonnet-4-6">⚖ Sonnet 4.6 単体 — バランス型</option>
-        <option value="claude-opus-4-7">🌟 Opus 4.7 単体 — 最高品質</option>
-        <option value="claude-opus-4-6">✨ Opus 4.6 単体 — 高品質(旧)</option>
+        <option value="claude-sonnet-5">⚖ Sonnet 5 単体 — バランス型 (最新)</option>
+        <option value="claude-opus-5">🌟 Opus 5 単体 — 最高品質 (最新)</option>
+        <option value="claude-fable-5">🔮 Fable 5 単体 — 最上位・最高コスト</option>
+        <option value="claude-opus-4-8">✨ Opus 4.8 単体 — 高品質(旧世代)</option>
+        <option value="claude-sonnet-4-6">🕰 Sonnet 4.6 単体 — バランス型(旧世代)</option>
       </select>
       <div class="model-info" id="modelInfo"></div>
     </div>
@@ -3022,8 +3027,8 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.0.1';
-const APP_VERSION_DATE = '2026-05-24';
+const APP_VERSION = 'v3.1.0';
+const APP_VERSION_DATE = '2026-07-28';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
@@ -3046,7 +3051,16 @@ const WEB_SEARCH_COST_USD = 0.01;
   if (date) date.textContent = APP_VERSION_DATE;
 })();
 
+// ★★★ Claude API モデル一覧 (2026-07 時点の公式ラインナップ) ★★★
+// 出典: https://platform.claude.com/docs/en/about-claude/models/overview
+//       https://platform.claude.com/docs/en/about-claude/pricing
+// 料金は USD / 100万トークン。
+// ※ Sonnet 5 は 2026-08-31 まで導入価格 ($2/$10)、9/1 以降は $3/$15。
+const SONNET5_INTRO_END_MS = Date.parse('2026-09-01T00:00:00Z');
+const SONNET5_INTRO_ACTIVE = Date.now() < SONNET5_INTRO_END_MS;
+
 const MODELS = {
+  // ── 現行モデル ──
   'claude-haiku-4-5': {
     name: 'Claude Haiku 4.5',
     badge: '⚡ 低コスト・高速',
@@ -3055,47 +3069,151 @@ const MODELS = {
     estimate: '約 $0.10〜0.30 / 回',
     desc: '低コスト・高速。気軽に何度でも試せる。簡易な分析向け'
   },
-  'claude-sonnet-4-6': {
-    name: 'Claude Sonnet 4.6',
-    badge: '⚖ バランス型',
-    rating: 4,
-    inputCost: 3, outputCost: 15,
-    estimate: '約 $0.40〜0.80 / 回',
-    desc: 'コスパが良く十分な品質。普段使いの第一候補'
+  'claude-sonnet-5': {
+    name: 'Claude Sonnet 5',
+    badge: '⚖ バランス型・最新',
+    rating: 5,
+    inputCost: SONNET5_INTRO_ACTIVE ? 2 : 3,
+    outputCost: SONNET5_INTRO_ACTIVE ? 10 : 15,
+    estimate: SONNET5_INTRO_ACTIVE ? '約 $0.25〜0.55 / 回 (導入価格中)' : '約 $0.40〜0.80 / 回',
+    desc: '速度と知能のバランスが最良。適応的思考(adaptive thinking)対応。普段使いの第一候補'
   },
-  'claude-opus-4-6': {
-    name: 'Claude Opus 4.6',
-    badge: '✨ 高品質',
-    rating: 4,
-    inputCost: 5, outputCost: 25,
-    estimate: '約 $0.80〜1.50 / 回',
-    desc: '高品質な深い分析。重要な判断時に。Opus 4.7 より少し旧'
-  },
-  'claude-opus-4-7': {
-    name: 'Claude Opus 4.7',
-    badge: '🌟 最高品質・最新',
+  'claude-opus-5': {
+    name: 'Claude Opus 5',
+    badge: '🌟 最高品質',
     rating: 5,
     inputCost: 5, outputCost: 25,
     estimate: '約 $0.80〜1.50 / 回',
-    desc: '最新最高性能。複雑な銘柄分析に最適。コストは高め'
+    desc: '複雑な分析・エージェント処理向けの最上位クラス。適応的思考が既定でON。コストは高め'
   },
+  'claude-fable-5': {
+    name: 'Claude Fable 5',
+    badge: '🔮 最上位・高コスト',
+    rating: 5,
+    inputCost: 10, outputCost: 50,
+    estimate: '約 $1.60〜3.00 / 回',
+    desc: '一般提供モデルで最高性能。思考は常時ON。Opus 5 の約2倍のコストなので勝負どころ限定で'
+  },
+  // ── 旧世代 (過去の分析履歴の表示用に残しています) ──
+  'claude-opus-4-8': {
+    name: 'Claude Opus 4.8',
+    badge: '✨ 高品質(旧)',
+    rating: 4,
+    inputCost: 5, outputCost: 25,
+    estimate: '約 $0.80〜1.50 / 回',
+    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+  },
+  'claude-opus-4-7': {
+    name: 'Claude Opus 4.7',
+    badge: '✨ 高品質(旧)',
+    rating: 4,
+    inputCost: 5, outputCost: 25,
+    estimate: '約 $0.80〜1.50 / 回',
+    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+  },
+  'claude-opus-4-6': {
+    name: 'Claude Opus 4.6',
+    badge: '✨ 高品質(旧)',
+    rating: 3,
+    inputCost: 5, outputCost: 25,
+    estimate: '約 $0.80〜1.50 / 回',
+    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+  },
+  'claude-sonnet-4-6': {
+    name: 'Claude Sonnet 4.6',
+    badge: '🕰 バランス型(旧)',
+    rating: 4,
+    inputCost: 3, outputCost: 15,
+    estimate: '約 $0.40〜0.80 / 回',
+    desc: '旧世代の Sonnet。現行は Sonnet 5 が同等以下の価格で高性能'
+  },
+  // ── ハイブリッド構成 ──
   'hybrid': {
-    name: 'プレミアム・ハイブリッド (Opus 4.7 + Haiku 4.5)',
+    name: 'プレミアム・ハイブリッド (Opus 5 + Haiku 4.5)',
     badge: '💎 高品質',
     rating: 5,
     inputCost: null, outputCost: null,
     estimate: '約 $1.50〜2.50 / 回',
-    desc: 'Phase1: Opus 4.7 が深いリサーチ → Phase2: Haiku 4.5 が執筆。最高品質だがコスト高め'
+    desc: 'Phase1: Opus 5 が深いリサーチ → Phase2: Haiku 4.5 が執筆。最高品質だがコスト高め'
   },
   'eco-hybrid': {
-    name: 'エコ・ハイブリッド (Sonnet 4.6 + Haiku 4.5)',
+    name: 'エコ・ハイブリッド (Sonnet 5 + Haiku 4.5)',
     badge: '🌱 最適節約',
     rating: 5,
     inputCost: null, outputCost: null,
-    estimate: '約 $0.40〜0.80 / 回 (推奨!)',
-    desc: 'Phase1: Sonnet 4.6 でバランス良くリサーチ → Phase2: Haiku 4.5 が執筆。Opus版の 1/3 のコストで十分な品質。最も推奨'
+    estimate: SONNET5_INTRO_ACTIVE ? '約 $0.30〜0.60 / 回 (推奨!)' : '約 $0.40〜0.80 / 回 (推奨!)',
+    desc: 'Phase1: Sonnet 5 でバランス良くリサーチ → Phase2: Haiku 4.5 が執筆。Opus版の 1/3 のコストで十分な品質。最も推奨'
   }
 };
+
+// ★★★ Claude API 仕様テーブル (2026-07 時点) ★★★
+// モデルごとに「使えるパラメータ」が違うため、ここで一元管理する。
+//  - adaptiveThinking: thinking:{type:'adaptive'} に対応するか
+//      (Haiku 4.5 は非対応 / Opus 5・Sonnet 5 は既定でON / Fable 5 は常時ON)
+//  - effort: output_config.effort に対応するか (low|medium|high|xhigh|max)
+//  - webSearch: 使用する web_search ツールのバージョン
+//      20260209 = 動的フィルタリング版 (Opus/Sonnet 4.6 以降)。Haiku 4.5 は基本版のみ
+//  - maxOutput: 1リクエストの出力上限 (thinking + 本文の合計)
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_API_VERSION = '2023-06-01';
+const CLAUDE_MODEL_CAPS = {
+  'claude-fable-5':    { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-opus-5':     { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-sonnet-5':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-opus-4-8':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-opus-4-7':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-opus-4-6':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-sonnet-4-6': { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-haiku-4-5':  { adaptiveThinking: false, effort: false, webSearch: 'web_search_20250305', maxOutput: 64000,  contextWindow: 200000 }
+};
+const CLAUDE_CAPS_FALLBACK = { adaptiveThinking: false, effort: false, webSearch: 'web_search_20250305', maxOutput: 8192, contextWindow: 200000 };
+function claudeCaps(model) { return CLAUDE_MODEL_CAPS[model] || CLAUDE_CAPS_FALLBACK; }
+
+// 共通ヘッダー (ブラウザ直叩きには anthropic-dangerous-direct-browser-access が必須)
+function claudeHeaders(apiKey) {
+  return {
+    'content-type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': CLAUDE_API_VERSION,
+    'anthropic-dangerous-direct-browser-access': 'true'
+  };
+}
+
+// web_search ツール定義をモデルに合わせて生成
+function claudeWebSearchTool(model, maxUses) {
+  return { type: claudeCaps(model).webSearch, name: 'web_search', max_uses: maxUses };
+}
+
+// 検索深さ設定 → effort (思考の深さ = コスト) にマッピング。
+// Opus 5 / Sonnet 5 の effort 既定値は high なので、明示指定しないと割高になる。
+function claudeEffortForDepth() {
+  const v = (typeof getRadioValue === 'function' && getRadioValue('depth')) || 'standard';
+  if (v === 'mini' || v === 'ultra-eco' || v === 'quick') return 'low';
+  if (v === 'deep') return 'high';
+  return 'medium';
+}
+
+// リクエスト body に thinking / output_config.effort を付与する。
+// ※ budget_tokens・temperature・top_p は現行モデルでは 400 エラーになるため使わない。
+function applyClaudeReasoning(body, model, opts = {}) {
+  const caps = claudeCaps(model);
+  if (caps.adaptiveThinking) {
+    // display:'summarized' にすると思考の要約が streaming で届き、進捗UIに出せる
+    // (既定は 'omitted' で thinking ブロックの中身が空になる)
+    body.thinking = { type: 'adaptive', display: 'summarized' };
+  }
+  if (caps.effort) {
+    body.output_config = Object.assign({}, body.output_config, { effort: opts.effort || claudeEffortForDepth() });
+  }
+  return body;
+}
+
+// thinking がONのモデルは「思考 + 本文」で max_tokens を共有するため、上限に余裕を持たせる
+function claudeMaxTokens(model, baseTokens) {
+  const caps = claudeCaps(model);
+  const wanted = caps.adaptiveThinking ? baseTokens + 8000 : baseTokens;
+  return Math.min(caps.maxOutput, wanted);
+}
 
 const apiKeyInput = document.getElementById('apiKey');
 const toggleBtn = document.getElementById('toggleKey');
@@ -3487,14 +3605,9 @@ async function loadChips() {
 JSON のみを出力してください。`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: claudeHeaders(apiKey),
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 1024,
@@ -3641,14 +3754,9 @@ ${historyText}
 JSONや記号は不要。整形後の自然な日本語の依頼文のみを出力してください。`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: claudeHeaders(apiKey),
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 1024,
@@ -4809,29 +4917,24 @@ function countStocks(text) {
 }
 
 // ===== Reusable SSE streaming helper (used by hybrid mode) =====
-// 🔧 v1.16.0: Haiku 4.5 では web_search_20260209 (動的フィルタリング版) が非対応のため、
-//             基本版 web_search_20250305 に切替。Opus/Sonnet は動的フィルタリングを継続利用してトークン削減。
-async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15}) {
-  const tools = useTools ? [
-    ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
-      ? { type: 'web_search_20260209', name: 'web_search', max_uses: maxSearchUses }
-      : { type: 'web_search_20250305', name: 'web_search', max_uses: maxSearchUses }
-  ] : undefined;
+// 🔧 v3.1.0: モデルごとの仕様差 (web_search バージョン / 適応的思考 / effort / 出力上限)
+//            は CLAUDE_MODEL_CAPS に集約し、ここでは helper 経由で組み立てる。
+async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15, effort}) {
+  const tools = useTools ? [claudeWebSearchTool(model, maxSearchUses)] : undefined;
 
   const body = {
-    model, max_tokens: maxTokens, stream: true,
+    model,
+    max_tokens: claudeMaxTokens(model, maxTokens),
+    stream: true,
     messages: [{ role: 'user', content: prompt }]
   };
+  if (system) body.system = system;
   if (tools) body.tools = tools;
+  applyClaudeReasoning(body, model, { effort });
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: claudeHeaders(apiKey),
     body: JSON.stringify(body),
     signal
   });
@@ -5027,11 +5130,11 @@ async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
   return { provider, model };
 }
 
-// ===== Hybrid Mode (Opus 4.7 research → Haiku 4.5 writer) =====
+// ===== Hybrid Mode (Opus 5 research → Haiku 4.5 writer) =====
 async function analyzeStocksHybrid(ctx) {
   const {
     apiKey, today, retryCount, MAX_RETRIES,
-    researchModel = 'claude-opus-4-7', writerModel = 'claude-haiku-4-5', hybridMode = 'hybrid',
+    researchModel = 'claude-opus-5', writerModel = 'claude-haiku-4-5', hybridMode = 'hybrid',
     market, style, risk, amount, additional,
     marketLabels, styleLabels, riskLabels, amountLabels,
     paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', ultraShortBlock = '', shortTermTimingBlock, learningsBlock,
@@ -5042,7 +5145,7 @@ async function analyzeStocksHybrid(ctx) {
     weatherUsage = { used: false, cities: 0, failed: false, error: '' } // 🔧 v1.16.2
   } = ctx;
   const isEcoHybrid = hybridMode === 'eco-hybrid';
-  const researchModelLabel = isEcoHybrid ? 'Sonnet 4.6' : 'Opus 4.7';
+  const researchModelLabel = (MODELS[researchModel] && MODELS[researchModel].name.replace('Claude ', '')) || (isEcoHybrid ? 'Sonnet 5' : 'Opus 5');
   const hybridIcon = isEcoHybrid ? '🌱' : '💎';
   const hybridLabel = isEcoHybrid ? 'エコ・ハイブリッド' : 'プレミアム・ハイブリッド';
 
@@ -5153,7 +5256,7 @@ ${stylePeriodsListItems}
 
   let phase1Search = 0, phase1In = 0, phase1Out = 0;
   let researchText = '';
-  let phase1ToolInput = '', phase1ToolIndex = null;
+  let phase1ToolInput = '', phase1ToolIndex = null, phase1Thinking = '';
   let phase2In = 0, phase2Out = 0;
   let accumulatedText = '';
   let stopReason = null;
@@ -5219,11 +5322,21 @@ ${stylePeriodsListItems}
             stopHeartbeat();
             setPhase('✍️', 'リサーチデータ生成中', `${researchModelLabel} が構造化テキストを出力中(検索 ${phase1Search} 回完了)`);
             updateLiveTicker('✍️', 'リサーチ生成開始', '構造化データを出力中…');
+          } else if (block && block.type === 'thinking') {
+            // 🔧 v3.1.0: 適応的思考 (Opus 5 / Sonnet 5) の開始。ここは沈黙が長くなるので必ず表示する。
+            stopHeartbeat();
+            setPhase('🧠', `${researchModelLabel} が思考中`, '検索結果を整理し、分析方針を組み立てています');
+            updateLiveTicker('🧠', '思考中', '分析方針を組み立て中…');
           }
         }
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
-          if (delta && delta.type === 'text_delta') {
+          if (delta && delta.type === 'thinking_delta') {
+            // 🔧 v3.1.0: thinking:{display:'summarized'} で届く思考要約をライブ表示
+            stopHeartbeat();
+            phase1Thinking += delta.thinking || '';
+            updateLiveTicker('🧠', `思考中 (${phase1Thinking.length.toLocaleString()}字)`, tickerTail(phase1Thinking, 90));
+          } else if (delta && delta.type === 'text_delta') {
             stopHeartbeat();
             researchText += delta.text;
             updateLiveTicker('📝', `リサーチ生成中 (${researchText.length.toLocaleString()}字)`, tickerTail(researchText, 90));
@@ -7304,7 +7417,7 @@ ${evalTarget.result}
   // 評価モードのみ analyzeStocks の単体モデル経路に落ちるので、
   // その場合は hybrid/eco-hybrid を内部的に実モデル ID に解決する。
   if ((model === 'hybrid' || model === 'eco-hybrid') && !isEvaluating) {
-    const researchModel = model === 'eco-hybrid' ? 'claude-sonnet-4-6' : 'claude-opus-4-7';
+    const researchModel = model === 'eco-hybrid' ? 'claude-sonnet-5' : 'claude-opus-5';
     return await analyzeStocksHybrid({
       apiKey, today, retryCount, MAX_RETRIES,
       researchModel, writerModel: 'claude-haiku-4-5',
@@ -7321,8 +7434,8 @@ ${evalTarget.result}
   }
 
   // 評価モード等で hybrid / eco-hybrid が選ばれていたら実モデル ID に解決
-  if (model === 'hybrid') model = 'claude-opus-4-7';
-  else if (model === 'eco-hybrid') model = 'claude-sonnet-4-6';
+  if (model === 'hybrid') model = 'claude-opus-5';
+  else if (model === 'eco-hybrid') model = 'claude-sonnet-5';
 
   const prompt = isEvaluating ? evalBlock :
     currentMode === 'review' && reviewItems.length > 0 ? `あなたは経験豊富な金融アナリストです。本日(${today})時点での再評価を、過去分析と最新の web_search 結果を組み合わせて行ってください。
@@ -7707,37 +7820,33 @@ ${stylePeriodsListItems}
   setProgressPercent(5);
 
   let searchCount = 0, accumulatedText = '', inputTokens = 0, outputTokens = 0;
-  let stopReason = null, receivedBlockTypes = [], eventCount = 0, streamError = null;
-  let currentSectionName = null, lastStockCount = 0;
+  let stopReason = null, stopDetails = null, receivedBlockTypes = [], eventCount = 0, streamError = null;
+  let currentSectionName = null, lastStockCount = 0, thinkingText = '';
   let pendingToolInput = '', pendingToolIndex = null;
 
   try {
     currentAbortController = new AbortController();
     analysisStartTime = Date.now();
     showRunningInfo();
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
+    //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
+    //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
+    //     claudeMaxTokens() で上限に余裕を持たせる
+    //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
+    const analyzeBody = {
+      model: model,
+      max_tokens: claudeMaxTokens(model, 12000), // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
+      stream: true,
+      tools: [claudeWebSearchTool(model, getSearchDepth())],
+      messages: [{ role: 'user', content: prompt }]
+    };
+    applyClaudeReasoning(analyzeBody, model);
+
+    const response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: claudeHeaders(apiKey),
       signal: currentAbortController.signal,
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 12000, // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
-        stream: true,
-        tools: [
-          // 🔧 v1.16.0: Haiku 4.5 は web_search_20260209 (動的フィルタリング版) 非対応のため、
-          //             基本版 web_search_20250305 を使用。allowed_callers: ['direct'] は ZDR workaround 用なので不要。
-          //             Opus 4.7/4.6, Sonnet 4.6 は動的フィルタリングでトークン削減できる 20260209 を使用。
-          ['claude-opus-4-7', 'claude-opus-4-6', 'claude-sonnet-4-6'].includes(model)
-            ? { type: 'web_search_20260209', name: 'web_search', max_uses: getSearchDepth() }
-            : { type: 'web_search_20250305', name: 'web_search', max_uses: getSearchDepth() }
-        ],
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify(analyzeBody)
     });
 
     if (!response.ok) {
@@ -7854,6 +7963,12 @@ ${stylePeriodsListItems}
                 addActivity(`💡 推奨銘柄 ${stockCount} 件目の分析を生成`);
                 phaseDetailEl.textContent = `${stockCount}件目を分析中 / ${accumulatedText.length.toLocaleString()}文字`;
               }
+            } else if (delta && delta.type === 'thinking_delta') {
+              // 🔧 v3.1.0: 適応的思考 (Opus 5 / Sonnet 5 / Fable 5) の要約をライブ表示。
+              //            thinking:{display:'summarized'} を指定しているので中身が届く。
+              stopHeartbeat();
+              thinkingText += delta.thinking || '';
+              updateLiveTicker('🧠', `思考中 (${thinkingText.length.toLocaleString()}字)`, tickerTail(thinkingText, 90));
             } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
               stopHeartbeat();
               pendingToolInput += delta.partial_json || '';
@@ -7888,6 +8003,8 @@ ${stylePeriodsListItems}
           else if (parsed.type === 'message_delta') {
             stopHeartbeat();
             if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+            // 🔧 v3.1.0: stop_reason==='refusal' のときだけ stop_details が入る (カテゴリと理由)
+            if (parsed.delta && parsed.delta.stop_details) stopDetails = parsed.delta.stop_details;
             if (parsed.usage) {
               // 🔧 v1.16.0: 単調増加保証(過小計上防止)。web_search 結果込みの最終値を取り込む。
               if (parsed.usage.output_tokens !== undefined) outputTokens = Math.max(outputTokens, parsed.usage.output_tokens);
@@ -7924,8 +8041,14 @@ ${stylePeriodsListItems}
       setPhase('⚠️', '本文未生成', '応答テキストが取得できませんでした');
       const hints = {
         pause_turn: 'Web検索の反復上限に達しました。もう一度「分析開始」を押すと続行できる場合があります。',
-        refusal: 'AIが安全性の観点から回答を控えました。',
-        max_tokens: '出力上限に達しました。',
+        // 🔧 v3.1.0: Opus 5 / Fable 5 は安全性分類器で HTTP 200 のまま refusal を返すことがある。
+        //            その場合 stop_details にカテゴリが入る。別モデルなら通ることが多い。
+        refusal: 'AIが安全性の観点から回答を控えました (stop_reason: refusal)。'
+          + (stopDetails && stopDetails.category ? ` カテゴリ: ${escapeHtml(String(stopDetails.category))}。` : '')
+          + (stopDetails && stopDetails.explanation ? ` 理由: ${escapeHtml(String(stopDetails.explanation))}。` : '')
+          + ' 💡 使用モデルを Sonnet 5 / Opus 4.8 など別モデルに切り替えるか、質問文を言い換えると通る場合があります。',
+        max_tokens: '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
+        model_context_window_exceeded: 'コンテキストウィンドウの上限に達しました。選択する過去分析の件数を減らしてください。',
         end_turn: 'AIが本文を生成せずに終了しました。'
       };
       const reasonText = hints[stopReason] || `不明な終了理由 (${stopReason || '不明'})`;
@@ -8872,17 +8995,12 @@ JSON以外の文字を一切出力しないこと。`;
       model: FACT_CHECK_MODEL,
       max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }],
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }]
+      tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 2)]
     };
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: claudeHeaders(apiKey),
       body: JSON.stringify(body)
     });
 
@@ -9140,17 +9258,12 @@ ${blockText}
       model: FACT_CHECK_MODEL,
       max_tokens: 2048,
       messages: [{ role: 'user', content: prompt }],
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2 }]
+      tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 2)]
     };
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(CLAUDE_API_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: claudeHeaders(apiKey),
       body: JSON.stringify(body)
     });
     if (!res.ok) {
@@ -9285,16 +9398,11 @@ ${articleText}
         model: FACT_CHECK_MODEL,
         max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]
+        tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 3)]
       };
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(CLAUDE_API_URL, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: claudeHeaders(apiKey),
         body: JSON.stringify(body)
       });
       if (!res.ok) {
@@ -9615,15 +9723,23 @@ const worldPredictionApp = (function() {
   // 🤖 Claude API ライブ活動トラッカー
   // ──────────────────────────────────────────────
   // ──────────────────────────────────────────────
-  // Anthropic + OpenAI 公開料金表 (USD per 1M tokens), 2026年5月時点
-  // 公式: https://www.anthropic.com/pricing, https://openai.com/api/pricing/
+  // Anthropic + OpenAI 公開料金表 (USD per 1M tokens), 2026年7月時点
+  // 公式: https://platform.claude.com/docs/en/about-claude/pricing, https://openai.com/api/pricing/
+  // 🔧 v3.1.0: Opus の単価が $15/$75 と誤登録されていたのを公式値 $5/$25 に修正し、
+  //            現行モデル (Opus 5 / Sonnet 5 / Fable 5) を追加。
+  //            Sonnet 5 は 2026-08-31 まで導入価格 $2/$10、以降 $3/$15。
   // ──────────────────────────────────────────────
   const MODEL_PRICING = {
-    // Anthropic Claude
+    // Anthropic Claude — 現行
     'claude-haiku-4-5':   { input: 1.0,  output: 5.0,   provider: 'claude' },
+    'claude-sonnet-5':    { input: SONNET5_INTRO_ACTIVE ? 2.0 : 3.0, output: SONNET5_INTRO_ACTIVE ? 10.0 : 15.0, provider: 'claude' },
+    'claude-opus-5':      { input: 5.0,  output: 25.0,  provider: 'claude' },
+    'claude-fable-5':     { input: 10.0, output: 50.0,  provider: 'claude' },
+    // Anthropic Claude — 旧世代
     'claude-sonnet-4-6':  { input: 3.0,  output: 15.0,  provider: 'claude' },
-    'claude-opus-4-6':    { input: 15.0, output: 75.0,  provider: 'claude' },
-    'claude-opus-4-7':    { input: 15.0, output: 75.0,  provider: 'claude' },
+    'claude-opus-4-8':    { input: 5.0,  output: 25.0,  provider: 'claude' },
+    'claude-opus-4-7':    { input: 5.0,  output: 25.0,  provider: 'claude' },
+    'claude-opus-4-6':    { input: 5.0,  output: 25.0,  provider: 'claude' },
     // OpenAI GPT-5 系 (2026年3-5月リリース)
     'gpt-5':              { input: 1.25, output: 10.0,  provider: 'openai' },
     'gpt-5.4':            { input: 2.5,  output: 15.0,  provider: 'openai' },
