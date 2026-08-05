@@ -2546,6 +2546,10 @@ label {
         🟢 OpenAI GPT
         <small>(GPT-5.4 / 5.5、世界予測のみ)</small>
       </button>
+      <button type="button" class="ai-provider-tab" data-provider="kimi">
+        🌙 Moonshot Kimi
+        <small>(K3 / K2.7 / K2.6、世界予測のみ)</small>
+      </button>
     </div>
     <!-- Claude セクション -->
     <div class="ai-provider-section" id="aiProviderClaudeSection">
@@ -2591,6 +2595,58 @@ label {
           <label for="openaiCustomProxy">🌐 自前 CORS プロキシ URL (推奨)</label>
           <input type="text" id="openaiCustomProxy" placeholder="例: https://my-worker.workers.dev/?url=" />
           <small>空欄なら corsproxy.io 等を自動 fallback。Cloudflare Worker 等で自前構築するとキー露出を最小化できます。</small>
+        </div>
+      </div>
+    </div>
+    <!-- 🌙 Moonshot Kimi セクション -->
+    <div class="ai-provider-section" id="aiProviderKimiSection" style="display:none">
+      <div class="ai-provider-desc">
+        🌙 <b>Kimi は CORS が開いているのでブラウザから直接呼び出せます。</b>
+        OpenAI と違い <b>CORS プロキシを経由しない</b>ため、API キーが第三者のサーバーを通りません。
+        <br/>💴 <b>日本語のトークン効率が Claude より約1.5倍良い</b>ので、日本語主体のこのアプリでは単価差以上にコストが下がります。
+        同じ前置きを繰り返すと<b>キャッシュが自動で効き</b>、2回目以降の入力単価は最大 1/10 になります (指定不要)。
+        <br/>※ Kimi は <b>世界予測モード (🌍 世界予測 v2) の翻訳・ムード補正のみ</b>に対応。銘柄分析モードは Claude 専用です (web_search Tool が Anthropic 専用のため)。
+      </div>
+      <div class="ai-provider-warning">
+        ⚠️ <b>レート制限は入金額で決まります。</b> $1 の Tier0 は <b>毎分3リクエスト</b>しかなく、
+        翻訳とムード補正を続けて回すとすぐ 429 になります。実用するなら $10 入金して Tier1 (200 RPM) にしてください。
+        <br/>⚠️ <b>K3 は思考を止められません。</b>思考ぶんも出力上限 (<code>max_completion_tokens</code>) を消費するため、
+        本アプリでは思考ぶんの余白を自動で上乗せしています。それでも切れた場合は「上限で途中切れ」と明示的にエラー表示します
+        (黙って空データを流しません)。
+      </div>
+      <div class="ai-provider-fields">
+        <div class="ai-field">
+          <label for="kimiApiKey">🔑 Moonshot API キー</label>
+          <input type="password" id="kimiApiKey" placeholder="sk-..." autocomplete="off" />
+          <small>キーは <a href="https://platform.kimi.ai/" target="_blank" rel="noopener">platform.kimi.ai</a> で取得。$1 以上の前払い入金がないとキー自体が動きません。</small>
+        </div>
+        <div class="ai-field">
+          <label for="kimiRegion">🌐 接続先</label>
+          <select id="kimiRegion">
+            <option value="global" selected>世界版 api.moonshot.ai (platform.kimi.ai のキー)</option>
+            <option value="cn">中国版 api.moonshot.cn (platform.moonshot.cn のキー)</option>
+          </select>
+          <small>世界版と中国版でキーに互換性はありません。401 が出たらまずここを疑ってください。</small>
+        </div>
+        <div class="ai-field">
+          <label for="kimiModel">🎯 使用モデル</label>
+          <select id="kimiModel">
+            <option value="kimi-k3" selected>kimi-k3 ($3.00/$15.00 per MTok・文脈100万) - 最新・常に思考</option>
+            <option value="kimi-k2.7-code">kimi-k2.7-code ($0.95/$4.00) - コード特化・常に思考</option>
+            <option value="kimi-k2.7-code-highspeed">kimi-k2.7-code-highspeed ($1.90/$8.00) - 同上の高速版</option>
+            <option value="kimi-k2.6">kimi-k2.6 ($0.95/$4.00) - 思考OFF可・この用途では最安・最速</option>
+            <option value="kimi-k2.5">kimi-k2.5 ($0.60/$3.00) - 2026-08-31 提供終了予定</option>
+          </select>
+          <small>入力単価はキャッシュ不命中時の値。命中時は 1/10 程度になります。</small>
+        </div>
+        <div class="ai-field" id="kimiEffortField">
+          <label for="kimiEffort">🧠 思考の深さ (reasoning_effort)</label>
+          <select id="kimiEffort">
+            <option value="low" selected>low - 翻訳・JSON 生成向け (推奨・最速最安)</option>
+            <option value="high">high - じっくり考える</option>
+            <option value="max">max - API 既定値。最も遅く、最も高い</option>
+          </select>
+          <small>K3 のみ有効。K2.7 Code は深さを指定できず、K2.6 / K2.5 は思考を OFF にして呼び出します。</small>
         </div>
       </div>
     </div>
@@ -2929,8 +2985,9 @@ label {
         <span>世界予測 設定</span>
       </div>
       <div class="world-apikey-warning" id="worldApiKeyWarning">
-        ⚠️ <b>Anthropic API キーが未設定です。</b>
-        日本語翻訳 / Claude ムード補正を使うには、ページ上部 (⚙ ボタン) から API キーを設定してください。
+        ⚠️ <b>AI プロバイダーの API キーが未設定です。</b>
+        日本語翻訳 / AI ムード補正を使うには、ページ上部 (⚙ ボタン) から
+        選択中のプロバイダー (Claude / OpenAI / Moonshot Kimi) の API キーを設定してください。
         未設定でも 価格・イベント取得・予測 機能はすべて動作します。
       </div>
       <div class="world-settings-list">
@@ -3027,8 +3084,8 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.1.0';
-const APP_VERSION_DATE = '2026-07-28';
+const APP_VERSION = 'v3.2.0';
+const APP_VERSION_DATE = '2026-08-05';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
@@ -5092,20 +5149,276 @@ async function streamFetchOpenAI({apiKey, model, prompt, system, onEvent, signal
 }
 
 // ──────────────────────────────────────────────
-// 統合 AI 呼び出し: プロバイダ設定 (claude / openai) でルーティング
+// 🌙 Moonshot Kimi (K3 / K2.7 / K2.6) Chat Completions API — OpenAI 互換
+//
+// OpenAI 互換だが「そのまま移植すると必ず踏む」差分が4つある:
+//   ① temperature / top_p / n / *_penalty は機種ごとの固定値。違う値を送ると 400 → 一切送らない
+//   ② max_tokens は非推奨。max_completion_tokens を使う
+//   ③ 思考トークンも max_completion_tokens を食う。K3 は思考を止められないので
+//      「本文ぶん + 思考ぶん」の余白を必ず上乗せする
+//      (足りないと finish_reason:'length' で途中切れ。エラーは出ず中身が空で返る)
+//   ④ CORS が開いているのでブラウザから直接叩ける
+//      → OpenAI と違い CORS プロキシ不要 = API キーが第三者のサーバーを通らない
 // ──────────────────────────────────────────────
-const AI_PROVIDER_LS = 'world_ai_provider_v1';      // 'claude' | 'openai'
+const KIMI_KEY_LS    = 'kimi_api_key_v1';
+const KIMI_MODEL_LS  = 'kimi_model_v1';
+const KIMI_REGION_LS = 'kimi_region_v1';            // 'global' | 'cn'
+const KIMI_EFFORT_LS = 'kimi_reasoning_effort_v1';  // 'low' | 'high' | 'max'
+const DEFAULT_KIMI_MODEL  = 'kimi-k3';
+const DEFAULT_KIMI_REGION = 'global';
+const DEFAULT_KIMI_EFFORT = 'low';  // API 既定は max。用途が短い構造化出力なので軽くする
+
+// 世界版と中国版でキーに互換性がない。401 が出たらまずここを疑う。
+const KIMI_ENDPOINTS = {
+  global: 'https://api.moonshot.ai/v1',
+  cn:     'https://api.moonshot.cn/v1',
+};
+function getKimiRegion() {
+  return (localStorage.getItem(KIMI_REGION_LS) === 'cn') ? 'cn' : DEFAULT_KIMI_REGION;
+}
+function getKimiBaseUrl() {
+  return KIMI_ENDPOINTS[getKimiRegion()] || KIMI_ENDPOINTS.global;
+}
+function getKimiEffort() {
+  const e = localStorage.getItem(KIMI_EFFORT_LS);
+  return (e === 'high' || e === 'max') ? e : DEFAULT_KIMI_EFFORT;
+}
+
+// 機種ごとの仕様差 (思考の止め方 / tool_choice の効き方 / 文脈長)
+const KIMI_MODEL_CAPS = {
+  'kimi-k3':                  { label: 'Kimi K3',            thinking: 'always',   effort: true,  forceTool: 'required', context: 1048576 },
+  'kimi-k2.7-code':           { label: 'Kimi K2.7 Code',     thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
+  'kimi-k2.7-code-highspeed': { label: 'Kimi K2.7 Code 高速', thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
+  'kimi-k2.6':                { label: 'Kimi K2.6',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
+  'kimi-k2.5':                { label: 'Kimi K2.5',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
+};
+function kimiCaps(model) {
+  return KIMI_MODEL_CAPS[model] || KIMI_MODEL_CAPS[DEFAULT_KIMI_MODEL];
+}
+
+// 思考ぶんの余白。max_completion_tokens = 本文ぶん + ここ。
+const KIMI_THINKING_HEADROOM = { low: 2000, high: 6000, max: 12000 };
+function kimiMaxCompletionTokens(model, maxTokens, effort) {
+  const caps = kimiCaps(model);
+  if (caps.thinking === 'optional') return maxTokens;                  // 思考を切るので余白不要
+  const eff = caps.effort ? (effort || DEFAULT_KIMI_EFFORT) : 'max';   // 深さを指定できない機種は最大想定
+  return maxTokens + (KIMI_THINKING_HEADROOM[eff] || KIMI_THINKING_HEADROOM.max);
+}
+
+// 道具を1つだけ強制的に呼ばせたいときの tool_choice。機種で書き方が違う:
+//  - K3       : 名指し指定は「思考が有効だと 400」。K3 は思考を切れないので "required" を使う
+//               (道具を1つだけ渡せば名指しと同じ効果になる)
+//  - K2.6/2.5 : 思考を切ってから名指しできる
+//  - K2.7     : 強制不可。auto のまま道具を1つだけ渡す
+function kimiToolChoice(model, toolName) {
+  const mode = kimiCaps(model).forceTool;
+  if (mode === 'required') return 'required';
+  if (mode === 'named' && toolName) return { type: 'function', function: { name: toolName } };
+  return 'auto';
+}
+
+const KIMI_ERROR_HINTS = {
+  invalid_request_error:        'パラメータ違反です (temperature / top_p / n / *_penalty は Kimi では固定値のため送れません)',
+  content_filter:               '内容が安全審査に引っかかりました',
+  invalid_authentication_error: 'API キーが不正です。接続先 (世界版 api.moonshot.ai / 中国版 api.moonshot.cn) とキーの組み合わせも確認してください',
+  incorrect_api_key_error:      'API キーが未指定または誤りです',
+  permission_denied_error:      '権限がありません (IP 許可リスト等を確認してください)',
+  resource_not_found_error:     'モデル名が誤っているか、そのモデルへの権限がありません',
+  rate_limit_reached_error:     'レート制限を超過しました (Tier0 は 3 リクエスト/分。$10 入金で Tier1 = 200 RPM)',
+  exceeded_current_quota_error: '残高不足です。待っても回復しないので Moonshot 側でチャージしてください',
+  engine_overloaded_error:      'サーバーが混雑しています',
+};
+// 429 は「混雑」と「残高不足」の2種類ある。type で分けないと残高不足を延々リトライすることになる。
+const KIMI_RETRYABLE_TYPES = new Set(['rate_limit_reached_error', 'engine_overloaded_error']);
+const KIMI_MAX_RETRIES = 3;
+
+function parseKimiError(status, rawText) {
+  let type = '', detail = '';
+  try {
+    const j = JSON.parse(rawText);
+    type   = j.error?.type || j.type || '';
+    detail = j.error?.message || j.message || '';
+  } catch { detail = (rawText || '').slice(0, 200); }
+  const parts = [`Kimi APIエラー (${status}${type ? ' ' + type : ''})`];
+  if (KIMI_ERROR_HINTS[type]) parts.push(KIMI_ERROR_HINTS[type]);
+  if (detail) parts.push(detail);
+  return {
+    message: parts.join(': '),
+    type,
+    // type 不明の 429 と 5xx は再試行する。残高不足 (exceeded_current_quota_error) は絶対に再試行しない。
+    retryable: KIMI_RETRYABLE_TYPES.has(type) || status >= 500 || (status === 429 && !type),
+  };
+}
+
+function kimiSleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+async function kimiFetchWithRetry(url, opts, signal) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, opts);
+    if (res.ok) return res;
+    const info = parseKimiError(res.status, await res.text());
+    if (!info.retryable || attempt >= KIMI_MAX_RETRIES) throw new Error(info.message);
+    // 429 は Retry-After に従う。無ければ指数バックオフ。
+    const ra = parseFloat(res.headers.get('Retry-After') || '');
+    const waitMs = (isFinite(ra) && ra > 0) ? Math.min(ra * 1000, 60000)
+                                            : Math.min(2000 * Math.pow(2, attempt), 30000);
+    console.warn(`[kimi] ${info.message} — ${Math.round(waitMs / 1000)}秒後に再試行 (${attempt + 1}/${KIMI_MAX_RETRIES})`);
+    await kimiSleep(waitMs, signal);
+  }
+}
+
+async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, maxTokens = 4000, reasoningEffort, tools, forceToolName}) {
+  const caps = kimiCaps(model);
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: prompt });
+
+  const body = {
+    model,
+    messages,
+    stream: true,                              // 長い生成は 900 秒で 504 になるので常にストリーム
+    stream_options: { include_usage: true },
+    max_completion_tokens: kimiMaxCompletionTokens(model, maxTokens, reasoningEffort),
+  };
+  // ⚠️ temperature / top_p / n / presence_penalty / frequency_penalty は意図的に一切送っていない (送ると 400)
+  if (caps.effort) body.reasoning_effort = reasoningEffort || DEFAULT_KIMI_EFFORT;
+  // 思考を切れる機種は切る。この用途 (翻訳 / 短い JSON) では思考は待ち時間とコストにしかならない。
+  if (caps.thinking === 'optional') body.thinking = { type: 'disabled' };
+  if (tools && tools.length) {
+    body.tools = tools;
+    body.tool_choice = kimiToolChoice(model, forceToolName);
+  }
+
+  const response = await kimiFetchWithRetry(getKimiBaseUrl() + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify(body),
+    signal,
+  }, signal);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finishReason = '';
+  let textLen = 0;
+  const toolBuf = [];   // index ごとに {id, name, args} を組み立てる
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      let chunk;
+      try {
+        chunk = JSON.parse(data);
+      } catch (e) {
+        console.warn('Kimi SSE parse error:', data.slice(0, 100), e);
+        continue;
+      }
+
+      const choice = chunk.choices?.[0];
+      const delta  = choice?.delta;
+      if (choice?.finish_reason) finishReason = choice.finish_reason;
+
+      // Kimi SSE → Anthropic 互換イベントに変換 (上位コードが共通で扱えるよう)
+      // 思考は reasoning_content で届く (本文 content より先)
+      if (delta?.reasoning_content) {
+        await onEvent({
+          type: 'content_block_delta',
+          delta: { type: 'thinking_delta', thinking: delta.reasoning_content }
+        });
+      }
+      if (delta?.content) {
+        textLen += delta.content.length;
+        await onEvent({
+          type: 'content_block_delta',
+          delta: { type: 'text_delta', text: delta.content }
+        });
+      }
+      // tool_calls は「最初のチャンクにだけ id / function.name」、以降は arguments の断片だけ。index で束ねる。
+      for (const tc of delta?.tool_calls || []) {
+        const at = tc.index ?? 0;
+        if (!toolBuf[at]) toolBuf[at] = { id: '', name: '', args: '' };
+        if (tc.id) toolBuf[at].id = tc.id;
+        if (tc.function?.name) toolBuf[at].name = tc.function.name;
+        if (tc.function?.arguments) toolBuf[at].args += tc.function.arguments;
+      }
+      // usage は最終チャンクで届く (stream_options.include_usage)
+      if (chunk.usage) {
+        await onEvent({
+          type: 'message_start',
+          message: { usage: { input_tokens: chunk.usage.prompt_tokens || 0, output_tokens: chunk.usage.completion_tokens || 0 } }
+        });
+        await onEvent({
+          type: 'message_delta',
+          usage: { output_tokens: chunk.usage.completion_tokens || 0 }
+        });
+      }
+    }
+  }
+
+  const toolCalls = toolBuf.filter(Boolean).map(t => {
+    let args = null, argsBroken = false;
+    try { args = JSON.parse(t.args || '{}'); } catch { argsBroken = true; }
+    return { id: t.id, name: t.name, rawArguments: t.args, arguments: args, argsBroken };
+  });
+
+  // 途中切れの検出。思考ぶんで上限に達すると「エラーは出ないが中身が空」で返るため、明示的に扱う。
+  // finish_reason==='length' と、tool_call arguments の JSON パース失敗の両方を見る。
+  const truncated = finishReason === 'length' || toolCalls.some(t => t.argsBroken);
+  if (truncated) {
+    const effortNote = caps.thinking === 'always'
+      ? ` (思考ぶんの余白込み / reasoning_effort=${body.reasoning_effort || '既定(max)'})`
+      : '';
+    const msg = `Kimi: 出力が上限で途中切れしました。max_completion_tokens=${body.max_completion_tokens}${effortNote}。`
+              + '上限を増やすか reasoning_effort を下げてください';
+    if (textLen === 0) throw new Error(msg);   // 中身なし = 黙って空データを流さない
+    console.warn('[kimi] ' + msg);
+    await onEvent({ type: 'message_delta', delta: { stop_reason: 'max_tokens' } });
+  }
+
+  return { truncated, finishReason, toolCalls, maxCompletionTokens: body.max_completion_tokens };
+}
+
+// ──────────────────────────────────────────────
+// 統合 AI 呼び出し: プロバイダ設定 (claude / openai / kimi) でルーティング
+// ──────────────────────────────────────────────
+const AI_PROVIDER_LS = 'world_ai_provider_v1';      // 'claude' | 'openai' | 'kimi'
 const OPENAI_KEY_LS  = 'openai_api_key_v1';
 const OPENAI_MODEL_LS = 'openai_model_v1';
 const DEFAULT_CLAUDE_MODEL = 'claude-haiku-4-5';
 const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+const AI_PROVIDERS = ['claude', 'openai', 'kimi'];
+const AI_PROVIDER_LABELS = { claude: 'Anthropic', openai: 'OpenAI', kimi: 'Moonshot Kimi' };
+function aiProviderLabel(p) { return AI_PROVIDER_LABELS[p] || AI_PROVIDER_LABELS.claude; }
 
 function getCurrentAiProvider() {
-  return localStorage.getItem(AI_PROVIDER_LS) || 'claude';
+  const p = localStorage.getItem(AI_PROVIDER_LS);
+  return AI_PROVIDERS.includes(p) ? p : 'claude';
 }
 function getCurrentAiKey() {
   const p = getCurrentAiProvider();
   if (p === 'openai') return (localStorage.getItem(OPENAI_KEY_LS) || '').trim();
+  if (p === 'kimi')   return (localStorage.getItem(KIMI_KEY_LS) || '').trim();
   // Claude: 既存の input + storage の二段
   const el = document.getElementById('apiKey');
   return (el?.value.trim()) || localStorage.getItem(STORAGE_KEY) || '';
@@ -5114,16 +5427,27 @@ function getCurrentAiModel(taskType) {
   // taskType: 'translate' | 'mood' — どちらも default モデルで対応
   const p = getCurrentAiProvider();
   if (p === 'openai') return localStorage.getItem(OPENAI_MODEL_LS) || DEFAULT_OPENAI_MODEL;
+  if (p === 'kimi')   return localStorage.getItem(KIMI_MODEL_LS) || DEFAULT_KIMI_MODEL;
   return DEFAULT_CLAUDE_MODEL; // Claude は世界予測タスクでは Haiku 固定
+}
+// ステータス表示用の短いモデル名
+function getCurrentAiModelLabel() {
+  const p = getCurrentAiProvider();
+  const m = getCurrentAiModel();
+  if (p === 'kimi') return kimiCaps(m).label;
+  if (p === 'openai') return `OpenAI ${m}`;
+  return 'Claude Haiku 4.5';
 }
 
 async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
   const provider = getCurrentAiProvider();
   const apiKey = getCurrentAiKey();
-  if (!apiKey) throw new Error(`${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key が未設定`);
+  if (!apiKey) throw new Error(`${aiProviderLabel(provider)} API key が未設定`);
   const model = getCurrentAiModel(taskType);
   if (provider === 'openai') {
     await streamFetchOpenAI({ apiKey, model, prompt, system, onEvent, signal, maxTokens });
+  } else if (provider === 'kimi') {
+    await streamFetchKimi({ apiKey, model, prompt, system, onEvent, signal, maxTokens, reasoningEffort: getKimiEffort() });
   } else {
     await streamFetch({ apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens });
   }
@@ -9747,6 +10071,13 @@ const worldPredictionApp = (function() {
     'gpt-5.4-nano':       { input: 0.20, output: 1.25,  provider: 'openai' },
     'gpt-5.5':            { input: 5.0,  output: 30.0,  provider: 'openai' },
     'gpt-5.5-pro':        { input: 30.0, output: 180.0, provider: 'openai' },
+    // Moonshot Kimi (2026-08 時点)。input はキャッシュ「不命中」の単価で見積もる。
+    // キャッシュは自動で効き、命中時は inputCached (約 1/10) になるので、この表示は保守側 (高め) の推定。
+    'kimi-k3':                  { input: 3.0,  output: 15.0, inputCached: 0.30, provider: 'kimi' },
+    'kimi-k2.7-code':           { input: 0.95, output: 4.0,  inputCached: 0.19, provider: 'kimi' },
+    'kimi-k2.7-code-highspeed': { input: 1.90, output: 8.0,  inputCached: 0.38, provider: 'kimi' },
+    'kimi-k2.6':                { input: 0.95, output: 4.0,  inputCached: 0.16, provider: 'kimi' },
+    'kimi-k2.5':                { input: 0.60, output: 3.0,  inputCached: 0.10, provider: 'kimi' },
   };
   const FALLBACK_PRICE = { input: 3.0, output: 15.0, provider: 'unknown' };
 
@@ -11209,16 +11540,27 @@ const worldPredictionApp = (function() {
     // セクション表示
     const cs = document.getElementById('aiProviderClaudeSection');
     const os = document.getElementById('aiProviderOpenaiSection');
+    const ks = document.getElementById('aiProviderKimiSection');
     if (cs) cs.style.display = (p === 'claude') ? 'block' : 'none';
     if (os) os.style.display = (p === 'openai') ? 'block' : 'none';
+    if (ks) ks.style.display = (p === 'kimi')   ? 'block' : 'none';
+    // reasoning_effort は深さを指定できる機種 (K3) のときだけ出す
+    const effortField = document.getElementById('kimiEffortField');
+    if (effortField) {
+      const usable = (p === 'kimi') && kimiCaps(getCurrentAiModel('translate')).effort;
+      effortField.style.display = usable ? 'grid' : 'none';
+    }
     // バッジ
     const badge = document.getElementById('aiProviderBadge');
     if (badge) {
       if (p === 'openai') {
-        const m = getCurrentAiModel('translate');
-        badge.textContent = `OpenAI ${m}`;
+        badge.textContent = `OpenAI ${getCurrentAiModel('translate')}`;
         badge.style.background = 'rgba(34, 197, 94, 0.18)';
         badge.style.color = '#15803d';
+      } else if (p === 'kimi') {
+        badge.textContent = kimiCaps(getCurrentAiModel('translate')).label;
+        badge.style.background = 'rgba(99, 102, 241, 0.18)';
+        badge.style.color = '#4338ca';
       } else {
         badge.textContent = 'Claude Haiku 4.5';
         badge.style.background = 'rgba(139, 92, 246, 0.18)';
@@ -11239,8 +11581,8 @@ const worldPredictionApp = (function() {
     const provider = getCurrentAiProvider();
     const apiKey = getCurrentAiKey();
     if (!apiKey) {
-      setStatusPill('wsl-translate', `翻訳: ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key未設定 (英語表示)`, 'warn');
-      if (manual) toast(`⚠️ ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API キーを「🤖 AI プロバイダー」カードから設定してください`, 'warning', 6000);
+      setStatusPill('wsl-translate', `翻訳: ${aiProviderLabel(provider)} API Key未設定 (英語表示)`, 'warn');
+      if (manual) toast(`⚠️ ${aiProviderLabel(provider)} API キーを「🤖 AI プロバイダー」カードから設定してください`, 'warning', 6000);
       return;
     }
     if (translationInFlight) {
@@ -11274,7 +11616,7 @@ const worldPredictionApp = (function() {
     }
     translationInFlight = true;
     const activeModel = getCurrentAiModel('translate');
-    const providerLabel = provider === 'openai' ? 'OpenAI' : 'Haiku';
+    const providerLabel = provider === 'claude' ? 'Haiku' : getCurrentAiModelLabel();
     setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を ${providerLabel} に投入中…`, '');
     apiActStart('🈁 日本語翻訳', activeModel, `${needs.length}件のイベント翻訳 / ${provider}`);
     const btn = document.getElementById('worldTranslateNow');
@@ -11340,7 +11682,7 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
       } else {
         setStatusPill('wsl-translate', '翻訳: 0件成功 (パース失敗の可能性)', 'warn');
         console.warn('[world-v2] translation parse 0 matches. Raw output:', acc.slice(0, 500));
-        apiActEnd(false, { error: 'パース 0件 (Haiku 出力形式不一致)', inputTokens: inTok, outputTokens: outTok });
+        apiActEnd(false, { error: `パース 0件 (${getCurrentAiModelLabel()} 出力形式不一致)`, inputTokens: inTok, outputTokens: outTok });
         if (manual) toast('翻訳パース失敗。コンソールを確認してください', 'warning', 4000);
       }
     } catch (e) {
@@ -11571,7 +11913,7 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     const provider = getCurrentAiProvider();
     const apiKey = getCurrentAiKey();
     if (!apiKey) {
-      setStatusPill('wsl-claude', `ムード補正: ${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key未設定`, 'warn');
+      setStatusPill('wsl-claude', `ムード補正: ${aiProviderLabel(provider)} API Key未設定`, 'warn');
       return;
     }
     const enabled = document.getElementById('worldClaudeAdjEnable')?.checked;
@@ -11841,6 +12183,108 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   // ──────────────────────────────────────────────
   let initialized = false;
   let active = false;
+  let aiProviderSettingsReady = false;
+
+  // 🤖 AI プロバイダー設定 (🔑 API 設定カード) の配線。
+  // このカードは世界予測パネルを開かなくても操作できるので、setupOnce() とは別に
+  // ページ読み込み時にも呼ぶ。二重に呼ばれてもリスナーを重複登録しないようガードする。
+  function setupAiProviderSettings() {
+    if (aiProviderSettingsReady) return;
+    aiProviderSettingsReady = true;
+
+    // プロバイダ切替タブ
+    document.querySelectorAll('.ai-provider-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        localStorage.setItem(AI_PROVIDER_LS, tab.dataset.provider);
+        applyAiProviderUI();
+        updateApiKeyWarning();
+        toast(`🤖 AI プロバイダーを ${getCurrentAiModelLabel()} に切替`, 'success', 3500);
+      });
+    });
+    // OpenAI API key
+    const openaiKeyEl = document.getElementById('openaiApiKey');
+    if (openaiKeyEl) {
+      openaiKeyEl.value = localStorage.getItem(OPENAI_KEY_LS) || '';
+      const save = () => {
+        const v = openaiKeyEl.value.trim();
+        if (v) localStorage.setItem(OPENAI_KEY_LS, v);
+        else localStorage.removeItem(OPENAI_KEY_LS);
+        updateApiKeyWarning();
+      };
+      openaiKeyEl.addEventListener('change', save);
+      openaiKeyEl.addEventListener('input', save);
+    }
+    // OpenAI model
+    const openaiModelEl = document.getElementById('openaiModel');
+    if (openaiModelEl) {
+      const stored = localStorage.getItem(OPENAI_MODEL_LS);
+      if (stored) openaiModelEl.value = stored;
+      openaiModelEl.addEventListener('change', () => {
+        localStorage.setItem(OPENAI_MODEL_LS, openaiModelEl.value);
+        applyAiProviderUI();
+        toast(`🎯 モデルを ${openaiModelEl.value} に変更`, 'success', 3000);
+      });
+    }
+    // 自前 CORS プロキシ URL
+    const openaiProxyEl = document.getElementById('openaiCustomProxy');
+    if (openaiProxyEl) {
+      openaiProxyEl.value = localStorage.getItem('openai_cors_proxy_v1') || '';
+      openaiProxyEl.addEventListener('change', () => {
+        const v = openaiProxyEl.value.trim();
+        if (v) localStorage.setItem('openai_cors_proxy_v1', v);
+        else localStorage.removeItem('openai_cors_proxy_v1');
+      });
+    }
+    // 🌙 Moonshot Kimi API key
+    const kimiKeyEl = document.getElementById('kimiApiKey');
+    if (kimiKeyEl) {
+      kimiKeyEl.value = localStorage.getItem(KIMI_KEY_LS) || '';
+      const save = () => {
+        const v = kimiKeyEl.value.trim();
+        if (v) localStorage.setItem(KIMI_KEY_LS, v);
+        else localStorage.removeItem(KIMI_KEY_LS);
+        updateApiKeyWarning();
+      };
+      kimiKeyEl.addEventListener('change', save);
+      kimiKeyEl.addEventListener('input', save);
+    }
+    // 🌙 接続先 (世界版 / 中国版) — キーに互換性がないので切替時に注意喚起する
+    const kimiRegionEl = document.getElementById('kimiRegion');
+    if (kimiRegionEl) {
+      kimiRegionEl.value = getKimiRegion();
+      kimiRegionEl.addEventListener('change', () => {
+        localStorage.setItem(KIMI_REGION_LS, kimiRegionEl.value);
+        toast(`🌐 接続先を ${getKimiBaseUrl()} に変更 (キーも接続先に合わせて入れ替えてください)`, 'info', 5000);
+      });
+    }
+    // 🌙 モデル
+    const kimiModelEl = document.getElementById('kimiModel');
+    if (kimiModelEl) {
+      const stored = localStorage.getItem(KIMI_MODEL_LS);
+      if (stored && KIMI_MODEL_CAPS[stored]) kimiModelEl.value = stored;
+      kimiModelEl.addEventListener('change', () => {
+        localStorage.setItem(KIMI_MODEL_LS, kimiModelEl.value);
+        applyAiProviderUI();   // reasoning_effort 欄の出し分けもここで更新される
+        const caps = kimiCaps(kimiModelEl.value);
+        const note = caps.thinking === 'optional' ? '思考 OFF で呼び出します'
+                   : caps.effort ? `思考は止められません (深さ=${getKimiEffort()})`
+                   : '思考は止められず、深さも指定できません';
+        toast(`🎯 モデルを ${kimiModelEl.value} に変更 — ${note}`, 'success', 4000);
+      });
+    }
+    // 🌙 reasoning_effort (K3 のみ)
+    const kimiEffortEl = document.getElementById('kimiEffort');
+    if (kimiEffortEl) {
+      kimiEffortEl.value = getKimiEffort();
+      kimiEffortEl.addEventListener('change', () => {
+        localStorage.setItem(KIMI_EFFORT_LS, kimiEffortEl.value);
+        toast(`🧠 思考の深さを ${kimiEffortEl.value} に変更`, 'success', 3000);
+      });
+    }
+
+    applyAiProviderUI();
+    updateApiKeyWarning();
+  }
 
   function setupOnce() {
     if (initialized) return;
@@ -11964,51 +12408,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       renderApiCost();
     });
 
-    // 🤖 AI プロバイダー切替
-    document.querySelectorAll('.ai-provider-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const p = tab.dataset.provider;
-        localStorage.setItem(AI_PROVIDER_LS, p);
-        applyAiProviderUI();
-        updateApiKeyWarning();
-        const lbl = p === 'openai' ? `OpenAI ${getCurrentAiModel('translate')}` : 'Anthropic Claude Haiku 4.5';
-        toast(`🤖 AI プロバイダーを ${lbl} に切替`, 'success', 3500);
-      });
-    });
-    // OpenAI API key
-    const openaiKeyEl = document.getElementById('openaiApiKey');
-    if (openaiKeyEl) {
-      openaiKeyEl.value = localStorage.getItem(OPENAI_KEY_LS) || '';
-      const save = () => {
-        const v = openaiKeyEl.value.trim();
-        if (v) localStorage.setItem(OPENAI_KEY_LS, v);
-        else localStorage.removeItem(OPENAI_KEY_LS);
-        updateApiKeyWarning();
-      };
-      openaiKeyEl.addEventListener('change', save);
-      openaiKeyEl.addEventListener('input', save);
-    }
-    // OpenAI model
-    const openaiModelEl = document.getElementById('openaiModel');
-    if (openaiModelEl) {
-      const stored = localStorage.getItem(OPENAI_MODEL_LS);
-      if (stored) openaiModelEl.value = stored;
-      openaiModelEl.addEventListener('change', () => {
-        localStorage.setItem(OPENAI_MODEL_LS, openaiModelEl.value);
-        applyAiProviderUI();
-        toast(`🎯 モデルを ${openaiModelEl.value} に変更`, 'success', 3000);
-      });
-    }
-    // 自前 CORS プロキシ URL
-    const openaiProxyEl = document.getElementById('openaiCustomProxy');
-    if (openaiProxyEl) {
-      openaiProxyEl.value = localStorage.getItem('openai_cors_proxy_v1') || '';
-      openaiProxyEl.addEventListener('change', () => {
-        const v = openaiProxyEl.value.trim();
-        if (v) localStorage.setItem('openai_cors_proxy_v1', v);
-        else localStorage.removeItem('openai_cors_proxy_v1');
-      });
-    }
+    setupAiProviderSettings();
 
     // 航空機表示トグル
     const acEl = document.getElementById('worldAircraftEnable');
@@ -12137,8 +12537,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     restoreMainUI();
   }
 
-  return { activate, deactivate, _internal: { worldDataService, linearPredict, biasCache, histories } };
+  return { activate, deactivate, setupAiProviderSettings, _internal: { worldDataService, linearPredict, biasCache, histories } };
 })();
+
+// 🔑 API 設定カードは世界予測パネルを開かなくても操作できるので、
+//    プロバイダ切替タブ / 各キー入力の配線はページ読み込み時に行っておく。
+worldPredictionApp.setupAiProviderSettings();
 </script>
 </body>
 </html>
