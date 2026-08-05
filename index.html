@@ -3091,7 +3091,7 @@ body.api-card-open .analyze-wrap { position: static; }
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.3.0';
+const APP_VERSION = 'v3.3.1';
 const APP_VERSION_DATE = '2026-08-05';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -5342,6 +5342,9 @@ async function kimiFetchWithRetry(url, opts, signal, onNotice) {
 // 実行はこちらではしない — 返ってきた arguments をそのまま role:"tool" で返すと Moonshot 側で検索が走る。
 const KIMI_WEB_SEARCH_TOOL = { type: 'builtin_function', function: { name: '$web_search' } };
 const KIMI_WEB_SEARCH_COST_USD = 0.005;   // 検索1回あたり。別途、検索結果のトークンが次の往復の入力として課金される
+// 検索が実際に走ったかの判定しきい値。検索後の入力増加がこれ未満なら、
+// 検索結果が積まれていない (= Moonshot 側で検索が実行されていない) 疑いとして扱う。
+const KIMI_SEARCH_RESULT_MIN_TOKENS = 1000;
 
 // 1ターンぶんのストリーミング。SSE を Anthropic 互換イベントに変換して onEvent に流す。
 //  - 本文        → content_block_start{type:'text'} + text_delta
@@ -5560,8 +5563,12 @@ async function streamFetchKimiAgent({
 
   let searchUses = 0, totalIn = 0, totalOut = 0, blockIndex = 0;
   let stopReason = 'end_turn', producedText = '';
-  // 検索 maxSearchUses 回 + 最終回答 + 余裕。無限ループの保険。
-  const maxRounds = Math.min(maxSearchUses + 3, 24);
+  let nudged = false;               // 「本文を書いて」と促すのは1回だけ
+  let lastSearchEchoChars = 0;      // 直前に返した arguments の文字数 (検索結果が入ったかの判定用)
+  let searchResultsLookEmpty = false;
+  const rounds = [];                // 1ターンごとの診断情報
+  // 検索 maxSearchUses 回 + 最終回答 + 促し + 余裕。無限ループの保険。
+  const maxRounds = Math.min(maxSearchUses + 4, 24);
 
   await onEvent({ type: 'message_start', message: {} });
 
@@ -5575,6 +5582,7 @@ async function streamFetchKimiAgent({
       blockIndexStart: blockIndex,
     });
     blockIndex = turn.nextBlockIndex;
+    const prevIn = totalIn;
     totalIn += turn.usage.input;
     totalOut += turn.usage.output;
     producedText += turn.text;
@@ -5583,7 +5591,47 @@ async function streamFetchKimiAgent({
     const otherCalls  = turn.toolCalls.filter(t => t.name !== '$web_search');
     if (otherCalls.length) console.warn('[kimi-agent] 未知の道具呼び出しを無視:', otherCalls.map(t => t.name));
 
+    const info = {
+      round: round + 1, finishReason: turn.finishReason,
+      textChars: turn.text.length, reasoningChars: turn.reasoningContent.length,
+      searchCalls: searchCalls.length, inputTokens: turn.usage.input, outputTokens: turn.usage.output,
+    };
+    rounds.push(info);
+    console.log('[kimi-agent] round', info);
+    onNotice?.({ kind: 'round', ...info });
+
+    // 検索結果がモデルに渡ったかの推定。$web_search は Moonshot 側で実行されて
+    // 次ターンの入力に結果が積まれるはずなので、入力が「前ターン + 返した arguments」程度しか
+    // 増えていなければ、検索が実際には走っていない可能性が高い。
+    if (lastSearchEchoChars > 0 && prevIn > 0) {
+      const grew = turn.usage.input - prevIn;
+      // 実際に web 検索が走れば、結果だけで通常は数千トークン積まれる。
+      // 1000 未満なら「返した arguments が積まれただけ」= 検索が走っていない可能性が高い。
+      if (grew < KIMI_SEARCH_RESULT_MIN_TOKENS) {
+        searchResultsLookEmpty = true;
+        console.warn(`[kimi-agent] 検索後の入力増加がわずか (+${grew} tokens)。検索結果が本文に反映されていない可能性`);
+        onNotice?.({ kind: 'empty_search', grew });
+      }
+      lastSearchEchoChars = 0;
+    }
+
     if (!searchCalls.length) {
+      // 検索したのに本文を書かずに黙って終わるケースがある (思考だけして end_turn)。
+      // 一度だけ明示的に本文を書くよう促す。それでも書かなければ諦める。
+      if (!turn.text.trim() && searchUses > 0 && !nudged) {
+        nudged = true;
+        console.warn('[kimi-agent] 本文なしで終了したため、本文生成を1回だけ促す');
+        onNotice?.({ kind: 'nudge' });
+        const silentMsg = { role: 'assistant', content: turn.text || null };
+        if (turn.reasoningContent) silentMsg.reasoning_content = turn.reasoningContent;
+        messages.push(silentMsg);
+        messages.push({
+          role: 'user',
+          content: 'ここまでに得た情報をもとに、最初の指示どおりの形式で分析本文を出力してください。'
+                 + '検索結果が不足している場合は、どの情報が得られなかったかを明記したうえで、書ける範囲で書いてください。',
+        });
+        continue;
+      }
       stopReason = turn.truncated ? 'max_tokens' : 'end_turn';
       break;
     }
@@ -5596,7 +5644,8 @@ async function streamFetchKimiAgent({
     }
 
     // API が返した assistant メッセージを丸ごと積み直す (reasoning_content を落とさない)
-    const assistantMsg = { role: 'assistant', content: turn.text || '', tool_calls: turn.rawToolCalls };
+    // content は道具呼び出しのみのターンだと空になる。空文字ではなく null を送る。
+    const assistantMsg = { role: 'assistant', content: turn.text || null, tool_calls: turn.rawToolCalls };
     if (turn.reasoningContent) assistantMsg.reasoning_content = turn.reasoningContent;
     messages.push(assistantMsg);
 
@@ -5604,6 +5653,7 @@ async function streamFetchKimiAgent({
       searchUses++;
       // ★ 検索はこちらで実行しない。arguments をそのまま返すだけ。
       messages.push({ role: 'tool', tool_call_id: call.id, name: call.name, content: call.rawArguments });
+      lastSearchEchoChars += (call.rawArguments || '').length;
       await onEvent({
         type: 'content_block_start', index: blockIndex++,
         content_block: { type: 'web_search_tool_result' }
@@ -5620,7 +5670,8 @@ async function streamFetchKimiAgent({
   });
   await onEvent({ type: 'message_stop' });
 
-  return { searchUses, inputTokens: totalIn, outputTokens: totalOut, stopReason, text: producedText };
+  return { searchUses, inputTokens: totalIn, outputTokens: totalOut, stopReason, text: producedText,
+           rounds, searchResultsLookEmpty };
 }
 
 // ──────────────────────────────────────────────
@@ -8390,6 +8441,8 @@ ${stylePeriodsListItems}
     showRunningInfo();
     // Web 検索の単価はプロバイダーで違う (Anthropic $0.01 / Moonshot $0.005 per search)
     const searchUnitCost = analysisProvider === 'kimi' ? KIMI_WEB_SEARCH_COST_USD : WEB_SEARCH_COST_USD;
+    const kimiRounds = [];              // Kimi の往復ごとの内訳 (診断表示用)
+    let kimiSearchLooksEmpty = false;   // 検索結果がモデルに渡っていない疑い
     // ── イベント処理は Claude / Kimi 共通 ──
     // Kimi 側のアダプタ (streamFetchKimiAgent) が Anthropic 互換のイベント形状に
     // 変換して流してくるので、この関数をそのまま使い回せる。
@@ -8543,6 +8596,23 @@ ${stylePeriodsListItems}
         signal: currentAbortController.signal,
         onEvent: processEvent,
         onNotice: (n) => {
+          if (n.kind === 'round') {
+            // 1往復ごとの内訳。「本文未生成」になったときに、どのターンで何が起きたか追えるようにする。
+            kimiRounds.push(n);
+            addActivity(`🔁 ${n.round}往復目: 本文${n.textChars}字 / 思考${n.reasoningChars}字 / 検索${n.searchCalls}件`
+                      + ` / 入力${n.inputTokens.toLocaleString()}tk / 終了理由 ${n.finishReason || '不明'}`);
+            return;
+          }
+          if (n.kind === 'empty_search') {
+            kimiSearchLooksEmpty = true;
+            addActivity(`⚠️ 検索後の入力増加が +${n.grew} tokens しかありません。検索結果が反映されていない可能性`);
+            return;
+          }
+          if (n.kind === 'nudge') {
+            addActivity('💬 本文が生成されなかったため、本文を書くよう促して再送します');
+            setPhase('💬', '本文生成を促しています', '検索は終わったが本文が返らなかったため、もう一度依頼します');
+            return;
+          }
           // Tier0 ($1 入金) は毎分3リクエスト。往復するぶん必ず引っかかるので、
           // 沈黙の理由が分かるように待機中であることを出す。
           const label = n.kind === 'overloaded' ? 'サーバー混雑' : 'レート制限';
@@ -8640,14 +8710,27 @@ ${stylePeriodsListItems}
           ? '出力上限に達しました。Kimi は思考トークンも出力上限を消費します。API 設定の「🧠 思考の深さ」を low にするか、検索深さを下げて再実行してください。'
           : '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
         model_context_window_exceeded: 'コンテキストウィンドウの上限に達しました。選択する過去分析の件数を減らしてください。',
-        end_turn: 'AIが本文を生成せずに終了しました。'
+        end_turn: analysisProvider === 'kimi'
+          ? 'Kimi が本文を生成せずに終了しました。上の「Kimi の往復内訳」で、どの往復で止まったかを確認してください。'
+            + '検索後に本文が返らない場合は、検索結果がモデルに渡っていない可能性があります。'
+          : 'AIが本文を生成せずに終了しました。'
       };
       const reasonText = hints[stopReason] || `不明な終了理由 (${stopReason || '不明'})`;
       const errorBlock = streamError ? `<p style="color:#b91c1c"><strong>ストリームエラー:</strong> ${streamError}</p>` : '';
+      // 🌙 Kimi は複数ターン往復するので、どのターンで止まったかが分からないと原因を追えない
+      const kimiBlock = (analysisProvider === 'kimi' && kimiRounds.length) ? `
+        <h3>Kimi の往復内訳</h3>
+        <ul>${kimiRounds.map(r => `<li>${r.round}往復目: 本文 <code>${r.textChars}</code>字 / 思考 <code>${r.reasoningChars}</code>字`
+          + ` / 検索 <code>${r.searchCalls}</code>件 / 入力 <code>${r.inputTokens.toLocaleString()}</code>tk`
+          + ` / 出力 <code>${r.outputTokens.toLocaleString()}</code>tk / 終了理由 <code>${escapeHtml(String(r.finishReason || '不明'))}</code></li>`).join('')}</ul>
+        ${kimiSearchLooksEmpty ? `<p style="color:#b45309"><strong>⚠️ 検索結果がモデルに渡っていない可能性があります。</strong>
+          $web_search を返した後に入力トークンがほとんど増えていません。Moonshot 側で検索が実行されていないと、
+          モデルは材料が無いまま黙って終了します。Moonshot のコンソールで $web_search が有効か、
+          残高があるかを確認してください。</p>` : ''}` : '';
       const blockInfo = receivedBlockTypes.length ? receivedBlockTypes.join(', ') : '(なし)';
       resultDiv.innerHTML = `
         <h2>⚠️ 応答テキストが取得できませんでした</h2>
-        <p>${reasonText}</p>${errorBlock}
+        <p>${reasonText}</p>${errorBlock}${kimiBlock}
         <h3>診断情報</h3>
         <ul>
           <li>受信イベント数: <code>${eventCount}</code></li>
