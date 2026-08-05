@@ -242,6 +242,10 @@ label {
 }
 .notice a { color: #b45309; text-decoration: underline; }
 .analyze-wrap { position: sticky; bottom: 16px; z-index: 10; margin: 20px 0; }
+/* 🔑 API 設定カードを開いている間は分析ボタンを固定しない。
+   固定したままだと画面下部に居座り、カード下部の「使用モデル」等のセレクトに重なって
+   クリックがボタン側に吸われてしまう (画面高 768〜780px 程度のノートPCで顕著)。 */
+body.api-card-open .analyze-wrap { position: static; }
 .analyze-btn {
   width: 100%;
   background: var(--gradient-primary);
@@ -2605,7 +2609,8 @@ label {
         OpenAI と違い <b>CORS プロキシを経由しない</b>ため、API キーが第三者のサーバーを通りません。
         <br/>💴 <b>日本語のトークン効率が Claude より約1.5倍良い</b>ので、日本語主体のこのアプリでは単価差以上にコストが下がります。
         同じ前置きを繰り返すと<b>キャッシュが自動で効き</b>、2回目以降の入力単価は最大 1/10 になります (指定不要)。
-        <br/>※ Kimi は <b>世界予測モード (🌍 世界予測 v2) の翻訳・ムード補正のみ</b>に対応。銘柄分析モードは Claude 専用です (web_search Tool が Anthropic 専用のため)。
+        <br/>🔍 <b>銘柄分析にも使えます。</b>「分析条件」の使用モデルで <b>🌙 Kimi K3 / K2.6</b> を選ぶと、Kimi 備え付けの
+        <code>$web_search</code> で調査しながら分析します。ただし <b>🧒 超かんたん要約</b> と <b>📰 ニュース収集</b> は Claude 専用のままです。
       </div>
       <div class="ai-provider-warning">
         ⚠️ <b>レート制限は入金額で決まります。</b> $1 の Tier0 は <b>毎分3リクエスト</b>しかなく、
@@ -2702,6 +2707,8 @@ label {
         <option value="claude-fable-5">🔮 Fable 5 単体 — 最上位・最高コスト</option>
         <option value="claude-opus-4-8">✨ Opus 4.8 単体 — 高品質(旧世代)</option>
         <option value="claude-sonnet-4-6">🕰 Sonnet 4.6 単体 — バランス型(旧世代)</option>
+        <option value="kimi-k3">🌙 Kimi K3 — 割安・日本語効率◎ (Moonshot キーが必要)</option>
+        <option value="kimi-k2.6">🌙 Kimi K2.6 — 最安・軽量 (Moonshot キーが必要)</option>
       </select>
       <div class="model-info" id="modelInfo"></div>
     </div>
@@ -3084,7 +3091,7 @@ label {
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.2.0';
+const APP_VERSION = 'v3.3.0';
 const APP_VERSION_DATE = '2026-08-05';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -3115,6 +3122,108 @@ const WEB_SEARCH_COST_USD = 0.01;
 // ※ Sonnet 5 は 2026-08-31 まで導入価格 ($2/$10)、9/1 以降は $3/$15。
 const SONNET5_INTRO_END_MS = Date.parse('2026-09-01T00:00:00Z');
 const SONNET5_INTRO_ACTIVE = Date.now() < SONNET5_INTRO_END_MS;
+
+// ──────────────────────────────────────────────
+// 🌙 Moonshot Kimi (K3 / K2.7 / K2.6) Chat Completions API — OpenAI 互換
+//
+// OpenAI 互換だが「そのまま移植すると必ず踏む」差分が4つある:
+//   ① temperature / top_p / n / *_penalty は機種ごとの固定値。違う値を送ると 400 → 一切送らない
+//   ② max_tokens は非推奨。max_completion_tokens を使う
+//   ③ 思考トークンも max_completion_tokens を食う。K3 は思考を止められないので
+//      「本文ぶん + 思考ぶん」の余白を必ず上乗せする
+//      (足りないと finish_reason:'length' で途中切れ。エラーは出ず中身が空で返る)
+//   ④ CORS が開いているのでブラウザから直接叩ける
+//      → OpenAI と違い CORS プロキシ不要 = API キーが第三者のサーバーを通らない
+// ──────────────────────────────────────────────
+const KIMI_KEY_LS    = 'kimi_api_key_v1';
+const KIMI_MODEL_LS  = 'kimi_model_v1';
+const KIMI_REGION_LS = 'kimi_region_v1';            // 'global' | 'cn'
+const KIMI_EFFORT_LS = 'kimi_reasoning_effort_v1';  // 'low' | 'high' | 'max'
+const DEFAULT_KIMI_MODEL  = 'kimi-k3';
+const DEFAULT_KIMI_REGION = 'global';
+const DEFAULT_KIMI_EFFORT = 'low';  // API 既定は max。用途が短い構造化出力なので軽くする
+
+// 世界版と中国版でキーに互換性がない。401 が出たらまずここを疑う。
+const KIMI_ENDPOINTS = {
+  global: 'https://api.moonshot.ai/v1',
+  cn:     'https://api.moonshot.cn/v1',
+};
+function getKimiRegion() {
+  return (localStorage.getItem(KIMI_REGION_LS) === 'cn') ? 'cn' : DEFAULT_KIMI_REGION;
+}
+function getKimiBaseUrl() {
+  return KIMI_ENDPOINTS[getKimiRegion()] || KIMI_ENDPOINTS.global;
+}
+function getKimiEffort() {
+  const e = localStorage.getItem(KIMI_EFFORT_LS);
+  return (e === 'high' || e === 'max') ? e : DEFAULT_KIMI_EFFORT;
+}
+
+// 機種ごとの仕様差 (思考の止め方 / tool_choice の効き方 / 文脈長)
+const KIMI_MODEL_CAPS = {
+  'kimi-k3':                  { label: 'Kimi K3',            thinking: 'always',   effort: true,  forceTool: 'required', context: 1048576 },
+  'kimi-k2.7-code':           { label: 'Kimi K2.7 Code',     thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
+  'kimi-k2.7-code-highspeed': { label: 'Kimi K2.7 Code 高速', thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
+  'kimi-k2.6':                { label: 'Kimi K2.6',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
+  'kimi-k2.5':                { label: 'Kimi K2.5',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
+};
+function kimiCaps(model) {
+  return KIMI_MODEL_CAPS[model] || KIMI_MODEL_CAPS[DEFAULT_KIMI_MODEL];
+}
+
+// 思考ぶんの余白。max_completion_tokens = 本文ぶん + ここ。
+const KIMI_THINKING_HEADROOM = { low: 2000, high: 6000, max: 12000 };
+function kimiMaxCompletionTokens(model, maxTokens, effort) {
+  const caps = kimiCaps(model);
+  if (caps.thinking === 'optional') return maxTokens;                  // 思考を切るので余白不要
+  const eff = caps.effort ? (effort || DEFAULT_KIMI_EFFORT) : 'max';   // 深さを指定できない機種は最大想定
+  return maxTokens + (KIMI_THINKING_HEADROOM[eff] || KIMI_THINKING_HEADROOM.max);
+}
+
+// 道具を1つだけ強制的に呼ばせたいときの tool_choice。機種で書き方が違う:
+//  - K3       : 名指し指定は「思考が有効だと 400」。K3 は思考を切れないので "required" を使う
+//               (道具を1つだけ渡せば名指しと同じ効果になる)
+//  - K2.6/2.5 : 思考を切ってから名指しできる
+//  - K2.7     : 強制不可。auto のまま道具を1つだけ渡す
+function kimiToolChoice(model, toolName) {
+  const mode = kimiCaps(model).forceTool;
+  if (mode === 'required') return 'required';
+  if (mode === 'named' && toolName) return { type: 'function', function: { name: toolName } };
+  return 'auto';
+}
+
+const KIMI_ERROR_HINTS = {
+  invalid_request_error:        'パラメータ違反です (temperature / top_p / n / *_penalty は Kimi では固定値のため送れません)',
+  content_filter:               '内容が安全審査に引っかかりました',
+  invalid_authentication_error: 'API キーが不正です。接続先 (世界版 api.moonshot.ai / 中国版 api.moonshot.cn) とキーの組み合わせも確認してください',
+  incorrect_api_key_error:      'API キーが未指定または誤りです',
+  permission_denied_error:      '権限がありません (IP 許可リスト等を確認してください)',
+  resource_not_found_error:     'モデル名が誤っているか、そのモデルへの権限がありません',
+  rate_limit_reached_error:     'レート制限を超過しました (Tier0 は 3 リクエスト/分。$10 入金で Tier1 = 200 RPM)',
+  exceeded_current_quota_error: '残高不足です。待っても回復しないので Moonshot 側でチャージしてください',
+  engine_overloaded_error:      'サーバーが混雑しています',
+};
+// 429 は「混雑」と「残高不足」の2種類ある。type で分けないと残高不足を延々リトライすることになる。
+const KIMI_RETRYABLE_TYPES = new Set(['rate_limit_reached_error', 'engine_overloaded_error']);
+const KIMI_MAX_RETRIES = 3;
+
+function parseKimiError(status, rawText) {
+  let type = '', detail = '';
+  try {
+    const j = JSON.parse(rawText);
+    type   = j.error?.type || j.type || '';
+    detail = j.error?.message || j.message || '';
+  } catch { detail = (rawText || '').slice(0, 200); }
+  const parts = [`Kimi APIエラー (${status}${type ? ' ' + type : ''})`];
+  if (KIMI_ERROR_HINTS[type]) parts.push(KIMI_ERROR_HINTS[type]);
+  if (detail) parts.push(detail);
+  return {
+    message: parts.join(': '),
+    type,
+    // type 不明の 429 と 5xx は再試行する。残高不足 (exceeded_current_quota_error) は絶対に再試行しない。
+    retryable: KIMI_RETRYABLE_TYPES.has(type) || status >= 500 || (status === 429 && !type),
+  };
+}
 
 const MODELS = {
   // ── 現行モデル ──
@@ -3200,8 +3309,34 @@ const MODELS = {
     inputCost: null, outputCost: null,
     estimate: SONNET5_INTRO_ACTIVE ? '約 $0.30〜0.60 / 回 (推奨!)' : '約 $0.40〜0.80 / 回 (推奨!)',
     desc: 'Phase1: Sonnet 5 でバランス良くリサーチ → Phase2: Haiku 4.5 が執筆。Opus版の 1/3 のコストで十分な品質。最も推奨'
+  },
+  // ── 🌙 Moonshot Kimi ──
+  // 入力単価はキャッシュ不命中時。日本語のトークン効率が Claude より約1.5倍良いため、
+  // 単価表の見た目以上に実コストは下がる。ただし表形式の生成は Claude より明確に弱く、
+  // 出来のムラも大きい (同じ条件で当たり外れが出る) ので、そこは正直に書いておく。
+  'kimi-k3': {
+    name: 'Kimi K3',
+    badge: '🌙 Moonshot・低コスト',
+    rating: 3,
+    inputCost: 3, outputCost: 15,
+    estimate: '約 $0.15〜0.40 / 回',
+    desc: '文脈100万・常に思考。日本語のトークン効率が良く割安。表形式の生成は Claude より弱く、出来のムラが大きい'
+  },
+  'kimi-k2.6': {
+    name: 'Kimi K2.6',
+    badge: '🌙 Moonshot・最安',
+    rating: 2,
+    inputCost: 0.95, outputCost: 4,
+    estimate: '約 $0.05〜0.15 / 回',
+    desc: '思考OFFで動く最安クラス。速くて安いが品質は K3 より落ちる。お試し・軽い調査向け'
   }
 };
+
+// 分析モデルがどのプロバイダーのものかを判定する (Kimi 以外はすべて Anthropic)
+function analysisProviderOf(model) {
+  return KIMI_MODEL_CAPS[model] ? 'kimi' : 'claude';
+}
+function isKimiAnalysisModel(model) { return analysisProviderOf(model) === 'kimi'; }
 
 // ★★★ Claude API 仕様テーブル (2026-07 時点) ★★★
 // モデルごとに「使えるパラメータ」が違うため、ここで一元管理する。
@@ -3287,7 +3422,7 @@ const costSummaryEl = document.getElementById('costSummary');
 // USD to JPY conversion rate (approximate, for display)
 const USD_TO_JPY = 155;
 
-function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, learningsCount }) {
+function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, learningsCount, searchUnitCost, usageUrl }) {
   // phases: [{label, model, inputCost, outputCost, inputTokens, outputTokens}]
   let tokenCost = 0;
   const phaseHtml = phases.map(p => {
@@ -3298,11 +3433,12 @@ function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, l
       <span><strong>$${cost.toFixed(3)}</strong></span>
     </div>`;
   }).join('');
-  // ★ Web 検索の料金($10/1,000検索)を別行で表示
-  const searchCost = (searchCount || 0) * WEB_SEARCH_COST_USD;
+  // ★ Web 検索の料金を別行で表示 (Anthropic $10/1,000検索, Moonshot $5/1,000検索)
+  const searchUnit = searchUnitCost || WEB_SEARCH_COST_USD;
+  const searchCost = (searchCount || 0) * searchUnit;
   const totalCost = tokenCost + searchCost;
   const searchCostHtml = searchCount
-    ? `<div class="cost-detail-row"><span>🔍 Web検索 ${searchCount}回 × $${WEB_SEARCH_COST_USD.toFixed(3)}</span><span><strong>$${searchCost.toFixed(3)}</strong></span></div>`
+    ? `<div class="cost-detail-row"><span>🔍 Web検索 ${searchCount}回 × $${searchUnit.toFixed(3)}</span><span><strong>$${searchCost.toFixed(3)}</strong></span></div>`
     : '';
   const jpyAmount = Math.round(totalCost * USD_TO_JPY);
   costSummaryEl.innerHTML = `
@@ -3317,11 +3453,16 @@ function showCostSummary({ phases, totalIn, totalOut, modelLabel, searchCount, l
       ${learningsCount ? `<div class="cost-detail-row"><span>🎓 学習反映</span><span><strong>${learningsCount}件</strong></span></div>` : ''}
       <div class="cost-detail-row"><span>📦 モデル構成</span><span><strong>${escapeHtml(modelLabel)}</strong></span></div>
     </div>
-    <div class="cost-cumulative">📊 累計使用量は <a href="https://console.anthropic.com/usage" target="_blank" rel="noopener">console.anthropic.com/usage</a> で確認できます</div>
+    <div class="cost-cumulative">📊 累計使用量は <a href="${usageUrl || 'https://console.anthropic.com/usage'}" target="_blank" rel="noopener">${escapeHtml((usageUrl || 'https://console.anthropic.com/usage').replace(/^https?:\/\//, ''))}</a> で確認できます</div>
   `;
   costSummaryEl.classList.add('active');
 }
 function hideCostSummary() { costSummaryEl.classList.remove('active'); costSummaryEl.innerHTML = ''; }
+
+// API 設定カードの開閉を body クラスに反映する (分析ボタンの固定解除に使う)
+function syncApiCardOpenState() {
+  document.body.classList.toggle('api-card-open', apiCard.style.display !== 'none');
+}
 
 function updateApiVisibility() {
   const hasKey = !!localStorage.getItem(STORAGE_KEY) || !!apiKeyInput.value.trim();
@@ -3334,17 +3475,20 @@ function updateApiVisibility() {
     apiIndicator.classList.remove('active');
     apiCardClose.classList.remove('active');
   }
+  syncApiCardOpenState();
 }
 
 apiIndicator.addEventListener('click', () => {
   apiCard.style.display = 'block';
   apiIndicator.classList.remove('active');
+  syncApiCardOpenState();
 });
 
 apiCardClose.addEventListener('click', () => {
   if (apiKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY)) {
     apiCard.style.display = 'none';
     apiIndicator.classList.add('active');
+    syncApiCardOpenState();
   }
 });
 const modelSelect = document.getElementById('model');
@@ -3495,7 +3639,9 @@ let evaluatingItem = null; // Item being evaluated (overrides mode if set)
 
 const savedKey = localStorage.getItem(STORAGE_KEY);
 if (savedKey) apiKeyInput.value = savedKey;
-const VISIBLE_MODELS = ['eco-hybrid', 'hybrid'];
+// 🌙 Kimi は「Claude ではなく Kimi を使う」という明示的な選択なので、リロード後も復元する
+//    (Claude 単体モデルは従来どおり毎回ハイブリッドに戻す挙動のまま)
+const VISIBLE_MODELS = ['eco-hybrid', 'hybrid', 'kimi-k3', 'kimi-k2.6'];
 const savedModel = localStorage.getItem(MODEL_KEY);
 if (savedModel && MODELS[savedModel] && VISIBLE_MODELS.includes(savedModel)) {
   modelSelect.value = savedModel;
@@ -3506,11 +3652,20 @@ if (savedModel && MODELS[savedModel] && VISIBLE_MODELS.includes(savedModel)) {
 function updateModelInfo() {
   const m = MODELS[modelSelect.value];
   if (!m) { modelInfoEl.innerHTML = ''; return; }
+  // 🌙 Kimi を選んだのに Moonshot のキーが無いと、分析開始してから初めて気づくことになるので先に出す
+  let warn = '';
+  if (isKimiAnalysisModel(modelSelect.value)) {
+    const hasKimiKey = !!(localStorage.getItem(KIMI_KEY_LS) || '').trim();
+    warn = hasKimiKey
+      ? `<div class="model-info-row"><span class="model-info-label">🌙 接続先</span><span class="model-info-value">${escapeHtml(getKimiBaseUrl())}</span></div>`
+      : `<div class="model-info-row" style="color:#b91c1c"><span class="model-info-label">⚠️ 未設定</span><span style="text-align:right;max-width:60%">Moonshot API キーが未設定です。「🔑 API 設定」→「🌙 Moonshot Kimi」タブで設定してください</span></div>`;
+  }
   modelInfoEl.innerHTML = `
     <div class="model-info-row"><span class="model-info-label">📦 モデル</span><span class="model-info-value">${m.name}</span></div>
     <div class="model-info-row"><span class="model-info-label">⭐ お勧め度</span><span class="model-rating">${'★'.repeat(m.rating)}${'☆'.repeat(5-m.rating)}</span></div>
     <div class="model-info-row"><span class="model-info-label">💰 1回コスト目安</span><span class="model-info-value">${m.estimate}</span></div>
     <div class="model-info-row"><span class="model-info-label">💡 特徴</span><span style="text-align:right; max-width:60%;">${m.desc}</span></div>
+    ${warn}
   `;
 }
 updateModelInfo();
@@ -5149,107 +5304,8 @@ async function streamFetchOpenAI({apiKey, model, prompt, system, onEvent, signal
 }
 
 // ──────────────────────────────────────────────
-// 🌙 Moonshot Kimi (K3 / K2.7 / K2.6) Chat Completions API — OpenAI 互換
-//
-// OpenAI 互換だが「そのまま移植すると必ず踏む」差分が4つある:
-//   ① temperature / top_p / n / *_penalty は機種ごとの固定値。違う値を送ると 400 → 一切送らない
-//   ② max_tokens は非推奨。max_completion_tokens を使う
-//   ③ 思考トークンも max_completion_tokens を食う。K3 は思考を止められないので
-//      「本文ぶん + 思考ぶん」の余白を必ず上乗せする
-//      (足りないと finish_reason:'length' で途中切れ。エラーは出ず中身が空で返る)
-//   ④ CORS が開いているのでブラウザから直接叩ける
-//      → OpenAI と違い CORS プロキシ不要 = API キーが第三者のサーバーを通らない
+// 🌙 Moonshot Kimi — 通信レイヤ (仕様テーブルはモデル定義の近くに置いてある)
 // ──────────────────────────────────────────────
-const KIMI_KEY_LS    = 'kimi_api_key_v1';
-const KIMI_MODEL_LS  = 'kimi_model_v1';
-const KIMI_REGION_LS = 'kimi_region_v1';            // 'global' | 'cn'
-const KIMI_EFFORT_LS = 'kimi_reasoning_effort_v1';  // 'low' | 'high' | 'max'
-const DEFAULT_KIMI_MODEL  = 'kimi-k3';
-const DEFAULT_KIMI_REGION = 'global';
-const DEFAULT_KIMI_EFFORT = 'low';  // API 既定は max。用途が短い構造化出力なので軽くする
-
-// 世界版と中国版でキーに互換性がない。401 が出たらまずここを疑う。
-const KIMI_ENDPOINTS = {
-  global: 'https://api.moonshot.ai/v1',
-  cn:     'https://api.moonshot.cn/v1',
-};
-function getKimiRegion() {
-  return (localStorage.getItem(KIMI_REGION_LS) === 'cn') ? 'cn' : DEFAULT_KIMI_REGION;
-}
-function getKimiBaseUrl() {
-  return KIMI_ENDPOINTS[getKimiRegion()] || KIMI_ENDPOINTS.global;
-}
-function getKimiEffort() {
-  const e = localStorage.getItem(KIMI_EFFORT_LS);
-  return (e === 'high' || e === 'max') ? e : DEFAULT_KIMI_EFFORT;
-}
-
-// 機種ごとの仕様差 (思考の止め方 / tool_choice の効き方 / 文脈長)
-const KIMI_MODEL_CAPS = {
-  'kimi-k3':                  { label: 'Kimi K3',            thinking: 'always',   effort: true,  forceTool: 'required', context: 1048576 },
-  'kimi-k2.7-code':           { label: 'Kimi K2.7 Code',     thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
-  'kimi-k2.7-code-highspeed': { label: 'Kimi K2.7 Code 高速', thinking: 'always',   effort: false, forceTool: 'none',     context: 262144  },
-  'kimi-k2.6':                { label: 'Kimi K2.6',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
-  'kimi-k2.5':                { label: 'Kimi K2.5',          thinking: 'optional', effort: false, forceTool: 'named',    context: 262144  },
-};
-function kimiCaps(model) {
-  return KIMI_MODEL_CAPS[model] || KIMI_MODEL_CAPS[DEFAULT_KIMI_MODEL];
-}
-
-// 思考ぶんの余白。max_completion_tokens = 本文ぶん + ここ。
-const KIMI_THINKING_HEADROOM = { low: 2000, high: 6000, max: 12000 };
-function kimiMaxCompletionTokens(model, maxTokens, effort) {
-  const caps = kimiCaps(model);
-  if (caps.thinking === 'optional') return maxTokens;                  // 思考を切るので余白不要
-  const eff = caps.effort ? (effort || DEFAULT_KIMI_EFFORT) : 'max';   // 深さを指定できない機種は最大想定
-  return maxTokens + (KIMI_THINKING_HEADROOM[eff] || KIMI_THINKING_HEADROOM.max);
-}
-
-// 道具を1つだけ強制的に呼ばせたいときの tool_choice。機種で書き方が違う:
-//  - K3       : 名指し指定は「思考が有効だと 400」。K3 は思考を切れないので "required" を使う
-//               (道具を1つだけ渡せば名指しと同じ効果になる)
-//  - K2.6/2.5 : 思考を切ってから名指しできる
-//  - K2.7     : 強制不可。auto のまま道具を1つだけ渡す
-function kimiToolChoice(model, toolName) {
-  const mode = kimiCaps(model).forceTool;
-  if (mode === 'required') return 'required';
-  if (mode === 'named' && toolName) return { type: 'function', function: { name: toolName } };
-  return 'auto';
-}
-
-const KIMI_ERROR_HINTS = {
-  invalid_request_error:        'パラメータ違反です (temperature / top_p / n / *_penalty は Kimi では固定値のため送れません)',
-  content_filter:               '内容が安全審査に引っかかりました',
-  invalid_authentication_error: 'API キーが不正です。接続先 (世界版 api.moonshot.ai / 中国版 api.moonshot.cn) とキーの組み合わせも確認してください',
-  incorrect_api_key_error:      'API キーが未指定または誤りです',
-  permission_denied_error:      '権限がありません (IP 許可リスト等を確認してください)',
-  resource_not_found_error:     'モデル名が誤っているか、そのモデルへの権限がありません',
-  rate_limit_reached_error:     'レート制限を超過しました (Tier0 は 3 リクエスト/分。$10 入金で Tier1 = 200 RPM)',
-  exceeded_current_quota_error: '残高不足です。待っても回復しないので Moonshot 側でチャージしてください',
-  engine_overloaded_error:      'サーバーが混雑しています',
-};
-// 429 は「混雑」と「残高不足」の2種類ある。type で分けないと残高不足を延々リトライすることになる。
-const KIMI_RETRYABLE_TYPES = new Set(['rate_limit_reached_error', 'engine_overloaded_error']);
-const KIMI_MAX_RETRIES = 3;
-
-function parseKimiError(status, rawText) {
-  let type = '', detail = '';
-  try {
-    const j = JSON.parse(rawText);
-    type   = j.error?.type || j.type || '';
-    detail = j.error?.message || j.message || '';
-  } catch { detail = (rawText || '').slice(0, 200); }
-  const parts = [`Kimi APIエラー (${status}${type ? ' ' + type : ''})`];
-  if (KIMI_ERROR_HINTS[type]) parts.push(KIMI_ERROR_HINTS[type]);
-  if (detail) parts.push(detail);
-  return {
-    message: parts.join(': '),
-    type,
-    // type 不明の 429 と 5xx は再試行する。残高不足 (exceeded_current_quota_error) は絶対に再試行しない。
-    retryable: KIMI_RETRYABLE_TYPES.has(type) || status >= 500 || (status === 429 && !type),
-  };
-}
-
 function kimiSleep(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
@@ -5261,7 +5317,7 @@ function kimiSleep(ms, signal) {
   });
 }
 
-async function kimiFetchWithRetry(url, opts, signal) {
+async function kimiFetchWithRetry(url, opts, signal, onNotice) {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(url, opts);
     if (res.ok) return res;
@@ -5271,16 +5327,39 @@ async function kimiFetchWithRetry(url, opts, signal) {
     const ra = parseFloat(res.headers.get('Retry-After') || '');
     const waitMs = (isFinite(ra) && ra > 0) ? Math.min(ra * 1000, 60000)
                                             : Math.min(2000 * Math.pow(2, attempt), 30000);
-    console.warn(`[kimi] ${info.message} — ${Math.round(waitMs / 1000)}秒後に再試行 (${attempt + 1}/${KIMI_MAX_RETRIES})`);
+    const sec = Math.max(1, Math.round(waitMs / 1000));
+    console.warn(`[kimi] ${info.message} — ${sec}秒後に再試行 (${attempt + 1}/${KIMI_MAX_RETRIES})`);
+    // レート制限の待機は分析中に長い沈黙になるので、呼び出し側に知らせて UI に出せるようにする
+    onNotice?.({
+      kind: info.type === 'engine_overloaded_error' ? 'overloaded' : 'rate_limit',
+      waitSec: sec, attempt: attempt + 1, maxAttempts: KIMI_MAX_RETRIES, message: info.message,
+    });
     await kimiSleep(waitMs, signal);
   }
 }
 
-async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, maxTokens = 4000, reasoningEffort, tools, forceToolName}) {
+// Kimi 備え付けのネット検索。type は "function" ではなく "builtin_function"、名前の $ は備え付けの印。
+// 実行はこちらではしない — 返ってきた arguments をそのまま role:"tool" で返すと Moonshot 側で検索が走る。
+const KIMI_WEB_SEARCH_TOOL = { type: 'builtin_function', function: { name: '$web_search' } };
+const KIMI_WEB_SEARCH_COST_USD = 0.005;   // 検索1回あたり。別途、検索結果のトークンが次の往復の入力として課金される
+
+// 1ターンぶんのストリーミング。SSE を Anthropic 互換イベントに変換して onEvent に流す。
+//  - 本文        → content_block_start{type:'text'} + text_delta
+//  - 思考        → content_block_start{type:'thinking'} + thinking_delta
+//  - 道具呼び出し → content_block_start{type:'server_tool_use'} + input_json_delta
+// こうしておくと、既存の Claude 用イベント処理をそのまま使い回せる。
+async function streamFetchKimi({
+  apiKey, model, prompt, system, messages: rawMessages, onEvent, onNotice, signal,
+  maxTokens = 4000, reasoningEffort, tools, forceTool, forceToolName,
+  emitUsage = true, blockIndexStart = 0,
+}) {
   const caps = kimiCaps(model);
-  const messages = [];
-  if (system) messages.push({ role: 'system', content: system });
-  messages.push({ role: 'user', content: prompt });
+  let messages = rawMessages;
+  if (!messages) {
+    messages = [];
+    if (system) messages.push({ role: 'system', content: system });
+    messages.push({ role: 'user', content: prompt });
+  }
 
   const body = {
     model,
@@ -5295,7 +5374,8 @@ async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, 
   if (caps.thinking === 'optional') body.thinking = { type: 'disabled' };
   if (tools && tools.length) {
     body.tools = tools;
-    body.tool_choice = kimiToolChoice(model, forceToolName);
+    // 既定は auto。エージェント的に何度も往復する用途で "required" にすると毎回必ず道具を呼んでしまい終われない。
+    body.tool_choice = (forceTool || forceToolName) ? kimiToolChoice(model, forceToolName) : 'auto';
   }
 
   const response = await kimiFetchWithRetry(getKimiBaseUrl() + '/chat/completions', {
@@ -5306,14 +5386,30 @@ async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, 
     },
     body: JSON.stringify(body),
     signal,
-  }, signal);
+  }, signal, onNotice);
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let finishReason = '';
-  let textLen = 0;
-  const toolBuf = [];   // index ごとに {id, name, args} を組み立てる
+  let text = '', reasoningContent = '';
+  let usageIn = 0, usageOut = 0;
+  const toolBuf = [];   // tool_calls の index ごとに {id, name, args} を組み立てる
+
+  // ── Anthropic 互換のブロック境界を組み立てる ──
+  let blockIndex = blockIndexStart;
+  let openKind = null, openIndex = -1;
+  const closeOpenBlock = async () => {
+    if (!openKind) return;
+    await onEvent({ type: 'content_block_stop', index: openIndex });
+    openKind = null; openIndex = -1;
+  };
+  const openBlockOfKind = async (kind) => {
+    if (openKind === kind) return;
+    await closeOpenBlock();
+    openKind = kind; openIndex = blockIndex++;
+    await onEvent({ type: 'content_block_start', index: openIndex, content_block: { type: kind } });
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -5339,43 +5435,80 @@ async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, 
       const delta  = choice?.delta;
       if (choice?.finish_reason) finishReason = choice.finish_reason;
 
-      // Kimi SSE → Anthropic 互換イベントに変換 (上位コードが共通で扱えるよう)
       // 思考は reasoning_content で届く (本文 content より先)
       if (delta?.reasoning_content) {
+        await openBlockOfKind('thinking');
+        reasoningContent += delta.reasoning_content;
         await onEvent({
-          type: 'content_block_delta',
+          type: 'content_block_delta', index: openIndex,
           delta: { type: 'thinking_delta', thinking: delta.reasoning_content }
         });
       }
       if (delta?.content) {
-        textLen += delta.content.length;
+        await openBlockOfKind('text');
+        text += delta.content;
         await onEvent({
-          type: 'content_block_delta',
+          type: 'content_block_delta', index: openIndex,
           delta: { type: 'text_delta', text: delta.content }
         });
       }
       // tool_calls は「最初のチャンクにだけ id / function.name」、以降は arguments の断片だけ。index で束ねる。
       for (const tc of delta?.tool_calls || []) {
         const at = tc.index ?? 0;
-        if (!toolBuf[at]) toolBuf[at] = { id: '', name: '', args: '' };
-        if (tc.id) toolBuf[at].id = tc.id;
-        if (tc.function?.name) toolBuf[at].name = tc.function.name;
-        if (tc.function?.arguments) toolBuf[at].args += tc.function.arguments;
+        if (!toolBuf[at]) {
+          await closeOpenBlock();
+          toolBuf[at] = { id: '', name: '', args: '', blockIndex: blockIndex++, started: false };
+        }
+        const slot = toolBuf[at];
+        if (tc.id) slot.id = tc.id;
+        if (tc.function?.name) slot.name = tc.function.name;
+        if (tc.function?.arguments) slot.args += tc.function.arguments;
+        // 名前が判明した時点でブロックを開始し、それまでに溜めた arguments をまとめて流す
+        if (!slot.started && slot.name) {
+          slot.started = true;
+          await onEvent({
+            type: 'content_block_start', index: slot.blockIndex,
+            content_block: {
+              type: 'server_tool_use', id: slot.id,
+              // $web_search は既存の Claude 用 UI に合わせて web_search として通知する
+              name: slot.name === '$web_search' ? 'web_search' : slot.name,
+            }
+          });
+          if (slot.args) {
+            await onEvent({
+              type: 'content_block_delta', index: slot.blockIndex,
+              delta: { type: 'input_json_delta', partial_json: slot.args }
+            });
+          }
+        } else if (slot.started && tc.function?.arguments) {
+          await onEvent({
+            type: 'content_block_delta', index: slot.blockIndex,
+            delta: { type: 'input_json_delta', partial_json: tc.function.arguments }
+          });
+        }
       }
       // usage は最終チャンクで届く (stream_options.include_usage)
       if (chunk.usage) {
-        await onEvent({
-          type: 'message_start',
-          message: { usage: { input_tokens: chunk.usage.prompt_tokens || 0, output_tokens: chunk.usage.completion_tokens || 0 } }
-        });
-        await onEvent({
-          type: 'message_delta',
-          usage: { output_tokens: chunk.usage.completion_tokens || 0 }
-        });
+        usageIn  = chunk.usage.prompt_tokens || 0;
+        usageOut = chunk.usage.completion_tokens || 0;
+        if (emitUsage) {
+          await onEvent({
+            type: 'message_start',
+            message: { usage: { input_tokens: usageIn, output_tokens: usageOut } }
+          });
+          await onEvent({ type: 'message_delta', usage: { output_tokens: usageOut } });
+        }
       }
     }
   }
+  await closeOpenBlock();
+  for (const slot of toolBuf) {
+    if (slot?.started) await onEvent({ type: 'content_block_stop', index: slot.blockIndex });
+  }
 
+  const rawToolCalls = toolBuf.filter(Boolean).map(t => ({
+    id: t.id, type: 'function', function: { name: t.name, arguments: t.args }
+  }));
   const toolCalls = toolBuf.filter(Boolean).map(t => {
     let args = null, argsBroken = false;
     try { args = JSON.parse(t.args || '{}'); } catch { argsBroken = true; }
@@ -5391,12 +5524,103 @@ async function streamFetchKimi({apiKey, model, prompt, system, onEvent, signal, 
       : '';
     const msg = `Kimi: 出力が上限で途中切れしました。max_completion_tokens=${body.max_completion_tokens}${effortNote}。`
               + '上限を増やすか reasoning_effort を下げてください';
-    if (textLen === 0) throw new Error(msg);   // 中身なし = 黙って空データを流さない
+    if (text.length === 0 && !toolCalls.length) throw new Error(msg);   // 中身なし = 黙って空データを流さない
     console.warn('[kimi] ' + msg);
-    await onEvent({ type: 'message_delta', delta: { stop_reason: 'max_tokens' } });
+    if (emitUsage) await onEvent({ type: 'message_delta', delta: { stop_reason: 'max_tokens' } });
   }
 
-  return { truncated, finishReason, toolCalls, maxCompletionTokens: body.max_completion_tokens };
+  return {
+    truncated, finishReason, toolCalls, rawToolCalls, text, reasoningContent,
+    usage: { input: usageIn, output: usageOut },
+    nextBlockIndex: blockIndex,
+    maxCompletionTokens: body.max_completion_tokens,
+  };
+}
+
+// ──────────────────────────────────────────────
+// 🌙 Kimi エージェント: $web_search を使った複数ターンの調査ループ
+//
+// Anthropic の web_search は「サーバー側ツール」で1リクエストの中で検索まで完結するが、
+// Kimi の $web_search は**クライアントが往復させる**必要がある:
+//   1. モデルが $web_search の tool_call を返す
+//   2. こちらは検索を実行せず、返ってきた arguments を**そのまま** role:"tool" の content に入れて返す
+//   3. Moonshot 側で検索が走り、次のターンでモデルが結果を読んで続きを書く
+// これを tool_call が出なくなるまで繰り返す。
+//
+// ★ 積み直しの注意: K3 / K2.7 Code は assistant ターンの reasoning_content を
+//    次のターンに送り返さないと筋を見失う。API が返したものを丸ごと積み直す。
+// ──────────────────────────────────────────────
+async function streamFetchKimiAgent({
+  apiKey, model, prompt, system, onEvent, onNotice, signal,
+  maxTokens = 12000, maxSearchUses = 8, reasoningEffort,
+}) {
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: prompt });
+
+  let searchUses = 0, totalIn = 0, totalOut = 0, blockIndex = 0;
+  let stopReason = 'end_turn', producedText = '';
+  // 検索 maxSearchUses 回 + 最終回答 + 余裕。無限ループの保険。
+  const maxRounds = Math.min(maxSearchUses + 3, 24);
+
+  await onEvent({ type: 'message_start', message: {} });
+
+  for (let round = 0; round < maxRounds; round++) {
+    const allowSearch = searchUses < maxSearchUses;
+    const turn = await streamFetchKimi({
+      apiKey, model, messages, onEvent, onNotice, signal,
+      maxTokens, reasoningEffort,
+      tools: allowSearch ? [KIMI_WEB_SEARCH_TOOL] : undefined,
+      emitUsage: false,          // usage はラウンドごとではなく最後に合算して出す
+      blockIndexStart: blockIndex,
+    });
+    blockIndex = turn.nextBlockIndex;
+    totalIn += turn.usage.input;
+    totalOut += turn.usage.output;
+    producedText += turn.text;
+
+    const searchCalls = turn.toolCalls.filter(t => t.name === '$web_search');
+    const otherCalls  = turn.toolCalls.filter(t => t.name !== '$web_search');
+    if (otherCalls.length) console.warn('[kimi-agent] 未知の道具呼び出しを無視:', otherCalls.map(t => t.name));
+
+    if (!searchCalls.length) {
+      stopReason = turn.truncated ? 'max_tokens' : 'end_turn';
+      break;
+    }
+    if (!allowSearch) {
+      // 道具を渡していないのに検索を要求してきた場合。ここで往復を続けると
+      // ユーザーが設定した「検索の深さ」を超えて課金され続けるので打ち切る。
+      console.warn('[kimi-agent] 検索上限に達しているため tool_call を無視して打ち切り');
+      stopReason = 'pause_turn';
+      break;
+    }
+
+    // API が返した assistant メッセージを丸ごと積み直す (reasoning_content を落とさない)
+    const assistantMsg = { role: 'assistant', content: turn.text || '', tool_calls: turn.rawToolCalls };
+    if (turn.reasoningContent) assistantMsg.reasoning_content = turn.reasoningContent;
+    messages.push(assistantMsg);
+
+    for (const call of searchCalls) {
+      searchUses++;
+      // ★ 検索はこちらで実行しない。arguments をそのまま返すだけ。
+      messages.push({ role: 'tool', tool_call_id: call.id, name: call.name, content: call.rawArguments });
+      await onEvent({
+        type: 'content_block_start', index: blockIndex++,
+        content_block: { type: 'web_search_tool_result' }
+      });
+      await onEvent({ type: 'content_block_stop', index: blockIndex - 1 });
+    }
+    if (round === maxRounds - 1) stopReason = 'pause_turn';
+  }
+
+  await onEvent({
+    type: 'message_delta',
+    delta: { stop_reason: stopReason },
+    usage: { input_tokens: totalIn, output_tokens: totalOut },
+  });
+  await onEvent({ type: 'message_stop' });
+
+  return { searchUses, inputTokens: totalIn, outputTokens: totalOut, stopReason, text: producedText };
 }
 
 // ──────────────────────────────────────────────
@@ -6310,7 +6534,8 @@ ${questions}
 // web 検索なし・Phase 1 なし・Haiku 単体呼び出しのみ(低コスト)。
 async function analyzeSimplify() {
   const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  // このモードは Haiku 4.5 固定なので、Kimi を選んでいても Anthropic のキーが要る
+  if (!apiKey) { showStatus('⚠️ 🧒 超かんたん要約は Claude (Haiku 4.5) 専用です。Anthropic の APIキーを設定してください', 'error'); return; }
   if (selectedHistoryIds.size === 0) {
     showStatus('⚠️ 要約する保存済み分析を選択してください', 'error');
     return;
@@ -6533,7 +6758,8 @@ ${items.length === 1
 // ハイブリッドの research モデル(eco→Sonnet, premium→Opus)を単独で使用、Phase 2 なし。
 async function analyzeNewsDigest() {
   const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  // このモードは Haiku 4.5 固定なので、Kimi を選んでいても Anthropic のキーが要る
+  if (!apiKey) { showStatus('⚠️ 📰 ニュース収集は Claude (Haiku 4.5) 専用です。Anthropic の APIキーを設定してください', 'error'); return; }
 
   // 📰 ニュース収集は常に Haiku 4.5 を使用(コスト最大圧縮)。
   // 検索 + 見出し列挙が主作業で深い推論は不要なため、ハイブリッド選択に関わらず Haiku 固定。
@@ -6839,8 +7065,18 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
 
 async function analyzeStocks(retryCount = 0) {
   const MAX_RETRIES = 3;
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  // 🌙 選択中のモデルによって必要なキーが違う (Kimi モデルなら Moonshot のキー)
+  const selectedModel = modelSelect.value;
+  const analysisProvider = analysisProviderOf(selectedModel);
+  const apiKey = analysisProvider === 'kimi'
+    ? (localStorage.getItem(KIMI_KEY_LS) || '').trim()
+    : apiKeyInput.value.trim();
+  if (!apiKey) {
+    showStatus(analysisProvider === 'kimi'
+      ? '⚠️ Moonshot API キーを「🔑 API 設定」→「🌙 Moonshot Kimi」タブで設定してください'
+      : '⚠️ APIキーを入力してください', 'error');
+    return;
+  }
 
   // Review / Self-audit mode validation
   let reviewItems = [];
@@ -8152,200 +8388,229 @@ ${stylePeriodsListItems}
     currentAbortController = new AbortController();
     analysisStartTime = Date.now();
     showRunningInfo();
-    // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
-    //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
-    //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
-    //     claudeMaxTokens() で上限に余裕を持たせる
-    //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
-    const analyzeBody = {
-      model: model,
-      max_tokens: claudeMaxTokens(model, 12000), // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
-      stream: true,
-      tools: [claudeWebSearchTool(model, getSearchDepth())],
-      messages: [{ role: 'user', content: prompt }]
-    };
-    applyClaudeReasoning(analyzeBody, model);
-
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      signal: currentAbortController.signal,
-      body: JSON.stringify(analyzeBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `APIエラー (${response.status})`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
-        else errorMessage += ': ' + errorText;
-      } catch { errorMessage += ': ' + errorText; }
-      throw new Error(errorMessage);
-    }
-
-    setStep('connect', 'done'); setProgressPercent(10);
-    addActivity('✅ API接続成功');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop();
-
-      for (const event of events) {
-        if (!event.trim()) continue;
-        const lines = event.split(/\r?\n/);
-        let data = null;
-        for (const line of lines) {
-          if (line.startsWith('data: ')) data = line.slice(6).trim();
+    // Web 検索の単価はプロバイダーで違う (Anthropic $0.01 / Moonshot $0.005 per search)
+    const searchUnitCost = analysisProvider === 'kimi' ? KIMI_WEB_SEARCH_COST_USD : WEB_SEARCH_COST_USD;
+    // ── イベント処理は Claude / Kimi 共通 ──
+    // Kimi 側のアダプタ (streamFetchKimiAgent) が Anthropic 互換のイベント形状に
+    // 変換して流してくるので、この関数をそのまま使い回せる。
+    const processEvent = (parsed) => {
+      eventCount++;
+      console.log('[SSE]', parsed.type, parsed);
+      if (parsed.type === 'error') {
+        streamError = (parsed.error && parsed.error.message) ? parsed.error.message : JSON.stringify(parsed.error);
+        addActivity(`❌ エラー: ${streamError}`);
+        return;
+      }
+      if (parsed.type === 'message_start' && parsed.message) {
+        if (parsed.message.usage) inputTokens = parsed.message.usage.input_tokens || 0;
+        // Kimi は usage が最終チャンクでしか来ないので、開始時点では入力トークン数が分からない
+        addActivity(inputTokens ? `📨 応答開始 (入力 ${inputTokens.toLocaleString()} tokens)` : '📨 応答開始');
+        setPhase('📨', 'AIが応答を開始しました', 'まもなく Web 検索と分析が始まります');
+      }
+      else if (parsed.type === 'content_block_start') {
+        const block = parsed.content_block;
+        if (block) receivedBlockTypes.push(block.type);
+        if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
+          stopHeartbeat();
+          searchCount++;
+          pendingToolInput = ''; pendingToolIndex = parsed.index;
+          setStep('connect', 'done'); setStep('search', 'active');
+          setProgressPercent(10 + Math.min(20, searchCount * 4));
+          stepSearchCount.textContent = `${searchCount}回`;
+          setPhase('🔍', `Web検索中 (${searchCount}回目)`, '最新の市場情報を取得しています...');
+          addActivity(`🔍 Web検索 #${searchCount} を実行中`);
+          updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリを生成中…');
+        } else if (block && block.type === 'web_search_tool_result') {
+          stopHeartbeat();
+          setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
+          addActivity(`📥 検索結果 #${searchCount} を取得`);
+          updateLiveTicker('📥', `検索結果 #${searchCount}`, '受信完了、解析開始…');
+        } else if (block && block.type === 'text') {
+          stopHeartbeat();
+          setStep('search', 'done'); setStep('generate', 'active');
+          setProgressPercent(30);
+          setPhase('✍️', '分析テキストを生成中', 'AIが結果を文書化しています');
+          addActivity('✍️ 分析の本文生成を開始');
+          if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
+          updateLiveTicker('✍️', '本文生成中', '出力を開始…');
+        } else if (block && block.type === 'thinking') {
+          stopHeartbeat();
+          setPhase('🧠', 'AI が思考中', '入力情報を整理し、分析方針を組み立てています');
+          addActivity('🧠 思考ブロック開始');
+          updateLiveTicker('🧠', '思考中', '分析方針を組み立て中…');
         }
-        if (!data) continue;
-        eventCount++;
+      }
+      else if (parsed.type === 'content_block_delta') {
+        const delta = parsed.delta;
+        if (delta && delta.type === 'text_delta') {
+          stopHeartbeat();
+          accumulatedText += delta.text;
+          renderMarkdown(accumulatedText);
+          stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
+          const sec = detectCurrentSection(accumulatedText);
+          if (sec && sec.name !== currentSectionName) {
+            currentSectionName = sec.name;
+            setPhase(sec.icon, sec.name, `${accumulatedText.length.toLocaleString()}文字生成済み`);
+            setProgressPercent(sec.pct);
+            addActivity(`📝 ${sec.name}`);
+          } else if (currentSectionName) {
+            phaseDetailEl.textContent = `${accumulatedText.length.toLocaleString()}文字生成済み`;
+          }
+          // ★ Live ticker + cost estimate (tokens + search)
+          const sectionLabel = currentSectionName || '本文生成中';
+          updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
+          const _rLive = MODELS[model] || { inputCost: 5, outputCost: 25 };
+          const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
+          const tokenCost = (inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000;
+          const searchCost = searchCount * searchUnitCost;
+          updateRunningCost(tokenCost + searchCost);
+          updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
+          const stockCount = countStocks(accumulatedText);
+          if (stockCount !== lastStockCount && currentSectionName === '推奨銘柄を分析中') {
+            lastStockCount = stockCount;
+            addActivity(`💡 推奨銘柄 ${stockCount} 件目の分析を生成`);
+            phaseDetailEl.textContent = `${stockCount}件目を分析中 / ${accumulatedText.length.toLocaleString()}文字`;
+          }
+        } else if (delta && delta.type === 'thinking_delta') {
+          // 🔧 v3.1.0: 適応的思考 (Opus 5 / Sonnet 5 / Fable 5) の要約をライブ表示。
+          //            thinking:{display:'summarized'} を指定しているので中身が届く。
+          stopHeartbeat();
+          thinkingText += delta.thinking || '';
+          updateLiveTicker('🧠', `思考中 (${thinkingText.length.toLocaleString()}字)`, tickerTail(thinkingText, 90));
+        } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
+          stopHeartbeat();
+          pendingToolInput += delta.partial_json || '';
+          const partialQuery = extractPartialQuery(pendingToolInput);
+          if (partialQuery) {
+            updateLiveTicker('🔎', `検索 #${searchCount} クエリ生成中`, `"${partialQuery}"`);
+          }
+        }
+      }
+      else if (parsed.type === 'content_block_stop') {
+        if (parsed.index === pendingToolIndex && pendingToolInput) {
+          try {
+            const inp = JSON.parse(pendingToolInput);
+            if (inp.query) {
+              phaseDetailEl.textContent = `クエリ: "${inp.query}"`;
+              addActivity(`🔎 クエリ: "${inp.query}"`);
+              updateLiveTicker('🔍', `検索中 #${searchCount}`, `"${inp.query}"`);
+            }
+          } catch {}
+          pendingToolIndex = null; pendingToolInput = '';
+        } else {
+          // ★ 非 tool ブロックの停止 = モデルが結果を読み込んで考え始める瞬間。
+          // テキスト生成や次の検索が来るまでハートビートで生存を示す。
+          if (searchCount > 0 && accumulatedText.length === 0) {
+            startHeartbeat('🧠', '結果を整理中', `AI が ${searchCount} 件の検索結果を読み込み、出力を準備中`);
+          } else if (accumulatedText.length > 0) {
+            // 本文生成中の沈黙(モデルが次のセクションを考え中など)
+            startHeartbeat('💭', '次の文章を考え中', `本文 ${accumulatedText.length.toLocaleString()}字まで生成済み`);
+          }
+        }
+      }
+      else if (parsed.type === 'message_delta') {
+        stopHeartbeat();
+        if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
+        // 🔧 v3.1.0: stop_reason==='refusal' のときだけ stop_details が入る (カテゴリと理由)
+        if (parsed.delta && parsed.delta.stop_details) stopDetails = parsed.delta.stop_details;
+        if (parsed.usage) {
+          // 🔧 v1.16.0: 単調増加保証(過小計上防止)。web_search 結果込みの最終値を取り込む。
+          if (parsed.usage.output_tokens !== undefined) outputTokens = Math.max(outputTokens, parsed.usage.output_tokens);
+          if (parsed.usage.input_tokens !== undefined) inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
+        }
+        // ★ Real-time cost with actual tokens + search
+        const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
+        const tokenCost = (inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000;
+        const searchCost = searchCount * searchUnitCost;
+        updateRunningCost(tokenCost + searchCost);
+        updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
+      }
+      else if (parsed.type === 'message_stop') {
+        addActivity('🏁 ストリーム完了');
+      }
+    };
 
+    if (analysisProvider === 'kimi') {
+      // 🌙 Kimi は $web_search をクライアントで往復させる必要があるため、
+      //    エージェント的な複数ターンのループで回す (詳細は streamFetchKimiAgent)。
+      setStep('connect', 'done'); setProgressPercent(10);
+      addActivity(`✅ Moonshot API 接続 (${getKimiBaseUrl()})`);
+      await streamFetchKimiAgent({
+        apiKey, model, prompt,
+        maxTokens: 12000,
+        maxSearchUses: getSearchDepth(),
+        reasoningEffort: getKimiEffort(),
+        signal: currentAbortController.signal,
+        onEvent: processEvent,
+        onNotice: (n) => {
+          // Tier0 ($1 入金) は毎分3リクエスト。往復するぶん必ず引っかかるので、
+          // 沈黙の理由が分かるように待機中であることを出す。
+          const label = n.kind === 'overloaded' ? 'サーバー混雑' : 'レート制限';
+          addActivity(`⏳ ${label}のため ${n.waitSec}秒待機して再試行 (${n.attempt}/${n.maxAttempts})`);
+          setPhase('⏳', `${label}で待機中`, `${n.waitSec}秒後に再試行します (Tier0 は毎分3リクエスト)`);
+        },
+      });
+    } else {
+      // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
+      //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
+      //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
+      //     claudeMaxTokens() で上限に余裕を持たせる
+      //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
+      const analyzeBody = {
+        model: model,
+        max_tokens: claudeMaxTokens(model, 12000), // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
+        stream: true,
+        tools: [claudeWebSearchTool(model, getSearchDepth())],
+        messages: [{ role: 'user', content: prompt }]
+      };
+      applyClaudeReasoning(analyzeBody, model);
+
+      const response = await fetch(CLAUDE_API_URL, {
+        method: 'POST',
+        headers: claudeHeaders(apiKey),
+        signal: currentAbortController.signal,
+        body: JSON.stringify(analyzeBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `APIエラー (${response.status})`;
         try {
-          const parsed = JSON.parse(data);
-          console.log('[SSE]', parsed.type, parsed);
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
+          else errorMessage += ': ' + errorText;
+        } catch { errorMessage += ': ' + errorText; }
+        throw new Error(errorMessage);
+      }
 
-          if (parsed.type === 'error') {
-            streamError = (parsed.error && parsed.error.message) ? parsed.error.message : JSON.stringify(parsed.error);
-            addActivity(`❌ エラー: ${streamError}`);
-            continue;
+      setStep('connect', 'done'); setProgressPercent(10);
+      addActivity('✅ API接続成功');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop();
+
+        for (const event of events) {
+          if (!event.trim()) continue;
+          const lines = event.split(/\r?\n/);
+          let data = null;
+          for (const line of lines) {
+            if (line.startsWith('data: ')) data = line.slice(6).trim();
           }
-          if (parsed.type === 'message_start' && parsed.message) {
-            if (parsed.message.usage) inputTokens = parsed.message.usage.input_tokens || 0;
-            addActivity(`📨 応答開始 (入力 ${inputTokens.toLocaleString()} tokens)`);
-            setPhase('📨', 'AIが応答を開始しました', 'まもなく Web 検索と分析が始まります');
+          if (!data) continue;
+          try {
+            processEvent(JSON.parse(data));
+          } catch (e) {
+            console.warn('SSE parse error:', data, e);
           }
-          else if (parsed.type === 'content_block_start') {
-            const block = parsed.content_block;
-            if (block) receivedBlockTypes.push(block.type);
-            if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
-              stopHeartbeat();
-              searchCount++;
-              pendingToolInput = ''; pendingToolIndex = parsed.index;
-              setStep('connect', 'done'); setStep('search', 'active');
-              setProgressPercent(10 + Math.min(20, searchCount * 4));
-              stepSearchCount.textContent = `${searchCount}回`;
-              setPhase('🔍', `Web検索中 (${searchCount}回目)`, '最新の市場情報を取得しています...');
-              addActivity(`🔍 Web検索 #${searchCount} を実行中`);
-              updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリを生成中…');
-            } else if (block && block.type === 'web_search_tool_result') {
-              stopHeartbeat();
-              setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
-              addActivity(`📥 検索結果 #${searchCount} を取得`);
-              updateLiveTicker('📥', `検索結果 #${searchCount}`, '受信完了、解析開始…');
-            } else if (block && block.type === 'text') {
-              stopHeartbeat();
-              setStep('search', 'done'); setStep('generate', 'active');
-              setProgressPercent(30);
-              setPhase('✍️', '分析テキストを生成中', 'AIが結果を文書化しています');
-              addActivity('✍️ 分析の本文生成を開始');
-              if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
-              updateLiveTicker('✍️', '本文生成中', '出力を開始…');
-            } else if (block && block.type === 'thinking') {
-              stopHeartbeat();
-              setPhase('🧠', 'AI が思考中', '入力情報を整理し、分析方針を組み立てています');
-              addActivity('🧠 思考ブロック開始');
-              updateLiveTicker('🧠', '思考中', '分析方針を組み立て中…');
-            }
-          }
-          else if (parsed.type === 'content_block_delta') {
-            const delta = parsed.delta;
-            if (delta && delta.type === 'text_delta') {
-              stopHeartbeat();
-              accumulatedText += delta.text;
-              renderMarkdown(accumulatedText);
-              stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
-              const sec = detectCurrentSection(accumulatedText);
-              if (sec && sec.name !== currentSectionName) {
-                currentSectionName = sec.name;
-                setPhase(sec.icon, sec.name, `${accumulatedText.length.toLocaleString()}文字生成済み`);
-                setProgressPercent(sec.pct);
-                addActivity(`📝 ${sec.name}`);
-              } else if (currentSectionName) {
-                phaseDetailEl.textContent = `${accumulatedText.length.toLocaleString()}文字生成済み`;
-              }
-              // ★ Live ticker + cost estimate (tokens + search)
-              const sectionLabel = currentSectionName || '本文生成中';
-              updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
-              const _rLive = MODELS[model] || { inputCost: 5, outputCost: 25 };
-              const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
-              const tokenCost = (inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000;
-              const searchCost = searchCount * WEB_SEARCH_COST_USD;
-              updateRunningCost(tokenCost + searchCost);
-              updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
-              const stockCount = countStocks(accumulatedText);
-              if (stockCount !== lastStockCount && currentSectionName === '推奨銘柄を分析中') {
-                lastStockCount = stockCount;
-                addActivity(`💡 推奨銘柄 ${stockCount} 件目の分析を生成`);
-                phaseDetailEl.textContent = `${stockCount}件目を分析中 / ${accumulatedText.length.toLocaleString()}文字`;
-              }
-            } else if (delta && delta.type === 'thinking_delta') {
-              // 🔧 v3.1.0: 適応的思考 (Opus 5 / Sonnet 5 / Fable 5) の要約をライブ表示。
-              //            thinking:{display:'summarized'} を指定しているので中身が届く。
-              stopHeartbeat();
-              thinkingText += delta.thinking || '';
-              updateLiveTicker('🧠', `思考中 (${thinkingText.length.toLocaleString()}字)`, tickerTail(thinkingText, 90));
-            } else if (delta && delta.type === 'input_json_delta' && parsed.index === pendingToolIndex) {
-              stopHeartbeat();
-              pendingToolInput += delta.partial_json || '';
-              const partialQuery = extractPartialQuery(pendingToolInput);
-              if (partialQuery) {
-                updateLiveTicker('🔎', `検索 #${searchCount} クエリ生成中`, `"${partialQuery}"`);
-              }
-            }
-          }
-          else if (parsed.type === 'content_block_stop') {
-            if (parsed.index === pendingToolIndex && pendingToolInput) {
-              try {
-                const inp = JSON.parse(pendingToolInput);
-                if (inp.query) {
-                  phaseDetailEl.textContent = `クエリ: "${inp.query}"`;
-                  addActivity(`🔎 クエリ: "${inp.query}"`);
-                  updateLiveTicker('🔍', `検索中 #${searchCount}`, `"${inp.query}"`);
-                }
-              } catch {}
-              pendingToolIndex = null; pendingToolInput = '';
-            } else {
-              // ★ 非 tool ブロックの停止 = モデルが結果を読み込んで考え始める瞬間。
-              // テキスト生成や次の検索が来るまでハートビートで生存を示す。
-              if (searchCount > 0 && accumulatedText.length === 0) {
-                startHeartbeat('🧠', '結果を整理中', `AI が ${searchCount} 件の検索結果を読み込み、出力を準備中`);
-              } else if (accumulatedText.length > 0) {
-                // 本文生成中の沈黙(モデルが次のセクションを考え中など)
-                startHeartbeat('💭', '次の文章を考え中', `本文 ${accumulatedText.length.toLocaleString()}字まで生成済み`);
-              }
-            }
-          }
-          else if (parsed.type === 'message_delta') {
-            stopHeartbeat();
-            if (parsed.delta && parsed.delta.stop_reason) stopReason = parsed.delta.stop_reason;
-            // 🔧 v3.1.0: stop_reason==='refusal' のときだけ stop_details が入る (カテゴリと理由)
-            if (parsed.delta && parsed.delta.stop_details) stopDetails = parsed.delta.stop_details;
-            if (parsed.usage) {
-              // 🔧 v1.16.0: 単調増加保証(過小計上防止)。web_search 結果込みの最終値を取り込む。
-              if (parsed.usage.output_tokens !== undefined) outputTokens = Math.max(outputTokens, parsed.usage.output_tokens);
-              if (parsed.usage.input_tokens !== undefined) inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
-            }
-            // ★ Real-time cost with actual tokens + search
-            const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
-            const tokenCost = (inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000;
-            const searchCost = searchCount * WEB_SEARCH_COST_USD;
-            updateRunningCost(tokenCost + searchCost);
-            updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
-          }
-          else if (parsed.type === 'message_stop') {
-            addActivity('🏁 ストリーム完了');
-          }
-        } catch (e) {
-          console.warn('SSE parse error:', data, e);
         }
       }
     }
@@ -8371,7 +8636,9 @@ ${stylePeriodsListItems}
           + (stopDetails && stopDetails.category ? ` カテゴリ: ${escapeHtml(String(stopDetails.category))}。` : '')
           + (stopDetails && stopDetails.explanation ? ` 理由: ${escapeHtml(String(stopDetails.explanation))}。` : '')
           + ' 💡 使用モデルを Sonnet 5 / Opus 4.8 など別モデルに切り替えるか、質問文を言い換えると通る場合があります。',
-        max_tokens: '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
+        max_tokens: analysisProvider === 'kimi'
+          ? '出力上限に達しました。Kimi は思考トークンも出力上限を消費します。API 設定の「🧠 思考の深さ」を low にするか、検索深さを下げて再実行してください。'
+          : '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
         model_context_window_exceeded: 'コンテキストウィンドウの上限に達しました。選択する過去分析の件数を減らしてください。',
         end_turn: 'AIが本文を生成せずに終了しました。'
       };
@@ -8457,7 +8724,9 @@ ${stylePeriodsListItems}
         showCostSummary({
           phases: [{ label: mInfo.name || model, inputCost: mInfo.inputCost || 0, outputCost: mInfo.outputCost || 0, inputTokens, outputTokens }],
           totalIn: inputTokens, totalOut: outputTokens,
-          modelLabel: mInfo.name || model, searchCount, learningsCount: 0
+          modelLabel: mInfo.name || model, searchCount, learningsCount: 0,
+          searchUnitCost,
+          usageUrl: analysisProvider === 'kimi' ? 'https://platform.kimi.ai/console/usage' : undefined,
         });
         setStatusHTML(`✅ <strong>評価レポートを元記事に統合しました</strong><div class="chips">${chips}</div>`, 'success');
         // 早期return: 通常の savedItem 保存はスキップ
@@ -8523,7 +8792,9 @@ ${stylePeriodsListItems}
         }],
         totalIn: inputTokens, totalOut: outputTokens,
         modelLabel: mInfo.name || model,
-        searchCount, learningsCount: pastLearnings.length
+        searchCount, learningsCount: pastLearnings.length,
+        searchUnitCost,
+        usageUrl: analysisProvider === 'kimi' ? 'https://platform.kimi.ai/console/usage' : undefined,
       });
 
       setStatusHTML(`✅ <strong>分析が完了しました</strong><div class="chips">${chips}</div>`, 'success');
@@ -12244,6 +12515,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         if (v) localStorage.setItem(KIMI_KEY_LS, v);
         else localStorage.removeItem(KIMI_KEY_LS);
         updateApiKeyWarning();
+        updateModelInfo();   // 分析モデルに Kimi を選んでいる場合の「キー未設定」警告を更新
       };
       kimiKeyEl.addEventListener('change', save);
       kimiKeyEl.addEventListener('input', save);
@@ -12486,6 +12758,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         el.style.display = 'none';
       }
     });
+    syncApiCardOpenState();
   }
 
   function restoreMainUI() {
@@ -12493,6 +12766,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       el.style.display = prev || '';
     }
     hiddenElements.length = 0;
+    syncApiCardOpenState();
   }
 
   async function activate() {
