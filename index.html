@@ -2842,7 +2842,7 @@ body.api-card-open .analyze-wrap { position: static; }
           <div class="wl-row"><span class="wl-dot" style="background:#10b981"></span> 人道危機 (Reliefweb)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24"></span> 宇宙天気 (NOAA)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#22d3ee"></span> ✈️ 飛行中の航空機 (OpenSky)</div>
-          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.35),rgba(34,211,238,1));border-radius:2px;width:18px;height:3px"></span> 🛤 航空機の短期軌跡 (過去12分)</div>
+          <div class="wl-row"><span class="wl-dot" style="background:linear-gradient(90deg,rgba(34,211,238,0.35),rgba(34,211,238,1));border-radius:2px;width:18px;height:3px"></span> 🛤 航空機の短期軌跡 (直近10分)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#fbbf24;border-radius:2px;width:18px;height:3px"></span> 🛩 選択中機体の完全航路 (クリック)</div>
           <div class="wl-row"><span class="wl-dot" style="background:#94a3b8"></span> ニュース (GDELT)</div>
           <button type="button" class="wl-toggle" id="worldLegendToggle" title="判例を折りたたむ">▾</button>
@@ -2854,7 +2854,7 @@ body.api-card-open .analyze-wrap { position: static; }
       <div class="card-title">
         <span class="card-icon warm">💹</span>
         <span>5銘柄 リアルタイム + 10分後予測</span>
-        <button type="button" id="worldRefreshBtn" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px" title="即座に更新">🔄 更新</button>
+        <button type="button" id="worldRefreshBtn" class="api-indicator active" style="margin-left:auto;margin-bottom:0;padding:6px 12px;font-size:12px" title="即座に更新">🔄 更新</button>
       </div>
       <div id="worldPricesGrid" class="world-prices-grid"></div>
     </div>
@@ -2980,7 +2980,7 @@ body.api-card-open .analyze-wrap { position: static; }
           <p class="ws-desc">
             ← 左の <b>青いトグル</b> で ON/OFF。<br/>
             ON にすると、世界中を <b>飛行中の航空機</b> (最大600機) の現在位置を OpenSky Network から
-            1分ごとに取得して地球儀/地図上に小さな ✈ マーカーで表示します。マーカーは進行方向を向き、
+            10分ごとに取得 (OpenSky の無料枠は 1日 約100回のため) して地球儀/地図上に小さな ✈ マーカーで表示します。マーカーは進行方向を向き、
             高度に応じて色が変化 (低=濃い水色、高=明るい水色)。クリックでコールサイン・国・高度・速度を表示。
             <b>※ API キー不要</b>。タイムラインには出ません (常時動いているため)。OFF にすると全マーカー消去。
           </p>
@@ -2994,7 +2994,7 @@ body.api-card-open .analyze-wrap { position: static; }
           </label>
           <p class="ws-desc">
             ← 左の <b>青いトグル</b> で ON/OFF。<br/>
-            <b>(A) 短期軌跡 (全機)</b>: 過去最大12点 (約12分) を水色の点線で表示。<br/>
+            <b>(A) 短期軌跡 (全機)</b>: 前回取得からの移動 (約10分) を水色の点線で表示。<br/>
             <b>(B) 完全航路 (クリック時)</b>: 地球儀/地図上の ✈ をクリックすると、
             OpenSky から <b>離陸から現在までの完全な航路</b> を取得し、<b>金色の太線</b>で描画。
             出発空港 (ICAO コード) も「選択中の機体」カードに表示されます。
@@ -3012,8 +3012,8 @@ body.api-card-open .analyze-wrap { position: static; }
             ← 左の <b>青いトグル</b> で ON/OFF。<br/>
             通常は予測してから <b>10分後</b> に実値と照合して精度を測ります。
             このモードを ON にすると、新しい予測は <b>10秒後</b> に検証されます。
-            「サンプル予測+即検証」を押すと、その場で 5銘柄取得→予測→10秒後検証→精度ダッシュボード更新まで一気に走ります (高速検証モードは自動 ON)。<br/>
-            <b>※ 本番運用では OFF</b> (バイアス補正が短期ノイズに引きずられるため)。動作確認用。
+            「サンプル予測+即検証」を押すと、その場で 5銘柄取得→予測→10秒後検証→精度ダッシュボード更新まで一気に走ります (その回だけ。モードの設定は変えません)。<br/>
+            <b>※ 本番運用では OFF</b> (10秒後検証の結果はバイアス補正の学習に使わないため)。動作確認用。
           </p>
           <button type="button" id="worldFastVerifyTest" class="ws-action-btn">🧪 サンプル予測 + 即検証</button>
         </div>
@@ -3032,7 +3032,7 @@ body.api-card-open .analyze-wrap { position: static; }
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v4.0.0';
+const APP_VERSION = 'v4.1.0';
 const APP_VERSION_DATE = '2026-10-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
@@ -3253,7 +3253,7 @@ function analysisProviderOf(model) {
 //      (Haiku 4.5 は非対応 / Opus 5・Sonnet 5 は既定でON / Fable 5 は常時ON)
 //  - effort: output_config.effort に対応するか (low|medium|high|xhigh|max)
 //  - webSearch: 使用する web_search ツールのバージョン
-//      20260209 = 動的フィルタリング版 (Opus/Sonnet 4.6 以降)。Haiku 4.5 は基本版のみ
+//      20260209 = 動的フィルタリング版 (Opus/Sonnet 4.6 以降・Fable)。Haiku は 4.5 / 5.5 とも基本版 (20250305)
 //  - maxOutput: 1リクエストの出力上限 (thinking + 本文の合計)
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_API_VERSION = '2023-06-01';
@@ -3263,7 +3263,7 @@ const CLAUDE_MODEL_CAPS = {
   'claude-fable-5-1':  { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-opus-5-5':   { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-sonnet-5-5': { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
-  'claude-haiku-5-5':  { adaptiveThinking: true,  effort: true,  canDisableThinking: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-haiku-5-5':  { adaptiveThinking: true,  effort: true,  canDisableThinking: true,  webSearch: 'web_search_20250305', maxOutput: 128000, contextWindow: 1000000 },
   'claude-fable-5':    { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-opus-5':     { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-sonnet-5':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
@@ -3455,14 +3455,14 @@ let currentAbortController = null;
 let analysisStartTime = 0;
 
 function abortAnalysis() {
-  if (currentAbortController) {
+  if (currentAbortController && !currentAbortController.signal.aborted) {
     try { currentAbortController.abort(); } catch (e) { console.warn(e); }
-    currentAbortController = null;
+    // コントローラーとボタンの解放は実行側の finally に任せる。ここで先に戻すと後片付け前に次の分析が始まり、
+    // 古い実行の finally が新しい実行の状態 (停止ボタン・コントローラー) を消してしまう
     addActivity('🛑 ユーザーが停止ボタンを押しました');
     setPhase('🛑', '中止されました', 'ユーザーによって分析が中断されました');
     stopElapsedTimer();
     stopBtn.disabled = true;
-    analyzeBtn.disabled = false;
     setStatusHTML('🛑 <strong>分析を中止しました</strong>(これまでの結果はそのまま残ります)', 'error');
   }
 }
@@ -3473,6 +3473,10 @@ stopBtn.addEventListener('click', () => {
 });
 
 function showRunningInfo() {
+  // 前回の実行の金額・検索回数・統計を残さない (最初の更新は検索が終わってからのことが多い)
+  updateRunningCost(0);
+  updateSearchCounter(0, getSearchDepth());
+  updateStats({});
   runningCostDisplay.style.display = 'inline-flex';
   searchCounterDisplay.style.display = 'inline-flex';
   stopBtn.disabled = false;
@@ -3674,11 +3678,24 @@ clearBtn.addEventListener('click', () => {
 
 // Initial visibility check on page load
 updateApiVisibility();
-analyzeBtn.addEventListener('click', () => {
+// 分析は同時に1本だけ。ボタンは最初の await より前に止める (ダブルクリック・天気取得待ち中の再クリック対策)。
+// フラグはリトライを含めた実行全体が終わるまで下ろさない (停止後の後片付け中に次の分析を始めない)
+let analysisInFlight = false;
+async function runAnalysisExclusive(fn) {
+  if (analysisInFlight) return;
+  analysisInFlight = true;
+  analyzeBtn.disabled = true;
+  try { await fn(); }
+  finally {
+    analysisInFlight = false;
+    analyzeBtn.disabled = false;
+  }
+}
+analyzeBtn.addEventListener('click', () => runAnalysisExclusive(() => {
   if (currentMode === 'simplify' && !evaluatingItem) return analyzeSimplify();
   if (currentMode === 'news-digest' && !evaluatingItem) return analyzeNewsDigest();
   return analyzeStocks();
-});
+}));
 
 // ===== Chip Guide (Haiku-powered request builder) =====
 const additionalTextarea = document.getElementById('additional');
@@ -3693,6 +3710,16 @@ const chipBreadcrumb = document.getElementById('chipBreadcrumb');
 const chipClosePanelBtn = document.getElementById('chipClosePanelBtn');
 
 let chipState = { step: 0, history: [], totalCost: 0 };
+// 実行中のチップ生成・整形リクエスト。クリア・✕ で中断し、遅れて届いた応答は反映しない
+let chipAbort = null;
+function cancelChipRequest() {
+  if (chipAbort) chipAbort.abort();
+  chipAbort = null;
+}
+function startChipRequest() {
+  cancelChipRequest();
+  return (chipAbort = new AbortController());
+}
 
 async function loadChips() {
   const ai = getLightAI();
@@ -3797,8 +3824,10 @@ async function loadChips() {
 
 JSON のみを出力してください。`;
 
+  const ac = startChipRequest();
   try {
-    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000 });
+    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000, signal: ac.signal });
+    if (ac.signal.aborted) return;
     const text = res.text || '';
     const unit = modelCostFor(ai.model, res.inputTokens);
     chipState.totalCost += (res.inputTokens * unit.inputCost + res.outputTokens * unit.outputCost) / 1000000;
@@ -3822,6 +3851,7 @@ JSON のみを出力してください。`;
     renderChips(chips);
     chipStatus.innerHTML = `💡 一つ選ぶと、テキストに追加されて次のステップへ進みます。累計コスト: $${chipState.totalCost.toFixed(4)} (≒ ¥${Math.round(chipState.totalCost * USD_TO_JPY)})`;
   } catch (e) {
+    if (ac.signal.aborted) return;
     console.error('Chip guide error:', e);
     chipStatus.innerHTML = `❌ エラー: ${escapeHtml(e.message)}`;
   }
@@ -3930,8 +3960,10 @@ ${historyText}
 
 JSONや記号は不要。整形後の自然な日本語の依頼文のみを出力してください。`;
 
+  const ac = startChipRequest();
   try {
-    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000 });
+    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000, signal: ac.signal });
+    if (ac.signal.aborted) return;
     let polished = (res.text || '').trim();
     const unit = modelCostFor(ai.model, res.inputTokens);
     chipState.totalCost += (res.inputTokens * unit.inputCost + res.outputTokens * unit.outputCost) / 1000000;
@@ -3948,6 +3980,7 @@ JSONや記号は不要。整形後の自然な日本語の依頼文のみを出�
     additionalTextarea.focus();
     additionalTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (e) {
+    if (ac.signal.aborted) return;
     console.error('Finalize error:', e);
     chipList.querySelectorAll('.chip-button').forEach(b => b.disabled = false);
     chipStatus.innerHTML = `❌ 整形に失敗しました: ${escapeHtml(e.message)} (現在の文章はそのまま残っています)`;
@@ -3968,12 +4001,13 @@ chipGuideBtn.addEventListener('click', async () => {
 });
 
 chipResetTextBtn.addEventListener('click', () => {
+  cancelChipRequest();
   additionalTextarea.value = '';
   chipState = { step: 0, history: [], totalCost: 0 };
   closeChipPanel();
 });
 
-chipClosePanelBtn.addEventListener('click', () => closeChipPanel());
+chipClosePanelBtn.addEventListener('click', () => { cancelChipRequest(); closeChipPanel(); });
 
 function closeChipPanel() {
   chipPanel.classList.remove('active');
@@ -4043,6 +4077,10 @@ document.querySelectorAll('.mode-option').forEach(opt => {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '考察モード:';
       reviewNoticeText.textContent = '下の「📚 保存された分析」から1〜3件を選択して「考察開始」を押してください。AIが過去の推奨銘柄のその後の動向、世界情勢の変化、新しい推奨アクション(買い増し/利確/損切り等)を考察します。';
+    }
+    // 考察・自己採点は最大 3 件。要約モード (最大 20 件) の選択を持ち越すと上限を超えて送ってしまう
+    if ((currentMode === 'review' || currentMode === 'self-audit') && selectedHistoryIds.size > MAX_REVIEW_SELECTION) {
+      selectedHistoryIds.clear();
     }
     renderHistory();
     updateAnalyzeButtonLabel();
@@ -4169,11 +4207,14 @@ function openDB() {
 async function dbSave(analysis) {
   try {
     const db = await openDB();
-    return new Promise((resolve, reject) => {
+    // await しないと add/commit の失敗が下の catch を素通りして呼び出し元へ投げられる (null を返す約束が崩れる)
+    return await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       const req = store.add(analysis);
-      req.onsuccess = () => resolve(req.result);
+      // 成功は commit の完了で判定する (容量超過などは commit 時に abort になる)
+      tx.oncomplete = () => resolve(req.result);
+      tx.onabort = () => reject(tx.error || req.error || new Error('IndexedDB への保存が確定しませんでした'));
       req.onerror = () => reject(req.error);
     });
   } catch (e) { console.error('DB save failed', e); return null; }
@@ -4186,7 +4227,8 @@ async function dbPut(item) {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       const req = store.put(item);
-      req.onsuccess = () => resolve(req.result);
+      tx.oncomplete = () => resolve(req.result);
+      tx.onabort = () => reject(tx.error || req.error || new Error('IndexedDB への保存が確定しませんでした'));
       req.onerror = () => reject(req.error);
     });
   } catch (e) { console.error('DB put failed', e); return null; }
@@ -4245,14 +4287,23 @@ async function dbClear() {
 async function getEvaluationLearnings(maxItems = 5) {
   try {
     const all = await dbList();
+    // v1.16.3 以降の評価は元記事の末尾に「## 📊 評価レポート」として追記される。
+    // 旧形式 (mode==='evaluate') と合わせ、元記事は最新の評価部分だけから学びを取り出す
     const evaluations = all
-      .filter(item => item.mode === 'evaluate' && item.result)
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .map(item => {
+        if (!item.result) return null;
+        if (item.mode === 'evaluate') return { item, text: item.result, ts: item.timestamp };
+        if (!item.evaluationDate) return null;
+        const idx = item.result.lastIndexOf('## 📊 評価レポート');
+        return idx < 0 ? null : { item, text: item.result.slice(idx), ts: item.evaluationDate };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.ts - a.ts)
       .slice(0, maxItems);
-    return evaluations.map(item => {
-      const date = new Date(item.timestamp).toLocaleDateString('ja-JP');
-      const learnMatch = item.result.match(/##\s*💡\s*学び[\s\S]*?(?=\n##|$)/);
-      const soushouMatch = item.result.match(/##\s*📌\s*総合所感[\s\S]*?(?=\n##|$)/);
+    return evaluations.map(({ item, text, ts }) => {
+      const date = new Date(ts).toLocaleDateString('ja-JP');
+      const learnMatch = text.match(/##\s*💡\s*学び[\s\S]*?(?=\n##|$)/);
+      const soushouMatch = text.match(/##\s*📌\s*総合所感[\s\S]*?(?=\n##|$)/);
       const targetDate = item.evaluateTargetId ? '対象分析を評価' : '';
       return {
         date, targetDate,
@@ -4290,9 +4341,11 @@ ${l.soushou}`).join('\n\n')}
 function formatDate(ts) {
   const d = new Date(ts);
   const now = new Date();
-  const diffDay = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  // 24時間単位ではなくローカルの暦日で数える (前日 23:00 は「昨日」、少し未来の時刻は「今日」)
+  const startOfDay = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDay = Math.round((startOfDay(now) - startOfDay(d)) / (1000 * 60 * 60 * 24));
   const hm = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  if (diffDay === 0) return `今日 ${hm}`;
+  if (diffDay <= 0) return `今日 ${hm}`;
   if (diffDay === 1) return `昨日 ${hm}`;
   if (diffDay < 7) return `${diffDay}日前 ${hm}`;
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${hm}`;
@@ -4348,7 +4401,8 @@ async function fetchJapanWeather() {
     forecast_days: '3'
   });
   const url = `https://api.open-meteo.com/v1/forecast?${params}`;
-  const res = await fetch(url);
+  // 応答が返らないと分析が始まらないまま止まるので、Yahoo と同じく打ち切って web_search に回す
+  const res = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
   const data = await res.json();
   // 複数座標時は配列、単一時はオブジェクトで返る
@@ -4413,15 +4467,22 @@ function formatStooqTicker(ticker) {
 }
 // ===== 💰 株価検証 API: AI提示価格 vs 実際の市場価格の乖離チェック =====
 // 🔧 v1.16.4: Yahoo Finance v8 API (CORS-friendly な場合あり、ダメなら corsproxy.io 経由)
+// Yahoo Finance のシンボル形式に変換。BRK-B / BTC-USD のハイフンと ^N225 / JPY=X の記号は残す
+// (前後に残るハイフンは落とす: 「7203 - トヨタ」→ 7203)
+function yahooSymbolOf(rawTicker) {
+  const t = String(rawTicker || '').trim().toUpperCase().replace(/[^\w.\-^=]/g, '').replace(/^-+|-+$/g, '');
+  if (!t) return '';
+  if (/\.(JP|T)$/i.test(t)) return t.replace(/\.JP$/i, '.T');
+  if (/^\d[0-9A-Z]{3}$/.test(t)) return t + '.T';
+  const us = t.replace(/\.US$/i, '');
+  // 米国のクラス株は Yahoo ではハイフン区切り (BRK.B → BRK-B)
+  return /^[A-Z]{1,5}\.[AB]$/.test(us) ? us.replace('.', '-') : us;
+}
+// 裸の暗号資産シンボル。Yahoo では同名の米国株・ETF になる (暗号資産は BTC-USD 形式)
+const BARE_CRYPTO_SYMBOLS = /^(BTC|ETH|XRP|SOL|DOGE|ADA|BNB|AVAX|DOT|LTC|LINK|TRX|SHIB|XLM|BCH)$/;
 async function fetchVerificationPrice(rawTicker) {
-  const t = String(rawTicker || '').trim().toUpperCase().replace(/[^\w.]/g, '');
-  if (!t) return null;
-  // Yahoo Finance のシンボル形式に変換
-  let yahoo;
-  if (/\.(JP|T)$/i.test(t)) yahoo = t.replace(/\.JP$/i, '.T');
-  else if (/^\d[0-9A-Z]{3}$/.test(t)) yahoo = t + '.T';
-  else if (/\.US$/i.test(t)) yahoo = t.replace(/\.US$/i, '');
-  else yahoo = t;
+  const yahoo = yahooSymbolOf(rawTicker);
+  if (!yahoo) return null;
   const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=2d&interval=1d`;
   // 直接 → corsproxy.io → allorigins の順でフォールバック
   const urls = [
@@ -4450,13 +4511,8 @@ async function fetchVerificationPrice(rawTicker) {
 
 // ===== 📈 Yahoo Finance 過去6ヶ月チャート (Stooq 画像が失敗した銘柄用 SVG フォールバック) =====
 async function fetchYahooHistory(rawTicker) {
-  const t = String(rawTicker || '').trim().toUpperCase().replace(/[^\w.]/g, '');
-  if (!t) return null;
-  let yahoo;
-  if (/\.(JP|T)$/i.test(t)) yahoo = t.replace(/\.JP$/i, '.T');
-  else if (/^\d[0-9A-Z]{3}$/.test(t)) yahoo = t + '.T';
-  else if (/\.US$/i.test(t)) yahoo = t.replace(/\.US$/i, '');
-  else yahoo = t;
+  const yahoo = yahooSymbolOf(rawTicker);
+  if (!yahoo) return null;
   const baseUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?range=6mo&interval=1d`;
   const urls = [
     baseUrl,
@@ -4534,6 +4590,8 @@ function buildSparklineSVG(points, opts) {
   </svg>`;
 }
 
+// 再描画のたびに img が作り直され onerror も再発火するため、同じ銘柄の履歴取得は使い回す
+const _yahooHistCache = new Map();
 window.__handleStooqImageError = async function(imgEl) {
   if (!imgEl || imgEl.dataset.fallbackTriggered === '1') return;
   imgEl.dataset.fallbackTriggered = '1';
@@ -4549,7 +4607,13 @@ window.__handleStooqImageError = async function(imgEl) {
   fallback.innerHTML = '<div class="yahoo-spark-loading">📡 Stooq に画像なし。Yahoo Finance から過去6ヶ月データ取得中...</div>';
   fallback.style.display = 'block';
   try {
-    const data = await fetchYahooHistory(ticker);
+    let ent = _yahooHistCache.get(ticker);
+    if (!ent || Date.now() - ent.t > (ent.failed ? 60000 : 300000)) {
+      ent = { t: Date.now(), failed: false };
+      ent.p = fetchYahooHistory(ticker).then(d => { if (!d) ent.failed = true; return d; });
+      _yahooHistCache.set(ticker, ent);
+    }
+    const data = await ent.p;
     if (!data || !data.points || data.points.length < 2) throw new Error('no data');
     const svg = buildSparklineSVG(data.points, { currency: data.currency, alt: `${ticker} 6ヶ月チャート (Yahoo Finance)` });
     fallback.innerHTML = `<div class="yahoo-spark-wrap">${svg}<div class="yahoo-spark-attr">📊 Yahoo Finance データで描画 (${escapeHtml(data.symbol)}) — <a href="${escapeHtml(data.yahooUrl)}" target="_blank" rel="noopener">Yahoo</a> / <a href="${escapeHtml(tv)}" target="_blank" rel="noopener">TradingView</a></div></div>`;
@@ -4564,7 +4628,13 @@ async function verifyChartDataPrices(chartData) {
   const promises = chartData.stocks.slice(0, 8).map(async s => {
     const aiPrice = Number(s.current_price);
     if (!isFinite(aiPrice) || aiPrice <= 0) return null;
-    const v = await fetchVerificationPrice(s.ticker);
+    // BTC などの裸のシンボルは暗号資産ペア (BTC-USD / BTC-JPY) も取り、AI 提示価格に近い方で比べる
+    // (暗号資産モードの BTC と ETF モードの同名 ETF の両方を正しく検証するため)
+    const sym = yahooSymbolOf(s.ticker);
+    const cryptoPair = BARE_CRYPTO_SYMBOLS.test(sym) ? `${sym}-${/¥|円|JPY/i.test(String(s.currency || '')) ? 'JPY' : 'USD'}` : null;
+    let [v, pair] = await Promise.all([fetchVerificationPrice(s.ticker), cryptoPair ? fetchVerificationPrice(cryptoPair) : null]);
+    const gap = x => Math.abs(Math.log(x.price / aiPrice));
+    if (pair && pair.price > 0 && (!v || !(v.price > 0) || gap(pair) < gap(v))) v = pair;
     if (!v || !isFinite(v.price)) return { name: s.name || s.ticker, ticker: s.ticker, aiPrice, actualPrice: null, diffPct: null, currency: s.currency || '', error: '取得失敗' };
     const diffPct = ((v.price - aiPrice) / aiPrice) * 100;
     return {
@@ -4608,13 +4678,45 @@ function renderPriceVerification(results) {
   </div>`;
 }
 
+// 株価検証は CHART_DATA の JSON 単位でキャッシュ。ストリーミング中は差分ごとに renderMarkdown が走るため、
+// 毎回検証すると Yahoo / 無料プロキシへ大量に投げてしまう。html は完了後に入る (失敗時も placeholder を置き換える)
+const _priceVerifyCache = new Map();
+function getPriceVerification(key, chartData) {
+  const hit = _priceVerifyCache.get(key);
+  if (hit && Date.now() - hit.t < (hit.failed ? 60000 : 300000)) return hit;
+  const ent = { t: Date.now(), html: null, failed: false };
+  ent.p = verifyChartDataPrices(chartData).then(results => {
+    if (!results || results.length === 0) return '';
+    if (results.some(r => r.actualPrice !== null)) return renderPriceVerification(results);
+    ent.failed = true;
+    return `<div class="price-verification-loading">⚠️ 株価検証API取得失敗(無料プロキシ経由のため不安定)。Stooq のチャート画像は上に表示済み</div>`;
+  }).catch(e => {
+    console.warn('Price verification error:', e);
+    ent.failed = true;
+    return '<div class="price-verification-loading">⚠️ 株価検証に失敗しました</div>';
+  }).then(h => (ent.html = h));
+  _priceVerifyCache.delete(key);
+  _priceVerifyCache.set(key, ent);
+  if (_priceVerifyCache.size > 20) _priceVerifyCache.delete(_priceVerifyCache.keys().next().value);
+  return ent;
+}
+
+// JSON 内のコメントを除去 (文字列中の // は URL などなので残す)。末尾カンマ除去より先に行うこと
+function stripJsonComments(s) {
+  return s.replace(/("(?:[^"\\]|\\.)*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g, (m, str) => str || '');
+}
+
 // 🔧 v1.16.2: CHART_DATA から Stooq チャートを描画した銘柄数をカウント
 function countStooqStocksInResult(text) {
   if (!text) return 0;
-  const m = text.match(/\[CHART_DATA\]([\s\S]*?)\[\/CHART_DATA\]/);
+  // renderMarkdown が受け付ける4形式と同じ順で探す
+  const m = text.match(/\[CHART_DATA\]([\s\S]*?)\[\/CHART_DATA\]/i)
+    || text.match(/```chart-data\s*\n?([\s\S]*?)```/i)
+    || text.match(/```json\s*\n?(\{[\s\S]*?"stocks"[\s\S]*?\})\s*\n?```/i)
+    || text.match(/<chart>([\s\S]*?)<\/chart>/i);
   if (!m) return 0;
   try {
-    const cleaned = m[1].replace(/,(\s*[}\]])/g, '$1').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const cleaned = stripJsonComments(m[1]).replace(/,(\s*[}\]])/g, '$1');
     const data = JSON.parse(cleaned);
     if (!data || !Array.isArray(data.stocks)) return 0;
     return data.stocks.filter(s => formatStooqTicker(s && s.ticker)).length;
@@ -4770,12 +4872,14 @@ function renderDataSources(savedItem) {
     lines.push(`<li>🌦 <strong>天気予報 API</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 取得失敗 (${escapeHtml(ds.weather.error || '不明')}) — フォールバックで web_search を使用</li>`);
   }
   // Stooq 株価チャート + Yahoo Finance 検証
-  if (ds.stooq && ds.stooq.count > 0) {
-    lines.push(`<li>📉 <strong>株価チャート画像</strong>: <a href="https://stooq.com" target="_blank" rel="noopener">Stooq.com</a> — 過去6ヶ月の実際の値動き (${ds.stooq.count} 銘柄ぶん、無料・画像直接埋込)</li>`);
+  // 旧データ (dataSources なし) や ```chart-data``` 形式のチャートも本文から数え直す
+  const stooqCount = Math.max((ds.stooq && ds.stooq.count) || 0, countStooqStocksInResult(savedItem.result || ''));
+  if (stooqCount > 0) {
+    lines.push(`<li>📉 <strong>株価チャート画像</strong>: <a href="https://stooq.com" target="_blank" rel="noopener">Stooq.com</a> — 過去6ヶ月の実際の値動き (${stooqCount} 銘柄ぶん、無料・画像直接埋込)</li>`);
     lines.push(`<li>💰 <strong>株価検証</strong>: <a href="https://finance.yahoo.com" target="_blank" rel="noopener">Yahoo Finance v8 API</a> — AI 提示価格と実際の市場価格の乖離をチェック(検証結果はチャート下のテーブルに表示)</li>`);
-  } else if (savedItem.mode !== 'news-digest' && savedItem.mode !== 'simplify' && savedItem.mode !== 'evaluate') {
-    // 通常分析モード(new/review)で CHART_DATA が含まれなかった場合の警告
-    const hasChartTag = /\[CHART_DATA\]/.test(savedItem.result || '');
+  } else if (savedItem.dataSources && savedItem.mode !== 'news-digest' && savedItem.mode !== 'simplify' && savedItem.mode !== 'evaluate') {
+    // 通常分析モード(new/review)で CHART_DATA が含まれなかった場合の警告 (記録のない旧データには出さない)
+    const hasChartTag = /\[CHART_DATA\]|```chart-data|```json[\s\S]*?"stocks"|<chart>/i.test(savedItem.result || '');
     if (!hasChartTag) {
       lines.push(`<li>⚠️ <strong>チャート出力なし</strong>: 今回 AI が CHART_DATA タグを出力しなかったため折れ線グラフ・Stooq 過去チャートが表示されません。再実行をお試しください</li>`);
     } else {
@@ -4808,6 +4912,11 @@ async function updateLearningBanner() {
 
 async function renderHistory() {
   const allItems = await dbList();
+  // 削除・全削除・評価の整理で消えた分析は選択から外す (残ると存在しない分析で考察が走る)
+  const liveIds = new Set(allItems.map(it => it.id));
+  let pruned = false;
+  for (const id of selectedHistoryIds) if (!liveIds.has(id)) { selectedHistoryIds.delete(id); pruned = true; }
+  if (pruned) { updateAnalyzeButtonLabel(); updateSelectionBadge(); }
   // 🔧 v1.16.3: 既存の独立した評価レポート(mode='evaluate')を既定で非表示。
   //             新規評価は元記事に統合されるが、過去に保存された分は残るため。
   const legacyEvals = allItems.filter(it => it.mode === 'evaluate');
@@ -4935,13 +5044,17 @@ historyList.addEventListener('click', async (e) => {
     const item = await dbGet(id);
     if (item) downloadAnalysis(item);
   } else if (action === 'evaluate') {
+    // 実行中に始めると結果表示・タイマー・停止ボタンを奪い合うので受け付けない
+    if (analyzeBtn.disabled || currentAbortController) { alert('分析の実行中は評価を開始できません。完了または停止してからお試しください'); return; }
     const item = await dbGet(id);
     if (item) {
+      // 実行中 (停止後の後片付け中を含む) に評価対象を書き換えると、実行中の分析やそのリトライが評価に化ける
+      if (analysisInFlight) { showStatus('⚠️ 分析の実行中です。完了または停止してから評価してください', 'error'); return; }
       evaluatingItem = item;
       const past = new Date(item.timestamp).toLocaleDateString('ja-JP');
       const days = Math.floor((Date.now() - item.timestamp) / (1000 * 60 * 60 * 24));
       if (confirm(`この分析(${past}, ${days}日前)を評価しますか?\n\nAIがその後の市場動向を web_search で調査し、推奨銘柄の予測精度を5段階評価します。\n(モデル: ${MODELS[modelSelect.value].name}, 推定コスト: ${MODELS[modelSelect.value].estimate})`)) {
-        analyzeStocks();
+        runAnalysisExclusive(() => analyzeStocks());
       } else {
         evaluatingItem = null;
       }
@@ -4972,7 +5085,9 @@ const cleanupBtn = document.getElementById('cleanupLegacyEvals');
 if (cleanupBtn) {
   cleanupBtn.addEventListener('click', async () => {
     const all = await dbList();
-    const legacyEvals = all.filter(it => it.mode === 'evaluate' && it.evaluateTargetId);
+    // 古い順に統合する (dbList は新しい順。最新の★と日付が最後に残るように)
+    const legacyEvals = all.filter(it => it.mode === 'evaluate' && it.evaluateTargetId)
+      .sort((a, b) => a.timestamp - b.timestamp);
     if (legacyEvals.length === 0) { alert('整理対象の評価レポートはありません'); return; }
     if (!confirm(`${legacyEvals.length} 件の評価レポートを元記事に統合し、評価レポート自体は削除します。よろしいですか?`)) return;
     let merged = 0, skipped = 0;
@@ -4982,16 +5097,18 @@ if (cleanupBtn) {
         if (!original) { skipped++; continue; }
         const rating = evalItem.evaluationRating || extractEvaluationRating(evalItem.result);
         const evalDateStr = new Date(evalItem.timestamp).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
-        // 既に同じセクションがあるか簡易チェック
         const sectionHeader = `## 📊 評価レポート (${evalDateStr}`;
-        if (original.result && original.result.includes(sectionHeader)) { skipped++; await dbDelete(evalItem.id); continue; }
+        // 統合済みかは本文そのもので判定する (日付だけだと同じ日の2件目の評価が統合されずに消える)
+        const body = (evalItem.result || '').trim();
+        if (body && (original.result || '').includes(body)) { skipped++; await dbDelete(evalItem.id); continue; }
         const ratingStr = rating ? ` — 総合評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}` : '';
         const evalSection = `\n\n---\n\n${sectionHeader}${ratingStr})\n\n${evalItem.result || ''}`;
         original.result = (original.result || '') + evalSection;
-        if (rating) {
-          original.evaluationRating = rating;
+        // もっと新しい評価が既にあれば★と日付は上書きしない
+        if (!original.evaluationDate || evalItem.timestamp >= original.evaluationDate) {
+          if (rating) original.evaluationRating = rating;
+          original.evaluationDate = evalItem.timestamp;
         }
-        original.evaluationDate = evalItem.timestamp;
         original.evaluationHistory = original.evaluationHistory || [];
         original.evaluationHistory.push({
           date: evalItem.timestamp, rating,
@@ -5013,11 +5130,14 @@ function downloadAnalysis(item) {
   const m = MODELS[item.model] || { name: item.model };
   const itemTitle = item.title || extractAnalysisTitle(item.result || '');
   const titleLine = itemTitle ? `# ${itemTitle}\n\n` : `# 銘柄分析結果\n\n`;
-  const header = `${titleLine}- 日時: ${formatDate(item.timestamp)}\n- モデル: ${m.name}\n- 市場: ${item.market}\n- 投資スタイル: ${item.style}\n- リスク: ${item.risk}\n- 想定金額: ${item.amount}\n${item.additional ? `- 追加要望: ${item.additional}\n` : ''}\n---\n\n`;
+  // ファイルには相対表記 (今日/昨日) ではなくローカル時刻の日時を残す (ファイル名も UTC ではなくローカル)
+  const d = new Date(item.timestamp);
+  const p = n => String(n).padStart(2, '0');
+  const header = `${titleLine}- 日時: ${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}\n- モデル: ${m.name}\n- 市場: ${item.market}\n- 投資スタイル: ${item.style}\n- リスク: ${item.risk}\n- 想定金額: ${item.amount}\n${item.additional ? `- 追加要望: ${item.additional}\n` : ''}\n---\n\n`;
   const blob = new Blob([header + item.result], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const dateStr = new Date(item.timestamp).toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  const dateStr = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}-${p(d.getMinutes())}`;
   const slug = itemTitle ? itemTitle.replace(/[\\/:*?"<>|]/g, '').slice(0, 30) : 'stock_analysis';
   a.href = url;
   a.download = `${slug}_${dateStr}.md`;
@@ -5053,7 +5173,8 @@ function ensureResultActions(currentItem) {
   document.getElementById('factCheckGlobalReviewBtn').onclick = () => {
     if (typeof window.__runGlobalReview === 'function') window.__runGlobalReview();
   };
-  // 既存の修正履歴があればバッジを更新
+  // 本文は描き直したばかりで以前の修正は DOM に残っていないので、修正履歴も空にする (別記事の修正を見直しに渡さない)
+  window.__factCheckCorrections = [];
   if (typeof window.__updateGlobalReviewBadge === 'function') window.__updateGlobalReviewBadge();
 
   // 🔧 v1.16.0: 評価済み元記事を開いた時、★レベルと評価コメントをバナー表示
@@ -5132,7 +5253,7 @@ function addActivity(text) {
   activityLog.unshift({ time, text });
   if (activityLog.length > 30) activityLog.length = 30;
   logList.innerHTML = activityLog.map(item =>
-    `<div class="log-item"><span class="log-time">${item.time}</span><span class="log-text">${item.text}</span></div>`
+    `<div class="log-item"><span class="log-time">${item.time}</span><span class="log-text">${escapeHtml(item.text)}</span></div>`
   ).join('');
 }
 function resetProgress() {
@@ -5250,7 +5371,7 @@ async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, si
 //   ③ temperature / topP / topK は 3.6 Flash 以降は黙って無視され、candidateCount>1 は 400 → 送らない
 //   ④ 思考は止められず、思考ぶんも maxOutputTokens を食う → 思考の深さに応じて余白を上乗せする。
 //      thinkingLevel は LOW / MEDIUM / HIGH を明示する (MINIMAL はモデルによって 400、既定値も資料で食い違う)
-//   ⑤ Google 検索は tools:[{google_search:{}}] で1リクエストの中で完結する (Kimi のような往復は不要)。
+//   ⑤ Google 検索は tools:[{google_search:{}}] で1リクエストの中で完結する (往復は不要)。
 //      検索クエリと出典は groundingMetadata で届く。課金は実行された検索クエリ単位
 //   ⑥ 検索結果を使った回答は、検索候補 (searchEntryPoint.renderedContent) と出典を
 //      本文の後に表示する義務がある (Gemini API の利用規約) → renderGroundingPanel()
@@ -5514,7 +5635,10 @@ async function streamFetchGemini({
   } while (continuationToken && hops <= GEMINI_MAX_CONTINUATIONS);
 
   await closeOpenBlock();
-  const stopReason = blockReason ? 'refusal' : geminiStopReason(finishReason === 'CONTINUATION' ? 'MAX_TOKENS' : finishReason);
+  // finishReason が一度も届かずに閉じたストリームは途中切断。完了 (end_turn) 扱いにせず stop_reason を空で返す
+  const stopReason = blockReason ? 'refusal'
+    : !finishReason ? null
+    : geminiStopReason(finishReason === 'CONTINUATION' ? 'MAX_TOKENS' : finishReason);
   const stopDetails = stopReason === 'refusal'
     ? { type: 'gemini', category: blockReason || finishReason, explanation: finishMessage || '' }
     : null;
@@ -5639,13 +5763,15 @@ async function analyzeStocksHybrid(ctx) {
     market, style, risk, amount, additional,
     marketLabels, styleLabels, riskLabels, amountLabels,
     paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', ultraShortBlock = '', shortTermTimingBlock, learningsBlock,
-    preMortemBlock = '', councilBlock = '', futureLetterBlock = '', bottomUpBlock = '', selfAuditBlock = '',
+    preMortemBlock = '', councilBlock = '', futureLetterBlock = '', bottomUpBlock = '', selfAuditBlock = '', reviewBlock = '',
     brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
     stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-    pastLearnings, currentMode, reviewItems = [],
+    pastLearnings, currentMode, reviewItems = [], runCtx = null,
     weatherUsage = { used: false, cities: 0, failed: false, error: '' } // 🔧 v1.16.2
   } = ctx;
   const isEcoHybrid = hybridMode === 'eco-hybrid';
+  // 超短期モードは 1 銘柄に絞る (ultraShortBlock と銘柄数の指示を揃える)
+  const isUltraShort = currentMode === 'ultra-short';
   const researchModelLabel = (MODELS[researchModel] && MODELS[researchModel].name.replace('Claude ', '')) || (isEcoHybrid ? 'Sonnet 5.5' : 'Opus 5.5');
   const hybridIcon = isEcoHybrid ? '🌱' : '💎';
   const hybridLabel = isEcoHybrid ? 'エコ・ハイブリッド' : 'プレミアム・ハイブリッド';
@@ -5673,9 +5799,9 @@ async function analyzeStocksHybrid(ctx) {
   // ===== Research Prompt (Phase 1) =====
   const researchPrompt = `あなたは金融データのリサーチャーです。本日(${today})の最新情報を web_search で ★ 最大 ${phase1MaxSearches} 回 ★ までで詳細に調査し、★コンパクトな箇条書きデータ★を出力してください。${isUltraEcoMode() ? `
 
-★★★ 🌱 超節約モード ★★★ 出力は ★ 800〜1,200 文字以内 ★ に厳格に抑える(通常モードの半分以下)。
+★★★ 🌱 超節約モード ★★★ 出力は ★ 800〜1,200 文字以内 ★ に厳格に抑える(通常モードの半分以下)。後述の「1,500〜2,500 文字」は通常モード向けなので、こちらを優先する。
 - 各項目を最小限の文字数で、数値と銘柄名・コードのみに絞る
-- 銘柄候補は 2〜3 のみ(通常 3〜5)
+- 銘柄候補は ${isUltraShort ? '1 のみ(超短期モード)' : '2〜3 のみ(通常 3〜5)'}
 - 説明文・修飾語は禁止(箇条書きの羅列のみ)` : ''}
 
 ★★★ 重要 ★★★
@@ -5692,13 +5818,13 @@ async function analyzeStocksHybrid(ctx) {
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
+${additional ? `- 追加要望: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${reviewBlock}${brokerBlock}${searchStrategyBlock}${scenarioTriggerBlock}
 
 【調査項目】(web_search で取得)
 (A) 主要株価指数の数値・変動率(日経平均・TOPIX・S&P500・NASDAQ)
 (B) 経済指標・金利・為替の最新値
 (C) 世界情勢の最新トピック(戦争・政治・エネルギー等の概況)
-(D) 推奨候補となる3〜5銘柄の数値データ
+(D) 推奨候補となる${isUltraShort ? '1' : '3〜5'}銘柄の数値データ
 (E) ${marketLabels[market]} での銘柄購入手順の要点
 ${style === 'short' ? `(F) 各銘柄の短期売買トリガー価格` : ''}
 
@@ -5738,10 +5864,10 @@ ${stylePeriodsListItems}
 - アクション: buy/hold/sell / ★1〜5${style === 'short' ? `
 - 短期: 買 [価格] / 損切 [価格] / 第1利確 [価格] / 第2利確 [価格]` : ''}
 
-(2〜5銘柄を同様に)
+${isUltraShort ? '(推奨は 1 銘柄のみ)' : '(2〜5銘柄を同様に)'}
 
 # 買い方ポイント
-- [3〜5行、要点のみ]
+- [3〜5行、要点のみ。${userBroker} の手数料・キャンペーンは確認できたものだけ取得日付きで]
 
 # 戦略
 - 配分: [短く] / エントリー: [短く] / 損切り: [短く]
@@ -5758,6 +5884,7 @@ ${stylePeriodsListItems}
   let phase1Search = 0, phase1In = 0, phase1Out = 0;
   let researchText = '';
   let phase1ToolInput = '', phase1ToolIndex = null, phase1Thinking = '';
+  let phase1Stop = null, phase1Done = false;
   let phase2In = 0, phase2Out = 0;
   let accumulatedText = '';
   let stopReason = null;
@@ -5886,6 +6013,7 @@ ${stylePeriodsListItems}
         if (parsed.type === 'message_delta' && parsed.usage) {
           stopHeartbeat();
           phase1Out = parsed.usage.output_tokens || phase1Out;
+          if (parsed.delta && parsed.delta.stop_reason) phase1Stop = parsed.delta.stop_reason;
           // 🔧 v1.16.0: web_search 結果が input に追加された分を取り込む (cost 過小計上の修正)
           //             message_start の input_tokens は初期入力のみ。message_delta は web_search 結果込みの最終値。
           if (typeof parsed.usage.input_tokens === 'number') phase1In = Math.max(phase1In, parsed.usage.input_tokens);
@@ -5899,6 +6027,13 @@ ${stylePeriodsListItems}
     });
 
     stopHeartbeat();
+    // リサーチが空・途中 (検索の反復上限 pause_turn / 拒否) のまま執筆させると、数値の無い記事が「完了」として保存される
+    if (!researchText.trim() || phase1Stop === 'pause_turn' || phase1Stop === 'refusal') {
+      addActivity(`⚠️ Phase 1 未完了: リサーチ ${researchText.length.toLocaleString()}文字、stop_reason: ${phase1Stop || '未受信'}`);
+      throw new Error(`Phase 1 のリサーチが完了しませんでした (stop_reason: ${phase1Stop || '未受信'})。検索の深さを下げるか、もう一度実行してください`);
+    }
+    if (phase1Stop === 'max_tokens') addActivity('⚠️ Phase 1 が出力上限で途切れました (リサーチが不完全な可能性があります)');
+    phase1Done = true;
     addActivity(`✅ Phase 1 完了: リサーチ ${researchText.length.toLocaleString()}文字、検索 ${phase1Search}回`);
     setStep('search', 'done');
     setStep('generate', 'active');
@@ -5911,6 +6046,10 @@ ${stylePeriodsListItems}
     let consultRound = 0;
     let augmentedResearch = researchText;
 
+    // 超節約モードでは本文の上限も下げる (通常の「本文 3,000〜4,500字」のままだと writer の max_tokens 6000 に収まらず末尾のタグが切れる)
+    const writerCompactBlock = isUltraEcoMode()
+      ? compactOutputBlock.replace('本文 3,000〜4,500字、上限 5,000字', '本文 1,500〜2,000字、上限 2,000字').replace('各銘柄 400〜600 字', '各銘柄 200〜300 字')
+      : compactOutputBlock;
     const buildWriterPrompt = (researchData, currentRound) => `あなたは金融ライターです。以下は別 AI(リサーチャー)が web_search で集めた ★コンパクトなデータ点★ です。
 このデータを元に、初心者にもフレンドリーで楽しい銘柄分析を Markdown で展開してください。
 データは数値・固有名詞中心の短い箇条書きなので、あなたの役目は:
@@ -5920,14 +6059,14 @@ ${stylePeriodsListItems}
 ※ リサーチデータに無い数値・銘柄を勝手に追加するのは禁止(数値の事実は維持)
 ${isUltraEcoMode() ? `
 ★★★ 🌱 超節約モード(出力極小)★★★
-本記事は ★ 出力トークンを極端に削る ★ モードで生成されます (max_tokens 約 4000)。
+本記事は ★ 出力トークンを極端に削る ★ モードで生成されます (max_tokens 約 6000)。後述の通常モード向けの文字数・銘柄数・件数より、ここでの指定を優先すること。
 以下を必ず守ること:
 - 本文は ★ 1,500〜2,000 文字以内 ★ に抑える(通常モードの 5,000 字より大幅短縮)
-- 銘柄数は 2〜3 に絞る(通常 3〜5 銘柄)
+- 銘柄数は ${isUltraShort ? '1(超短期モード)' : '2〜3 に絞る(通常 3〜5 銘柄)'}
 - 各銘柄の説明は 200〜300 字(通常 400〜600 字)
 - 例え話・冗長な前置きを最小化、本質的な数値とロジックのみ
 - CHART_DATA と CALENDAR_DATA は ★ コンパクトに ★ 出力する:
-  - CHART_DATA: 2〜3 銘柄 × 4 forecasts(必須)
+  - CHART_DATA: ${isUltraShort ? '1' : '2〜3'} 銘柄 × 4 forecasts(必須)
   - CALENDAR_DATA: 3 イベント程度(通常 5〜8 件)
 - ANALYSIS_SUMMARY は 2〜3 行で
 - 末尾の4ブロック (CHART/CALENDAR/SUMMARY/TITLE) は ★ 絶対に省略しない ★(出力切れリスクがあるので、本文を更に削ってでも4ブロックを出すこと)
@@ -5942,7 +6081,7 @@ ${researchData}
 - 投資スタイル: ${styleLabels[style]}
 - リスク許容度: ${riskLabels[risk]}
 - 投資想定額: ${amountLabels[amount]}
-${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${brokerBlock}${searchStrategyBlock}${compactOutputBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
+${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbiBlock}${japanNewsBlock}${extraRiskBlock}${ultraShortBlock}${preMortemBlock}${councilBlock}${futureLetterBlock}${bottomUpBlock}${selfAuditBlock}${reviewBlock}${brokerBlock}${searchStrategyBlock}${writerCompactBlock}${jargonRulesBlock}${shortTermTimingBlock}${scenarioTriggerBlock}
 
 ${learningsBlock}
 
@@ -5973,7 +6112,7 @@ ${learningsBlock}
 ## 🔬 今回の分析で重視した観点
 プロが見ているポイントを初心者目線で
 
-## 💡 おすすめ銘柄、ご紹介します!(3〜5銘柄)
+## 💡 おすすめ銘柄、ご紹介します!(${isUltraShort ? '1銘柄' : '3〜5銘柄'})
 ### 1. 銘柄名(ティッカー/コード)
 - **🏢 どんな会社?**: 身近な例えで
 - **💴 今の株価**: 価格・取得日・時価総額
@@ -6080,7 +6219,7 @@ ${learningsBlock}
 これらが欠けていると分析結果としては「不完全」扱いになり、ユーザーに視覚化(折れ線グラフ・カレンダー)が表示されません。
 
 絶対ルール:
-- ★ コンパクト出力ルール(5,000文字制限)は本文のみに適用される。
+- ★ コンパクト出力ルール(${isUltraEcoMode() ? '2,000' : '5,000'}文字制限)は本文のみに適用される。
 - ★ [CHART_DATA] / [CALENDAR_DATA] / [ANALYSIS_SUMMARY] / [ANALYSIS_TITLE] の4ブロックは文字数制限の外で、必ず別途出力すること。
 - ★ 各ブロックは [TAG_NAME] と [/TAG_NAME] で正確に挟む(角括弧を忘れない)。
 - ★ JSON は valid な JSON 形式で(末尾カンマ禁止、コメント禁止、ダブルクォート必須)。
@@ -6088,7 +6227,7 @@ ${learningsBlock}
 【必ず出力する4ブロック】
 
 1. [CHART_DATA]...[/CHART_DATA]
-   - 推奨銘柄すべて(3〜5銘柄)を含める
+   - 推奨銘柄すべて(${isUltraShort ? '1銘柄' : '3〜5銘柄'})を含める
    - 各銘柄に4ポイントの forecasts(${stylePeriodsCompact})を必ず含める
    - 「予測価格データが無いから省略」は禁止。リサーチデータから推定して必ず数値を入れる
 
@@ -6125,6 +6264,33 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
 ※ 文章の見栄えや表現の調整のためだけに使わない(あくまで「データが足りない」場合のみ)。`;
 
     // ===== Consult-back loop: Haiku writes → may ask follow-ups → research model answers → Haiku revises =====
+    // 混雑 (overload/529/503/502) は失敗した呼び出しだけを待って再試行する。
+    // 外側の catch で全体をやり直すと、支払い済みの Phase 1 (検索込み) が二重に課金される。
+    const withOverloadRetry = async (label, run, beforeRetry) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await run();
+        } catch (e) {
+          const msg = (e && e.message) || String(e);
+          if ((e && e.name === 'AbortError') || !/overload|\b(?:502|503|529)\b/i.test(msg) || attempt >= MAX_RETRIES) throw e;
+          const waitSec = Math.pow(2, attempt + 1);
+          stopHeartbeat();
+          setPhase('⏳', `API混雑中 ${waitSec}秒後に${label}を再試行`, `自動リトライ ${attempt + 1}/${MAX_RETRIES}`);
+          addActivity(`⏳ ${label}: ${waitSec}秒待機して再試行`);
+          // 待機中の停止ボタンも効かせる
+          const ctl = currentAbortController;
+          if (!ctl) throw new DOMException('Aborted', 'AbortError');
+          await sleepWithAbort(waitSec * 1000, ctl.signal);
+          if (beforeRetry) beforeRetry();
+        }
+      }
+    };
+    const consultMaxSearches = Math.min(4, phase1MaxSearches);
+    // 出力上限・拒否・途中終了の稿や、CHART/CALENDAR タグが閉じていない稿は完成稿として扱わない
+    const isCompleteDraft = (t) => stopReason === 'end_turn' && !!t.trim() && !/\[(CHART_DATA|CALENDAR_DATA)\](?![\s\S]*\[\/\1\])/.test(t);
+    // 直前の完成稿。追加調査・改訂が失敗・停止・途中切れになっても、これで確定して支払い済みの記事を失わない
+    let lastGoodDraft = '', fallbackNote = '';
+    try { // 改訂ラウンドの失敗は下の catch で直前の完成稿に戻す
     while (true) {
       const writerPrompt = buildWriterPrompt(augmentedResearch, consultRound);
 
@@ -6132,6 +6298,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
       accumulatedText = '';
       currentSectionName = null;
       lastStockCount = 0;
+      stopReason = null; // 前ラウンドの end_turn を持ち越さない
       renderMarkdown(''); // Clear previous draft if any
 
       if (consultRound === 0) {
@@ -6147,7 +6314,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
       // ★ 接続ウォッチドッグ
       startHeartbeat('🌐', 'API応答待ち', 'Haiku 5.5 へ送信、Anthropic API の応答を待っています');
 
-      await streamFetch({
+      await withOverloadRetry('Haiku 5.5 執筆', () => streamFetch({
         apiKey, model: writerModel, prompt: writerPrompt, useTools: false,
         maxTokens: getMaxTokensFor('writer'),
         signal: currentAbortController ? currentAbortController.signal : undefined,
@@ -6178,7 +6345,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
             updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
             const _r1Live = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
             const _r2Live = MODELS[writerModel] || { inputCost: 1, outputCost: 5 };
-            const estPhase2Out = Math.max(phase2Out, estimateTokens(accumulatedText));
+            const estPhase2Out = phase2Out + Math.max(thisIterOut, estimateTokens(accumulatedText)); // 確定済みの前ラウンド + このラウンドの推定
             const tokenCost = (phase1In * (_r1Live.inputCost || 5) + phase1Out * (_r1Live.outputCost || 25) +
                               phase2In * (_r2Live.inputCost || 1) + estPhase2Out * (_r2Live.outputCost || 5)) / 1000000;
             const searchCost = phase1Search * WEB_SEARCH_COST_USD;
@@ -6215,11 +6382,20 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
           updateStats({ inputTokens: phase1In + phase2In, outputTokens: phase1Out + phase2OutNow, chars: accumulatedText.length });
         }
       }
+    }), () => {
+      // 再試行の前に途中までの下書きを捨てる (失敗した試行の入力トークンは課金済みなので phase2In に残す)
+      phase2Out += thisIterOut; thisIterIn = 0; thisIterOut = 0;
+      accumulatedText = ''; currentSectionName = null; lastStockCount = 0; stopReason = null;
+      renderMarkdown('');
+      startHeartbeat('🌐', 'API応答待ち', 'Haiku 5.5 へ再送信、Anthropic API の応答を待っています');
     });
 
     // Commit this iteration's output to phase2Out total
     phase2Out += thisIterOut;
     addActivity(`✅ Haiku 5.5 ${consultRound === 0 ? '初稿' : `改訂${consultRound}`} 完了: ${accumulatedText.length.toLocaleString()}文字`);
+    if (isCompleteDraft(accumulatedText)) lastGoodDraft = accumulatedText;
+    else if (lastGoodDraft) { fallbackNote = `改訂ラウンド ${consultRound} が途中で終了 (stop: ${stopReason || '未受信'})`; break; }
+    else break; // 初稿が途中切れなら追加調査はしない (下で「途中で切れました」として扱う)
 
     // === Check for follow-up questions and run consult round if needed ===
     const questionsMatch = accumulatedText.match(/\[FOLLOW_UP_QUESTIONS\]([\s\S]*?)\[\/FOLLOW_UP_QUESTIONS\]/);
@@ -6233,6 +6409,12 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
     }
 
     const questions = questionsMatch[1].trim();
+    // 中身の無い質問 (空・「なし」だけ) で検索と全面書き直しを走らせない
+    const realQs = questions.split('\n').map(s => s.replace(/^\s*(\d+[.)、]|[-*・])\s*/, '').trim()).filter(s => s.length > 3 && !/^(なし|特になし|ありません|none|n\/a)[。.]?$/i.test(s));
+    if (realQs.length === 0) {
+      addActivity('ℹ️ 追加質問が空のため追加調査をスキップ');
+      break;
+    }
     consultRound++;
     setPhase('🤔', `追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `Haiku 5.5 → ${researchModelLabel} へ追加質問`);
     addActivity(`🤔 Haiku → ${researchModelLabel} へ追加質問 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
@@ -6247,7 +6429,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
 
     const consultPrompt = `あなたは ${researchModelLabel}、金融データの研究者です。
 記事執筆中の Haiku ライターから以下の追加質問が来ました。
-web_search を 1〜4 回使い、具体的な数値・固有名詞・最新情報で簡潔に答えてください。
+web_search を 1〜${consultMaxSearches} 回使い、具体的な数値・固有名詞・最新情報で簡潔に答えてください。
 
 【Haiku からの質問(ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})】
 ${questions}
@@ -6265,9 +6447,10 @@ ${questions}
     // ★ 接続ウォッチドッグ
     startHeartbeat('🌐', 'API応答待ち', `${researchModelLabel}(再調査)へ送信、Anthropic API の応答を待っています`);
 
-    await streamFetch({
+    await withOverloadRetry(`${researchModelLabel} 追加調査`, () => streamFetch({
       apiKey, model: researchModel, prompt: consultPrompt, useTools: true,
       maxTokens: getMaxTokensFor('research'),
+      maxSearchUses: consultMaxSearches, // 省略すると既定の 15 回になり、検索の深さ設定を無視する
       signal: currentAbortController ? currentAbortController.signal : undefined,
       onEvent: (parsed) => {
         if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
@@ -6283,7 +6466,7 @@ ${questions}
             phase1Search++;
             consultToolInput = ''; consultToolIndex = parsed.index;
             stepSearchCount.textContent = `${phase1Search}回`;
-            updateSearchCounter(phase1Search, 15 + MAX_CONSULT_ROUNDS * 4);
+            updateSearchCounter(phase1Search, phase1MaxSearches + MAX_CONSULT_ROUNDS * consultMaxSearches);
             setPhase('🔎', `${researchModelLabel} 追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `検索 #${consultRoundSearches} 開始`);
             addActivity(`🔎 追加調査 検索 #${consultRoundSearches} 開始 (ラウンド ${consultRound})`);
             updateLiveTicker('🔎', `追加調査 検索 #${consultRoundSearches}`, 'クエリ生成中…');
@@ -6327,15 +6510,40 @@ ${questions}
           updateRunningCost(tokenCost + searchCost);
         }
       }
+    }), () => {
+      // 再試行の前に途中までの回答を捨てる (失敗した試行の検索・入力トークンは課金済みなので残す)
+      phase1Out += consultIterOut; consultIterIn = 0; consultIterOut = 0;
+      consultAnswer = ''; consultToolInput = ''; consultToolIndex = null;
+      startHeartbeat('🌐', 'API応答待ち', `${researchModelLabel}(再調査)へ再送信、Anthropic API の応答を待っています`);
     });
 
     phase1Out += consultIterOut;
     addActivity(`✅ ${researchModelLabel} 追加調査ラウンド ${consultRound} 完了 (検索 ${consultRoundSearches}回, ${consultAnswer.length}字)`);
+    // 回答が空なら書き直しても材料が増えない (同じ質問を繰り返して課金だけ増える) → 今の稿で確定
+    if (!consultAnswer.trim()) {
+      addActivity(`⚠️ 追加調査ラウンド ${consultRound} の回答が空のため改訂をスキップ`);
+      break;
+    }
 
       // Augment research with this round's answers and loop back for Haiku revision
       augmentedResearch += `\n\n【★ 追加調査ラウンド ${consultRound} の結果 (${researchModelLabel})】\n${consultAnswer.trim()}`;
     }
+    } catch (e) {
+      // 完成稿がまだ無ければ従来どおり外側の catch へ (中止・混雑リトライ・エラー表示)
+      if (!lastGoodDraft) throw e;
+      const msg = (e && e.message) || String(e);
+      fallbackNote = (e && e.name === 'AbortError') || /abort/i.test(msg) ? '停止されました' : `エラー: ${msg}`;
+    }
     // === End consult-back loop ===
+    if (fallbackNote) {
+      accumulatedText = lastGoodDraft;
+      stopReason = 'end_turn';
+      renderMarkdown(accumulatedText);
+      addActivity(`⚠️ 追加調査・改訂が完了しなかったため、直前の完成稿で確定します (${fallbackNote})`);
+    }
+    // 追加質問ブロックは内部用。表示では隠しているが、保存・コピー・ダウンロードにも残さない
+    accumulatedText = accumulatedText.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*?(?:\[\/FOLLOW_UP_QUESTIONS\]|$)/g, '').trimEnd();
+    const truncated = !!accumulatedText.trim() && !isCompleteDraft(accumulatedText);
 
     addActivity(`✅ Phase 2 完了: ${accumulatedText.length.toLocaleString()}文字 (改訂 ${consultRound}回)`);
 
@@ -6360,8 +6568,13 @@ ${questions}
       setStep('generate', 'done');
       setStep('complete', 'done');
       setProgressPercent(100);
-      setPhase('✅', 'ハイブリッド分析完了!', `${accumulatedText.length.toLocaleString()}文字を生成`);
-      addActivity('✅ ハイブリッド分析が完了しました');
+      if (truncated) {
+        setPhase('⚠️', '出力が途中で切れました', `stop: ${stopReason || '未受信'} — ${accumulatedText.length.toLocaleString()}文字で終了`);
+        addActivity(`⚠️ 出力が途中で切れました (stop: ${stopReason || '未受信'})。不完全なまま保存します`);
+      } else {
+        setPhase('✅', fallbackNote ? 'ハイブリッド分析: 直前の完成稿で確定' : 'ハイブリッド分析完了!', `${accumulatedText.length.toLocaleString()}文字を生成`);
+        addActivity('✅ ハイブリッド分析が完了しました');
+      }
 
       const extractedTitle = extractAnalysisTitle(accumulatedText);
       const extractedSummary = extractAnalysisSummary(accumulatedText);
@@ -6377,6 +6590,7 @@ ${questions}
         inputTokens: phase1In + phase2In,
         outputTokens: phase1Out + phase2Out,
         stopReason,
+        incomplete: truncated, // 出力上限などで途中終了 (CHART/CALENDAR が欠けている可能性)
         mode: currentMode || 'new',
         reviewSourceIds: (currentMode === 'review' || currentMode === 'self-audit') ? (reviewItems || []).map(it => it.id).filter(Boolean) : [],
         evaluateTargetId: null,
@@ -6394,8 +6608,9 @@ ${questions}
         if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
         addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
         await renderHistory();
-        ensureResultActions(savedItem);
       }
+      // 保存できなかった場合もダウンロード・コピーは出す
+      ensureResultActions(savedItem);
 
       // Cost: model-specific rates (input/output $ per 1M tokens) + web search cost
       const rates = MODELS[researchModel] || { inputCost: 5, outputCost: 25 };
@@ -6420,7 +6635,7 @@ ${questions}
       chips += `<span class="chip">📤 出力 <span class="chip-value">${(phase1Out + phase2Out).toLocaleString()}</span></span>`;
       if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
       if (pastLearnings.length > 0) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.12));color:#047857">🎓 学習反映 <span class="chip-value">${pastLearnings.length}件</span></span>`;
-      chips += `<span class="chip">💾 自動保存済み</span>`;
+      chips += newId ? `<span class="chip">💾 自動保存済み</span>` : `<span class="chip" style="color:#b91c1c">⚠️ 保存失敗(履歴に残りません)</span>`;
       chips += `<span class="chip">💵 推定 <span class="chip-value">$${cost.toFixed(3)}</span></span>`;
 
       // Show prominent cost summary card with phase breakdown
@@ -6436,7 +6651,9 @@ ${questions}
         searchCount: phase1Search, learningsCount: pastLearnings.length
       });
 
-      setStatusHTML(`✅ <strong>${hybridLabel}分析完了!</strong> ${researchModelLabel} がリサーチ、Haiku 5.5 が執筆<div class="chips">${chips}</div>`, 'success');
+      if (truncated) setStatusHTML(`⚠️ <strong>${hybridLabel}: 出力が途中で切れました</strong> (stop: ${escapeHtml(stopReason || '未受信')})。チャートやカレンダーが欠けている可能性があります<div class="chips">${chips}</div>`, 'error');
+      else if (fallbackNote) setStatusHTML(`⚠️ <strong>${hybridLabel}: 追加調査・改訂が完了しなかったため、直前の完成稿で確定しました</strong> (${escapeHtml(fallbackNote)})<div class="chips">${chips}</div>`);
+      else setStatusHTML(`✅ <strong>${hybridLabel}分析完了!</strong> ${researchModelLabel} がリサーチ、Haiku 5.5 が執筆<div class="chips">${chips}</div>`, 'success');
     }
   } catch (error) {
     console.error('Hybrid mode error:', error);
@@ -6449,13 +6666,16 @@ ${questions}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+    // Phase 1 完了後の混雑は各呼び出しで再試行済み。ここで全体をやり直すと Phase 1 が二重に課金される
+    if (!phase1Done && /overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
-      await new Promise(r => setTimeout(r, waitSec * 1000));
-      analyzeBtn.disabled = false;
-      return analyzeStocks(retryCount + 1);
+      // 待機中に停止されたら再実行しない (中止の表示は abortAnalysis、ボタンの復帰は実行側の finally が行う)
+      const ctl = currentAbortController;
+      try { await sleepWithAbort(waitSec * 1000, ctl && ctl.signal); } catch (_) {}
+      if (!ctl || ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
+      return await analyzeStocks(retryCount + 1, runCtx ? { ...runCtx, ctl } : null);
     }
     stopElapsedTimer();
     setPhase('❌', 'ハイブリッドモードでエラー', errStr);
@@ -6548,7 +6768,7 @@ ${sourcesBlock}
 ## 🧒 超かんたんサマリー
 ${items.length === 1
   ? '元の分析を 200 字くらいの 1 段落で一気に要約'
-  : '各分析を 1 行ずつ、最後に「3 件まとめると…」の 1 行で総括'}
+  : `各分析を 1 行ずつ、最後に「${items.length} 件まとめると…」の 1 行で総括`}
 
 ## 🤔 何が大事なの?(3 つだけ!)
 - ①: [一番大事なこと、子供にも分かる例えで]
@@ -6630,19 +6850,24 @@ ${items.length === 1
         ? 'AI が要約を控えました (stop_reason: refusal)。内容を見直すか、AI プロバイダーを切り替えてください'
         : `要約の本文が生成されませんでした (stop_reason: ${stopReason || '不明'})`);
     }
+    // 出力上限などで途中で止まった要約は保存するが、途中までであることを明示する
+    // (Gemini が理由付きで止めた・終了理由が届かなかった場合も末尾が欠けている)
+    const truncated = stopReason !== 'end_turn';
     setStep('generate', 'done');
     setStep('complete', 'done');
     setProgressPercent(100);
     stopElapsedTimer();
-    setPhase('✅', '🧒 超かんたん要約 完了!', `${accumulatedText.length.toLocaleString()}文字で要約しました`);
-    addActivity(`✅ 要約完了 (${accumulatedText.length.toLocaleString()}文字)`);
+    setPhase(truncated ? '⚠️' : '✅', truncated ? '🧒 超かんたん要約 (途中まで)' : '🧒 超かんたん要約 完了!', `${accumulatedText.length.toLocaleString()}文字で要約しました`);
+    addActivity(truncated
+      ? `⚠️ 要約は途中まで (${accumulatedText.length.toLocaleString()}文字、stop_reason: ${stopReason || '未受信'})`
+      : `✅ 要約完了 (${accumulatedText.length.toLocaleString()}文字)`);
 
     // Save to history
     const sourceIds = Array.from(selectedHistoryIds);
     const titleSrc = items.length === 1 ? `🧒 かんたん要約: ${items[0].title || '保存済み分析'}` : `🧒 かんたん要約 (${items.length}件)`;
     const savedItem = {
       timestamp: Date.now(),
-      title: titleSrc.slice(0, 60),
+      title: titleSrc.slice(0, 60) + (truncated ? ' (途中まで)' : ''),
       summary: accumulatedText.split('\n').filter(l => l.trim() && !/^#/.test(l)).slice(0, 4).join(' ').slice(0, 300),
       result: accumulatedText,
       model: SIMPLIFY_MODEL,
@@ -6664,8 +6889,9 @@ ${items.length === 1
       savedItem.id = newId;
       addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
       await renderHistory();
-      ensureResultActions(savedItem);
     }
+    // 保存できなかった場合もダウンロード・コピーは出す
+    ensureResultActions(savedItem);
 
     showCostSummary({
       phases: [{
@@ -6684,8 +6910,11 @@ ${items.length === 1
     chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
     chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
     chips += `<span class="chip">📚 参照 <span class="chip-value">${items.length}件</span></span>`;
-    chips += `<span class="chip">💾 自動保存済み</span>`;
-    setStatusHTML(`✅ <strong>超かんたん要約 完了!</strong> ${escapeHtml(ai.label)} が ${items.length}件を分かりやすくまとめました<div class="chips">${chips}</div>`, 'success');
+    chips += newId ? `<span class="chip">💾 自動保存済み</span>` : `<span class="chip" style="color:#b91c1c">⚠️ 保存失敗(履歴に残りません)</span>`;
+    if (stopReason === 'max_tokens') chips += `<span class="chip" style="background:rgba(239,68,68,0.12);color:#b91c1c">✂️ 出力上限で途中切れ <span class="chip-value">末尾が欠けています</span></span>`;
+    else if (truncated) chips += `<span class="chip" style="background:rgba(239,68,68,0.12);color:#b91c1c">✂️ 途中で終了 <span class="chip-value">${escapeHtml(String(stopReason || '終了理由なし'))}</span></span>`;
+    if (truncated) setStatusHTML(`⚠️ <strong>超かんたん要約 (途中まで)</strong> ${escapeHtml(ai.label)} の応答が途中で終わりました。末尾が欠けている可能性があります<div class="chips">${chips}</div>`, 'error');
+    else setStatusHTML(`✅ <strong>超かんたん要約 完了!</strong> ${escapeHtml(ai.label)} が ${items.length}件を分かりやすくまとめました<div class="chips">${chips}</div>`, 'success');
   } catch (error) {
     console.error('Simplify mode error:', error);
     const errStr = error.message || String(error);
@@ -6748,7 +6977,9 @@ async function analyzeNewsDigest() {
   // 📰 ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
   // 🔧 v1.16.4: 軽量モデル固定でコストが低いため検索回数を拡大
   //             通常 10→18, 超節約 15→25 (Sonnet/Opus 比で約 1/3 コストなので深掘り可能)
-  const _newsMaxSearches = isUltraEcoMode() ? 25 : 18;
+  // Claude はサーバー側の検索ループが既定 10 反復で pause_turn になり本文が出ないため、まとめの出力まで収まる 8 回に抑える
+  // (Gemini の google_search は 1 リクエスト内で完結し、この上限は無い)
+  const _newsMaxSearches = ai.provider === 'claude' ? 8 : (isUltraEcoMode() ? 25 : 18);
 
   // 🌦 v1.16.0: Open-Meteo API で天気を事前取得 → プロンプトに注入することで
   //             モデルが天気を web_search する必要なし(1〜2 検索分のコスト節約)
@@ -6776,7 +7007,7 @@ ${weatherBlock}
 - 複数の地域・トピックを ★ 広く ★ カバーする
 ${isUltraEcoMode() ? `
 ★★★ 🌱 超節約モード(広く浅く) ★★★
-- 検索は ★ できる限り多く・幅広く ★ (15 回フルに使う): 政治・経済・社会・産業・国際・地方・天気・スポーツ・科学 など多様なクエリ
+- 検索は ★ できる限り多く・幅広く ★ (${_newsMaxSearches} 回フルに使う): 政治・経済・社会・産業・国際・地方・天気・スポーツ・科学 など多様なクエリ
 - ただし出力は ★ めちゃくちゃ浅く ★(全体 1,500〜2,000 文字、絶対に 2,500 文字を超えない)
 - 各ニュースは「タイトル+1行サマリのみ」(出典・日付は併記)
 - 解説・分析・展望は禁止(事実だけを淡々と列挙)
@@ -6841,6 +7072,7 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
     currentAbortController = new AbortController();
     analysisStartTime = Date.now();
     showRunningInfo();
+    updateSearchCounter(0, _newsMaxSearches); // 上限は検索深さではなくニュース収集用の回数
     setStep('connect', 'done');
     setStep('search', 'active');
 
@@ -6862,7 +7094,8 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
           if (parsed.renderedContent) groundingInfo.renderedContent = parsed.renderedContent;
           searchCount = Math.max(searchCount, groundingInfo.queries.length);
           stepSearchCount.textContent = `${searchCount}回`;
-          for (const q of parsed.newQueries || []) addActivity(`🔎 Google 検索: "${escapeHtml(q)}"`);
+          updateSearchCounter(searchCount, _newsMaxSearches);
+          for (const q of parsed.newQueries || []) addActivity(`🔎 Google 検索: "${q}"`);
         }
         if (parsed.type === 'content_block_start') {
           const block = parsed.content_block;
@@ -6951,25 +7184,33 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       }
     });
 
-    // 本文が空のまま、または途中で拒否されたものは保存しない
-    if (!accumulatedText.trim() || stopReason === 'refusal') {
+    // 本文が空のまま、途中で拒否された、または検索ループの上限 (pause_turn) で止まったものは保存しない
+    // (pause_turn は検索の途中で止まった状態で、出ている本文は前置きか書きかけ)
+    if (!accumulatedText.trim() || stopReason === 'refusal' || stopReason === 'pause_turn') {
       throw new Error(stopReason === 'refusal'
         ? 'AI がニュースのまとめを控えました (stop_reason: refusal)'
-        : `ニュースのまとめが生成されませんでした (stop_reason: ${stopReason || '不明'})`);
+        : stopReason === 'pause_turn'
+          ? 'Web検索の反復上限に達し、まとめを書く前に止まりました (stop_reason: pause_turn)。保存はしていません。もう一度実行するか、「追加要望」でテーマを絞ってください'
+          : `ニュースのまとめが生成されませんでした (stop_reason: ${stopReason || '不明'})`);
     }
+    // 出力上限などで途中で止まったダイジェストは保存するが、途中までであることを明示する
+    // (Gemini が理由付きで止めた・終了理由が届かなかった場合も末尾が欠けている)
+    const truncated = stopReason !== 'end_turn';
     setStep('search', 'done');
     setStep('generate', 'done');
     setStep('complete', 'done');
     setProgressPercent(100);
     stopElapsedTimer();
-    setPhase('✅', '📰 ニュース収集 完了!', `${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索`);
-    addActivity(`✅ ニュース収集完了 (${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索)`);
+    setPhase(truncated ? '⚠️' : '✅', truncated ? '📰 ニュース収集 (途中まで)' : '📰 ニュース収集 完了!', `${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索`);
+    addActivity(truncated
+      ? `⚠️ ニュース収集は途中まで (${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索、stop_reason: ${stopReason || '未受信'})`
+      : `✅ ニュース収集完了 (${accumulatedText.length.toLocaleString()}文字、${searchCount}回検索)`);
 
     // Save to history
     const firstLine = accumulatedText.split('\n').find(l => l.trim() && !/^#/.test(l)) || '';
     const savedItem = {
       timestamp: Date.now(),
-      title: `📰 ニュースダイジェスト (${new Date().toLocaleDateString('ja-JP')})`,
+      title: `📰 ニュースダイジェスト (${new Date().toLocaleDateString('ja-JP')})${truncated ? ' (途中まで)' : ''}`,
       summary: firstLine.slice(0, 200) || accumulatedText.slice(0, 200),
       result: accumulatedText,
       model: newsModel,
@@ -6995,8 +7236,9 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       savedItem.id = newId;
       addActivity(`💾 IndexedDB に保存 (ID: ${newId})`);
       await renderHistory();
-      ensureResultActions(savedItem);
     }
+    // 保存できなかった場合もダウンロード・コピーは出す
+    ensureResultActions(savedItem);
 
     showCostSummary({
       phases: [{
@@ -7015,8 +7257,15 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
     chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
     chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
     chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
-    chips += `<span class="chip">💾 自動保存済み</span>`;
+    chips += newId ? `<span class="chip">💾 自動保存済み</span>` : `<span class="chip" style="color:#b91c1c">⚠️ 保存失敗(履歴に残りません)</span>`;
     setStatusHTML(`✅ <strong>ニュース収集 完了!</strong> 本日のローカル・国内・世界ニュースをまとめました<div class="chips">${chips}</div>`, 'success');
+    // 途中で止まったものは上の「完了」表示を置き換える
+    if (truncated) {
+      const cutChip = stopReason === 'max_tokens'
+        ? '✂️ 出力上限で途中切れ <span class="chip-value">末尾が欠けています</span>'
+        : `✂️ 途中で終了 <span class="chip-value">${escapeHtml(String(stopReason || '終了理由なし'))}</span>`;
+      setStatusHTML(`⚠️ <strong>ニュース収集 (途中まで)</strong> 応答が途中で終わりました。末尾が欠けている可能性があります<div class="chips">${chips}<span class="chip" style="background:rgba(239,68,68,0.12);color:#b91c1c">${cutChip}</span></div>`, 'error');
+    }
   } catch (error) {
     console.error('News digest error:', error);
     const errStr = error.message || String(error);
@@ -7045,8 +7294,11 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
   }
 }
 
-async function analyzeStocks(retryCount = 0) {
+async function analyzeStocks(retryCount = 0, runCtx = null) {
   const MAX_RETRIES = 3;
+  // 実行中にモードや選択を変えても、この実行 (と自動リトライ) は開始時の入力で続ける
+  if (!runCtx) runCtx = { mode: currentMode, ids: Array.from(selectedHistoryIds) };
+  const runMode = runCtx.mode;
   const analysisProvider = analysisProviderOf(modelSelect.value);
   const apiKey = getProviderKey(analysisProvider);
   if (!apiKey) {
@@ -7058,21 +7310,32 @@ async function analyzeStocks(retryCount = 0) {
 
   // Review / Self-audit mode validation
   let reviewItems = [];
-  if ((currentMode === 'review' || currentMode === 'self-audit') && !evaluatingItem) {
-    if (selectedHistoryIds.size === 0) {
-      const label = currentMode === 'self-audit' ? '自己採点モード' : '考察モード';
+  if ((runMode === 'review' || runMode === 'self-audit') && !evaluatingItem) {
+    if (runCtx.ids.length === 0) {
+      const label = runMode === 'self-audit' ? '自己採点モード' : '考察モード';
       showStatus(`⚠️ ${label}では過去の分析を1件以上選択してください`, 'error');
       return;
     }
-    for (const id of selectedHistoryIds) {
+    if (runCtx.ids.length > MAX_REVIEW_SELECTION) {
+      const label = runMode === 'self-audit' ? '自己採点モード' : '考察モード';
+      showStatus(`⚠️ ${label}では最大 ${MAX_REVIEW_SELECTION} 件まで選択できます (現在 ${runCtx.ids.length} 件)`, 'error');
+      return;
+    }
+    for (const id of runCtx.ids) {
       const item = await dbGet(id);
       if (item) reviewItems.push(item);
     }
     reviewItems.sort((a, b) => a.timestamp - b.timestamp);
+    if (reviewItems.length === 0) {
+      // 参照なしのまま通常分析として課金されないよう止める
+      selectedHistoryIds.clear(); updateSelectionBadge(); updateAnalyzeButtonLabel();
+      showStatus('⚠️ 選択した過去の分析が見つかりません。選び直してください', 'error');
+      return;
+    }
   }
 
   // Bottom-up mode validation: 観察メモが必要
-  if (currentMode === 'bottom-up' && !evaluatingItem) {
+  if (runMode === 'bottom-up' && !evaluatingItem) {
     const obs = document.getElementById('additional').value.trim();
     if (!obs) {
       showStatus('⚠️ 日常気づき逆算モードでは「追加要望」欄に日常の観察を1つ以上書いてください', 'error');
@@ -7123,7 +7386,10 @@ async function analyzeStocks(retryCount = 0) {
     mid:   ['1ヶ月後', '3ヶ月後', '6ヶ月後', '1年後'],
     long:  ['3ヶ月後', '6ヶ月後', '1年後', '3年後']
   };
-  const stylePeriods = stylePeriodsMap[style] || stylePeriodsMap.mid;
+  // 超短期モードは投資スタイルの選択を上書きする。時間軸とスタイル名を研究・執筆・CHART_DATA の全指示で揃える
+  const isUltraShort = runMode === 'ultra-short';
+  if (isUltraShort) styleLabels[style] = '超短期(数時間〜3日)';
+  const stylePeriods = isUltraShort ? ['30分後', '1時間後', '半日後(大引け)', '3日後 EOD'] : (stylePeriodsMap[style] || stylePeriodsMap.mid);
   const stylePeriodsListItems = stylePeriods.map(p => `  - "${p}"`).join('\n');
   const stylePeriodsCompact = stylePeriods.map(p => `"${p}"`).join(', ');
 
@@ -7140,7 +7406,7 @@ async function analyzeStocks(retryCount = 0) {
   // 🔧 v1.16.2: weatherUsage を analyzeStocks スコープで保持し、savedItem に乗せる
   let prefetchedWeatherBlock = '';
   let weatherUsage = { used: false, cities: 0, failed: false, error: '' };
-  if (market === 'japan-news' && !isEvaluating && currentMode !== 'review') {
+  if (market === 'japan-news' && !isEvaluating && runMode !== 'review') {
     if (retryCount === 0) {
       resetProgress(); showProgressPanel(); startElapsedTimer();
       setPhase('🌦', 'Open-Meteo API から全国天気予報を取得中...', '無料API・APIキー不要');
@@ -7175,7 +7441,7 @@ A) 国内ニュース
    - 産業: 大企業ニュース・M&A・新製品・技術革新・IPO・規制対応・サプライチェーン
    - 国際: USD/JPY・地政学・貿易・対米/対中関係(日本企業への影響に絞る)
 
-B) ★ 全国天気予報 ★(必ず web_search で「全国 天気予報」「天気 今週」等を検索)
+B) ★ 全国天気予報 ★${prefetchedWeatherBlock ? '(上記の Open-Meteo 取得済みデータ(今日・明日)を使う。天気の web_search はしない)' : '(必ず web_search で「全国 天気予報」「天気 今週」等を検索)'}
    - 猛暑・寒波: 電力需要 → 電力株/エアコン/ガス
    - 猛暑: 飲料/アイス/エアコン/ビール株、レジャー、観光
    - 大雨/台風: 損保/建設/復旧資材・物流の混乱
@@ -7199,13 +7465,13 @@ B) ★ 全国天気予報 ★(必ず web_search で「全国 天気予報」「�
 | 円安加速 | 輸出企業恩恵 | 7203 トヨタ | 内需小売 |
 (必ず Markdown 表形式で 4〜6 行)
 
-# 推奨銘柄(チェーン推論から3〜5銘柄)
+# 推奨銘柄(チェーン推論から${isUltraShort ? '1銘柄' : '3〜5銘柄'})
 (各銘柄は通常モードの形式で。ただし「推奨理由」の最初の1〜2行は必ず
  「[日付] の○○ニュース/気象 → △△ → よってこの銘柄」のチェーン形式で)
 
 ★ 個別銘柄の業績好調だけを根拠にしない(あくまでニュース・気象起点)
 ★ ニュースは具体的な日付・出典(報道社名)があれば併記
-★ 天気は必ず複数地域(首都圏・関西・北海道・九州 等)の予報を確認し、地域差を活かす
+★ 天気は${prefetchedWeatherBlock ? '上記データで' : '必ず'}複数地域(首都圏・関西・北海道・九州 等)の予報を確認し、地域差を活かす
 ★ チェーン表(Markdown 表)は ★必ず★ 出力すること(視覚的に分かりやすくするため)
 ` : '';
 
@@ -7215,7 +7481,7 @@ B) ★ 全国天気予報 ★(必ず web_search で「全国 天気予報」「�
 【★★★ 🔥 EXTRA リスクモード(超ハイリスク・ハイリターン)★★★】
 ★★★ このモードは「ハイリスク・ハイリターン」のみを重視 ★★★
 普通の「バランスの良い推奨」「無難な銘柄」は ★全面禁止★。
-推奨銘柄 3〜5 個 ★ 全てが ★ 激しい値動きをする銘柄でなければならない。
+${isUltraShort ? '推奨する 1 銘柄は' : '推奨銘柄 3〜5 個 ★ 全てが ★'} 激しい値動きをする銘柄でなければならない。
 
 ▼ 銘柄選定の絶対条件(全て満たす銘柄のみ推奨)
 - ボラティリティが高い: 過去 30〜90日の平均日次変動率 ★±3% 以上★、または β > 1.5
@@ -7279,7 +7545,7 @@ B) ★ 全国天気予報 ★(必ず web_search で「全国 天気予報」「�
 ` : '';
 
   // ⚡ 超短期1点絞りモード — 最も自信のある1銘柄を超短期で狙う集中モード
-  const ultraShortBlock = currentMode === 'ultra-short' ? `
+  const ultraShortBlock = isUltraShort ? `
 
 【★★★ ⚡ 超短期 1 銘柄絞りモード ★★★】
 ${additional ? `
@@ -7340,11 +7606,7 @@ ${additional}
 - 候補を 2 つ以上書くのは ★禁止★(迷いを残さず、最も自信のある 1 つを断言)
 
 ▼ forecasts の時間軸(超短期に上書き)
-- ${stylePeriods[0]} → 「30分後」 と読み替えて出力
-- ${stylePeriods[1]} → 「1時間後」 と読み替えて出力
-- ${stylePeriods[2]} → 「半日後(大引け)」 と読み替えて出力
-- ${stylePeriods[3]} → 「3日後 EOD」 と読み替えて出力
-- (period の文字列は実際にこの 4 ラベルを使用すること)
+- period は ${stylePeriodsCompact} の 4 つをこの順で使う(1ヶ月後・1年後などの中長期の時点は使わない)
 
 ▼ 推奨理由・売買プラン(★必ず以下を含める★)
 - 🎯 銘柄名・コード・現在値・出来高(直近 vs 5日平均)
@@ -7385,6 +7647,13 @@ ${additional}
 
   // Broker assumption: SBI証券 is the default registered broker (except for PayPay市場)
   const userBroker = market === 'paypay' ? 'PayPay証券' : 'SBI証券';
+  // 証券会社の検索は web_search の上限 (検索の深さ) の中に収める。銘柄調査の枠を食い潰さないように
+  const _brokerSearchMax = getSearchDepth();
+  const brokerSearchRule = _brokerSearchMax <= 2
+    ? `証券会社だけのための検索はしない(${userBroker} の情報は Phase A の検索で一緒に拾える範囲だけ)`
+    : _brokerSearchMax <= 5
+      ? `証券会社の検索は ★ 最大 1 回 ★(例:「${userBroker} 手数料 キャンペーン ${new Date().getFullYear()}」)`
+      : `証券会社の検索は ★ 最大 2 回 ★、${userBroker} についてのみ(例:「${userBroker} 手数料 ${new Date().getFullYear()}」「${userBroker} キャンペーン 最新」)`;
   const brokerBlock = `
 
 【★ユーザーの取引環境(重要)★】
@@ -7392,32 +7661,12 @@ ${additional}
 - 口座開設・本人確認・初回入金 等の手続きは完了しているので、これらの手順は説明不要
 - 「🛒 買い方ガイド」セクションは、${userBroker} での具体的な操作(銘柄検索→注文→約定確認)に絞って解説
 
-【★★★ 絶対必須 ★★★ 証券会社の最新情報を毎回チェック(分析毎に必ず実行)】
-証券会社の情報は手数料改定・取扱銘柄追加・キャンペーン更新などで頻繁に変わります。
-分析のたびに必ず web_search で「PayPay証券」と「SBI証券」の両方の最新情報を取得し、買い方ガイドに反映してください。
-
-▼ 必須検索クエリ(必ず実行):
-- 「SBI証券 手数料 ${new Date().getFullYear()}」「SBI証券 取扱銘柄 最新」「SBI証券 手数料改定」
-- 「SBI証券 NISA ${new Date().getFullYear()}」「SBI証券 キャンペーン 最新」「SBI証券 アプリ アップデート」
-- 「PayPay証券 手数料 ${new Date().getFullYear()}」「PayPay証券 取扱銘柄 最新」「PayPay証券 手数料改定」
-- 「PayPay証券 キャンペーン 最新」「PayPay証券 新サービス ${new Date().getFullYear()}」
-- 「証券会社 ${new Date().getFullYear()} 比較 手数料」「ネット証券 ${new Date().getFullYear()} 最新動向」
-
-▼ 取得すべき情報:
-- 最新の取引手数料体系(売買手数料、定額制/従量制、無料化の動き、最新の料金プラン)
-- 直近で追加された取扱銘柄(米国株/日本株/ETF/REIT等の新規追加)
-- 現在実施中のキャンペーン(口座開設、入金、手数料キャッシュバック、ポイント付与等)
-- 新サービス・新機能(新NISA、IPO、IPO抽選方法、信用取引、貸株、ロボアド、米国株オプション等)
-- アプリ・ウェブの新機能やUI変更
-- システム障害情報や注意喚起(あれば)
-- ${userBroker} と他社との差別化ポイント(競争力比較)
-
-▼ 出力時のルール:
+【証券会社の最新情報】(手数料・キャンペーンは頻繁に変わる)
+- web_search が使える場合: ${brokerSearchRule}。検索は銘柄・市場の調査を優先し、web_search 全体の上限 (${_brokerSearchMax} 回) を超えない
+- 確認する内容は ${userBroker} の売買手数料と実施中のキャンペーンだけ
+- 手数料・キャンペーンは、検索結果(またはリサーチデータ)で確認できた内容だけを「20XX年X月時点」と取得日付きで書く
+- 確認できなかった場合は推測で書かず、「最新の手数料・キャンペーンは ${userBroker} の公式サイトで確認」と案内する
 - ❌ 古い情報や昔の手数料体系をそのまま提示するのは禁止
-- ✅ 必ず「20XX年X月時点」のように情報取得日を明記
-- ✅ 手数料改定の最新動向(無料化の流れ等)があれば反映
-- ✅ "${userBroker}" の現在のキャンペーン情報も含める(あれば)
-- ✅ もし他社と比較してメリット/デメリットがあれば触れる
 
 ${market === 'us' ? '- ' + userBroker + ' の米国株取引手順(為替手数料、住信SBIネット銀行との連携、外国税控除)も具体的に' : ''}
 ${market === 'japan' || market === 'japan-news' || market === 'both' ? '- ' + userBroker + ' の単元未満株(S株)サービスや日経テレコン連携も活用可能' : ''}
@@ -7594,7 +7843,7 @@ OK: 「朝9時の取引開始直後、同業株が上がっているのを見た
 ` : '';
 
   // 🪦 死亡診断書モード (Pre-mortem) — 推奨と「失敗シナリオ」を同時に書かせ、撤退ラインを具体化
-  const preMortemBlock = currentMode === 'premortem' ? `
+  const preMortemBlock = runMode === 'premortem' ? `
 
 【★★★ 🪦 死亡診断書モード(Pre-mortem)★★★】
 通常の銘柄推奨に加えて、各推奨銘柄について「もし3年後にこの投資が ★ 大失敗 ★ していたら、その原因は何か」を ★ 必ず先に ★ 書く Pre-mortem 分析を実施してください。
@@ -7629,7 +7878,7 @@ OK: 「朝9時の取引開始直後、同業株が上がっているのを見た
 ` : '';
 
   // 🥊 投資家5人会議モード — 5人格AIによる論破合戦
-  const councilBlock = currentMode === 'council' ? `
+  const councilBlock = runMode === 'council' ? `
 
 【★★★ 🥊 投資家5人会議モード ★★★】
 通常の銘柄推奨に加えて、各推奨銘柄について以下の5人格による議論セクションを必ず追加してください。
@@ -7679,7 +7928,7 @@ OK: 「朝9時の取引開始直後、同業株が上がっているのを見た
 ` : '';
 
   // 💌 未来の自分からの手紙モード — 3シナリオの一人称手紙
-  const futureLetterBlock = currentMode === 'future-letter' ? `
+  const futureLetterBlock = runMode === 'future-letter' ? `
 
 【★★★ 💌 未来の自分からの手紙モード ★★★】
 通常の銘柄推奨に加えて、各推奨銘柄について「5 年後のあなた」から「今のあなた」への手紙を ★ 3 通 ★ 書いてください。
@@ -7722,7 +7971,7 @@ OK: 「朝9時の取引開始直後、同業株が上がっているのを見た
 ` : '';
 
   // 👀 日常気づき逆算モード — Lynch 流ボトムアップ
-  const bottomUpBlock = currentMode === 'bottom-up' ? `
+  const bottomUpBlock = runMode === 'bottom-up' ? `
 
 【★★★ 👀 日常気づき → 銘柄逆算モード(現代版ピーター・リンチ)★★★】
 このモードは ★ ユーザーが書いた「日常の気づき」 ★ を銘柄選定の唯一の起点とします。
@@ -7766,7 +8015,7 @@ ${additional || '(空)'}
 ` : '';
 
   // 📜 AI 自己採点モード — 過去推奨を容赦なく自己批判
-  const selfAuditBlock = (currentMode === 'self-audit' && reviewItems.length > 0) ? `
+  const selfAuditBlock = (runMode === 'self-audit' && reviewItems.length > 0) ? `
 
 【★★★ 📜 AI 自己採点モード(${reviewItems.length}件)★★★】
 これは ★ 過去の自分(AI)が出した推奨 ★ を、本日(${today})時点で ★ 容赦なく自己批判 ★ するモードです。
@@ -7821,7 +8070,7 @@ ${reviewItems.map((it, i) => {
 ` : '';
 
   // ===== Review mode prompt =====
-  const reviewBlock = (currentMode === 'review' && reviewItems.length > 0) ? `
+  const reviewBlock = (runMode === 'review' && reviewItems.length > 0) ? `
 
 ★★★ 考察モード(再評価) ★★★
 これは「過去の分析」をベースにした再評価です。以下に示す過去の分析結果について、その後の市場変動・世界情勢の変化・銘柄の現状を web_search で ★ 上限 ${_searchMax} 回 ★ までで調査し、新しい推奨アクションを考察してください。
@@ -7963,10 +8212,10 @@ ${evalTarget.result}
       market, style, risk, amount, additional,
       marketLabels, styleLabels, riskLabels, amountLabels,
       paypayBlock, sbiBlock, japanNewsBlock, extraRiskBlock, ultraShortBlock, shortTermTimingBlock, learningsBlock,
-      preMortemBlock, councilBlock, futureLetterBlock, bottomUpBlock, selfAuditBlock,
+      preMortemBlock, councilBlock, futureLetterBlock, bottomUpBlock, selfAuditBlock, reviewBlock,
       brokerBlock, scenarioTriggerBlock, jargonRulesBlock, compactOutputBlock, searchStrategyBlock, userBroker,
       stylePeriods, stylePeriodsListItems, stylePeriodsCompact,
-      pastLearnings, currentMode, reviewItems,
+      pastLearnings, currentMode: runMode, reviewItems, runCtx,
       weatherUsage // 🔧 v1.16.2: 天気API使用情報をhybridに引き継ぐ
     });
   }
@@ -7976,7 +8225,7 @@ ${evalTarget.result}
   else if (model === 'eco-hybrid') model = CLAUDE_ECO_RESEARCH_MODEL;
 
   const prompt = isEvaluating ? evalBlock :
-    currentMode === 'review' && reviewItems.length > 0 ? `あなたは経験豊富な金融アナリストです。本日(${today})時点での再評価を、過去分析と最新の web_search 結果を組み合わせて行ってください。
+    runMode === 'review' && reviewItems.length > 0 ? `あなたは経験豊富な金融アナリストです。本日(${today})時点での再評価を、過去分析と最新の web_search 結果を組み合わせて行ってください。
 ${learningsBlock}
 【現在の条件】
 - 対象市場: ${marketLabels[market]}
@@ -8118,7 +8367,7 @@ ${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbi
 ## 🔬 今回の分析で重視した観点 - どうやって銘柄を見つけたか
 プロが普段使っている「銘柄を選ぶときのモノサシ」を、初心者にもワクワクして読めるように紹介🔍 「ファンダメンタル」「テクニカル」って何?を温かく解説してください。
 
-## 💡 おすすめ銘柄、ご紹介します!(3〜5銘柄)
+## 💡 おすすめ銘柄、ご紹介します!(${isUltraShort ? '1銘柄' : '3〜5銘柄'})
 お待たせしました、今日の主役たちです!🎉 それぞれの会社を「物語」として紹介しますね。
 
 ### 1. 銘柄名(ティッカー/コード)
@@ -8230,7 +8479,7 @@ ${additional ? `- 追加リクエスト: ${additional}` : ''}${paypayBlock}${sbi
 }
 [/CHART_DATA]
 
-(銘柄数は実際の推奨数に合わせる。3〜5銘柄)
+(銘柄数は実際の推奨数に合わせる。${isUltraShort ? '超短期モードは 1 銘柄のみ' : '3〜5銘柄'})
 
 ★★★絶対ルール★★★ 投資スタイル「${styleLabels[style]}」のため、forecasts の period は必ず以下の 4 つを順番通りに使用してください(これが予測折れ線グラフの X 軸になります):
 ${stylePeriodsListItems}
@@ -8241,11 +8490,11 @@ ${stylePeriodsListItems}
 ]
 
 ★絶対ルール:
-- 推奨銘柄をすべて含めること(3〜5件)
+- 推奨銘柄をすべて含めること(${isUltraShort ? '1件' : '3〜5件'})
 - forecasts は必ず上記の 4 つの時点(${stylePeriodsCompact})を含める
 - price_low, price_high, current_price は必ず数値(クォートで囲まない)
 - price_low ≤ price_high で、時間が進むほど予測レンジが広がる(不確実性が増す)よう自然な値を
-- 例: 1ヶ月後はレンジ ±5%程度、1年後はレンジ ±20%程度のように、未来ほど幅広く
+- 例: ${isUltraShort ? '30分後はレンジ ±1%程度、3日後 EOD は ±5〜10%程度' : '1ヶ月後はレンジ ±5%程度、1年後はレンジ ±20%程度'}のように、未来ほど幅広く
 - action は必ず英小文字の "buy" / "hold" / "sell" のいずれか
 - JSONは厳密に有効な形式で(末尾カンマ・コメント禁止)
 - [CHART_DATA] と [/CHART_DATA] のタグは正確に
@@ -8326,6 +8575,8 @@ ${stylePeriodsListItems}
 - 数値は具体的に、ただし必ず例えで噛み砕く
 - これは投資助言ではなく分析情報として`;
 
+  // リトライの準備中 (天気の再取得など) に停止されていたら、新しいリクエストは出さない
+  if (runCtx.ctl && runCtx.ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
   analyzeBtn.disabled = true;
   analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>分析中...';
   hideStatus();
@@ -8336,7 +8587,7 @@ ${stylePeriodsListItems}
     if (isEvaluating) {
       const past = new Date(evalTarget.timestamp).toLocaleDateString('ja-JP');
       addActivity(`📊 評価モード開始 (対象: ${past}の分析, モデル: ${MODELS[model].name})`);
-    } else if (currentMode === 'review') {
+    } else if (runMode === 'review') {
       addActivity(`🔄 考察モード開始 (過去 ${reviewItems.length} 件 × モデル: ${MODELS[model].name})`);
       reviewItems.forEach((it, i) => {
         addActivity(`  ↳ 分析 ${i+1}: ${new Date(it.timestamp).toLocaleDateString('ja-JP')} (${MODELS[it.model]?.name || it.model})`);
@@ -8389,8 +8640,9 @@ ${stylePeriodsListItems}
         if (!receivedBlockTypes.includes('grounding')) receivedBlockTypes.push('grounding');
         searchCount = Math.max(searchCount, groundingInfo.queries.length);
         stepSearchCount.textContent = `${searchCount}回`;
+        updateSearchCounter(searchCount, getSearchDepth());
         const newQ = parsed.newQueries || [];
-        for (const q of newQ) addActivity(`🔎 Google 検索: "${escapeHtml(q)}"`);
+        for (const q of newQ) addActivity(`🔎 Google 検索: "${q}"`);
         if (newQ.length) updateLiveTicker('🔎', `Google 検索 ${searchCount}件`, `"${newQ[newQ.length - 1]}"`);
         if (!accumulatedText) {
           setStep('connect', 'done'); setStep('search', 'active');
@@ -8410,6 +8662,7 @@ ${stylePeriodsListItems}
         if (block && block.type === 'server_tool_use' && block.name === 'web_search') {
           stopHeartbeat();
           searchCount++;
+          updateSearchCounter(searchCount, getSearchDepth());
           pendingToolInput = ''; pendingToolIndex = parsed.index;
           setStep('connect', 'done'); setStep('search', 'active');
           setProgressPercent(10 + Math.min(20, searchCount * 4));
@@ -8530,7 +8783,7 @@ ${stylePeriodsListItems}
 
     if (analysisProvider === 'gemini') {
       // 🔷 Gemini は Google 検索 (google_search) を1リクエストの中で済ませる。往復は不要。
-      addActivity(`🔌 Gemini API にリクエスト送信 (${escapeHtml(model)})`);
+      addActivity(`🔌 Gemini API にリクエスト送信 (${model})`);
       await streamFetchGemini({
         apiKey, model, prompt, useTools: true,
         maxTokens: 12000,
@@ -8548,7 +8801,7 @@ ${stylePeriodsListItems}
       });
     } else {
       // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
-      //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
+      //   - web_search は Haiku (4.5 / 5.5) のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
       //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
       //     claudeMaxTokens() で上限に余裕を持たせる
       //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
@@ -8616,8 +8869,11 @@ ${stylePeriodsListItems}
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
-      await new Promise(r => setTimeout(r, waitSec * 1000));
-      return analyzeStocks(retryCount + 1);
+      // 待機中に停止されたら再実行しない。await しないと外側の finally が再試行中の停止ボタンや状態を消してしまう
+      const ctl = currentAbortController;
+      try { await sleepWithAbort(waitSec * 1000, ctl && ctl.signal); } catch (_) {}
+      if (!ctl || ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
+      return await analyzeStocks(retryCount + 1, { ...runCtx, ctl });
     }
 
     // 途中まで書いてから拒否 (refusal) された場合、その出力は不完全なので保存せず失敗として扱う
@@ -8627,7 +8883,7 @@ ${stylePeriodsListItems}
       setStep('generate', 'pending');
       setPhase('⚠️', refusedMidway ? '途中で回答が止まりました' : '本文未生成', refusedMidway ? 'AI が回答を控えたため、途中までの出力は破棄しました' : '応答テキストが取得できませんでした');
       const hints = {
-        pause_turn: 'Web検索の反復上限に達しました。もう一度「分析開始」を押すと続行できる場合があります。',
+        pause_turn: 'Web検索の反復上限に達しました。もう一度「分析開始」を押すと最初からやり直しになります(続きからではありません)。「🔍 検索の深さ」を下げると収まりやすくなります。',
         // 🔧 v3.1.0: Opus 5 / Fable 5 は安全性分類器で HTTP 200 のまま refusal を返すことがある。
         //            その場合 stop_details にカテゴリが入る。別モデルなら通ることが多い。
         refusal: 'AIが安全性の観点から回答を控えました (stop_reason: refusal)。'
@@ -8647,7 +8903,7 @@ ${stylePeriodsListItems}
           : 'AIが本文を生成せずに終了しました。'
       };
       const reasonText = hints[stopReason] || `不明な終了理由 (${stopReason || '不明'})`;
-      const errorBlock = streamError ? `<p style="color:#b91c1c"><strong>ストリームエラー:</strong> ${streamError}</p>` : '';
+      const errorBlock = streamError ? `<p style="color:#b91c1c"><strong>ストリームエラー:</strong> ${escapeHtml(streamError)}</p>` : '';
       const blockInfo = receivedBlockTypes.length ? receivedBlockTypes.join(', ') : '(なし)';
       resultDiv.innerHTML = `
         <h2>⚠️ 応答テキストが取得できませんでした</h2>
@@ -8668,11 +8924,22 @@ ${stylePeriodsListItems}
       if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
       setStatusHTML(`⚠️ <strong>本文未生成</strong><div class="chips">${chips}</div>`, 'error');
     } else {
+      // 途中で切れた応答 (ストリームエラー・検索の反復上限・出力上限・終了理由なし) は完了扱いにしない。
+      // 支払い済みの本文は捨てず、途中までであることを示して保存する
+      const cutReasons = { pause_turn: 'Web検索の反復上限 (pause_turn)', max_tokens: '出力上限 (max_tokens)', model_context_window_exceeded: 'コンテキスト上限 (model_context_window_exceeded)' };
+      const incompleteReason = streamError ? `ストリームエラー: ${streamError}`
+        : !stopReason ? '終了理由が届きませんでした (通信が途中で切れた可能性)'
+        : cutReasons[stopReason] || (/^gemini_/.test(stopReason) ? `Gemini が途中で停止 (${stopReason})` : null);
       stopElapsedTimer();
-      setStep('generate', 'done'); setStep('complete', 'done');
+      setStep('generate', 'done'); if (!incompleteReason) setStep('complete', 'done');
       setProgressPercent(100);
-      setPhase('✅', '分析完了', `${accumulatedText.length.toLocaleString()}文字を生成しました`);
-      addActivity('✅ 分析が完了しました');
+      if (incompleteReason) {
+        setPhase('⚠️', '応答が途中で終了しました', incompleteReason);
+        addActivity(`⚠️ 応答が途中で終了しました (${incompleteReason})`);
+      } else {
+        setPhase('✅', '分析完了', `${accumulatedText.length.toLocaleString()}文字を生成しました`);
+        addActivity('✅ 分析が完了しました');
+      }
 
       // Auto-save to IndexedDB
       const extractedTitle = extractAnalysisTitle(accumulatedText);
@@ -8693,7 +8960,7 @@ ${stylePeriodsListItems}
           if (!original) throw new Error('元記事 (ID:' + evalTarget.id + ') が見つかりません');
           // 評価セクションを元記事末尾に追記
           const ratingStr = rating ? ` — 総合評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}` : ' — 評価レーティング未抽出';
-          const evalSection = `\n\n---\n\n## 📊 評価レポート (${evalDateStr}${ratingStr})\n\n${accumulatedText}`;
+          const evalSection = `\n\n---\n\n## 📊 評価レポート (${evalDateStr}${ratingStr}${incompleteReason ? ' — ⚠️ 途中終了' : ''})\n\n${accumulatedText}`;
           original.result = (original.result || '') + evalSection;
           if (rating) {
             original.evaluationRating = rating;
@@ -8705,7 +8972,7 @@ ${stylePeriodsListItems}
             date: Date.now(), rating, comment,
             searchCount, inputTokens, outputTokens,
             evalLength: accumulatedText.length,
-            provider: analysisProvider, model
+            provider: analysisProvider, model, incomplete: !!incompleteReason
           });
           // 評価で使った検索の出典・検索候補も、評価レポートと一緒に表示できるよう残す
           original.groundings = (original.groundings || []).concat(buildGroundingRecords(`評価 (${evalDateStr})`, groundingInfo));
@@ -8720,13 +8987,34 @@ ${stylePeriodsListItems}
           console.error('Eval merge failed:', e);
           addActivity(`❌ 評価の統合に失敗: ${e.message}`);
         }
+        // 統合できなかった評価 (評価中に元記事が削除された等) も捨てずに、単独の評価レポートとして保存する
+        let fallbackId = null;
+        if (!mergedItem) {
+          const fallbackItem = {
+            timestamp: Date.now(), model, market: evalTarget.market, style: evalTarget.style, risk: evalTarget.risk, amount: evalTarget.amount,
+            mode: 'evaluate', evaluateTargetId: evalTarget.id,
+            result: accumulatedText,
+            title: `📊 評価レポート (${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}の分析)`,
+            searchCount, inputTokens, outputTokens, stopReason, provider: analysisProvider,
+            incomplete: !!incompleteReason,
+            groundings: buildGroundingRecords(`評価 (${evalDateStr})`, groundingInfo)
+          };
+          fallbackId = await dbSave(fallbackItem).catch(e2 => { console.error('Eval fallback save failed:', e2); return null; });
+          if (fallbackId) {
+            fallbackItem.id = fallbackId;
+            addActivity(`💾 評価レポートを単独で保存しました (ID: ${fallbackId})`);
+            await renderHistory();
+          }
+          // 保存できなくてもダウンロード・コピーはできるようにする
+          ensureResultActions(fallbackItem);
+        }
 
         // 評価モード時は別 savedItem を作らないので、ここで cost summary 等を表示してから return
         let chips = '';
         if (searchCount > 0) chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
         if (inputTokens > 0) chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
         if (outputTokens > 0) chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
-        chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード(統合済) <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}の分析を評価</span></span>`;
+        chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード${mergedItem ? '(統合済)' : fallbackId ? '(単独保存)' : '(未保存)'} <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}の分析を評価</span></span>`;
         const mInfo = MODELS[model] || {};
         showCostSummary({
           phases: [{ label: mInfo.name || model, ...modelCostFor(model, inputTokens), inputTokens, outputTokens }],
@@ -8734,7 +9022,10 @@ ${stylePeriodsListItems}
           modelLabel: mInfo.name || model, searchCount, learningsCount: 0,
           searchUnitCost, usageUrl: usageUrlFor(analysisProvider),
         });
-        setStatusHTML(`✅ <strong>評価レポートを元記事に統合しました</strong><div class="chips">${chips}</div>`, 'success');
+        const cutNote = incompleteReason ? ` — ⚠️ 途中で終了 (${escapeHtml(incompleteReason)})` : '';
+        if (mergedItem) setStatusHTML(`${incompleteReason ? '⚠️' : '✅'} <strong>評価レポートを元記事に統合しました</strong>${cutNote}<div class="chips">${chips}</div>`, incompleteReason ? 'error' : 'success');
+        else if (fallbackId) setStatusHTML(`⚠️ <strong>元記事に統合できなかったため、評価レポートを単独で保存しました</strong>(履歴の「過去の独立した評価レポートも表示する」で確認できます)${cutNote}<div class="chips">${chips}</div>`, 'error');
+        else setStatusHTML(`❌ <strong>評価レポートを保存できませんでした</strong> — 表示中の内容をコピーまたはダウンロードしてください${cutNote}<div class="chips">${chips}</div>`, 'error');
         // 早期return: 通常の savedItem 保存はスキップ
         analyzeBtn.disabled = false;
         evaluatingItem = null;
@@ -8753,20 +9044,25 @@ ${stylePeriodsListItems}
         searchCount, inputTokens, outputTokens, stopReason,
         provider: analysisProvider,
         groundings: buildGroundingRecords('分析', groundingInfo),
-        mode: currentMode,
-        reviewSourceIds: (currentMode === 'review' || currentMode === 'self-audit') ? Array.from(selectedHistoryIds) : [],
+        mode: runMode,
+        reviewSourceIds: (runMode === 'review' || runMode === 'self-audit') ? reviewItems.map(it => it.id).filter(Boolean) : [],
+        incomplete: !!incompleteReason, incompleteReason,
         evaluateTargetId: null,
         learningsApplied: pastLearnings.length,
         dataSources: { weather: weatherUsage, webSearchCount: searchCount, stooq: { count: stooqCount } }
       };
-      const newId = await dbSave(savedItem);
+      // 保存の失敗 (容量超過など) で分析全体をエラー扱いにしない。保存できたかどうかは下のチップで示す
+      const newId = await dbSave(savedItem).catch(e => { console.error('DB save failed', e); return null; });
       if (newId) {
         savedItem.id = newId;
         if (extractedTitle) addActivity(`📰 タイトル: 「${extractedTitle}」`);
         addActivity(`💾 IndexedDB に保存しました (ID: ${newId})`);
         await renderHistory();
-        ensureResultActions(savedItem);
+      } else {
+        addActivity('⚠️ IndexedDB への保存に失敗しました (履歴に残りません)');
       }
+      // 保存できなかった場合もダウンロード・コピーと出典の表示は出す
+      ensureResultActions(savedItem);
 
       let chips = '';
       if (searchCount > 0) chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
@@ -8776,7 +9072,7 @@ ${stylePeriodsListItems}
       if (stopReason === 'max_tokens') chips += `<span class="chip" style="background:rgba(239,68,68,0.12);color:#b91c1c">✂️ 出力上限で途中切れ <span class="chip-value">末尾が欠けています</span></span>`;
       if (retryCount > 0) chips += `<span class="chip">🔁 リトライ <span class="chip-value">${retryCount}回</span></span>`;
       if (isEvaluating) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}を評価</span></span>`;
-      else if (currentMode === 'review') chips += `<span class="chip">🔄 考察モード <span class="chip-value">${reviewItems.length}件参照</span></span>`;
+      else if (runMode === 'review') chips += `<span class="chip">🔄 考察モード <span class="chip-value">${reviewItems.length}件参照</span></span>`;
       else {
         const _innMode = {
           'premortem': '🪦 死亡診断書',
@@ -8784,11 +9080,11 @@ ${stylePeriodsListItems}
           'bottom-up': '👀 日常気づき逆算',
           'council': '🥊 投資家5人会議',
           'future-letter': '💌 未来からの手紙'
-        }[currentMode];
+        }[runMode];
         if (_innMode) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(236,72,153,0.18),rgba(245,158,11,0.18));color:#be185d;font-weight:700">${_innMode}</span>`;
       }
       if (pastLearnings.length > 0) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(6,182,212,0.12));color:#047857">🎓 学習反映 <span class="chip-value">${pastLearnings.length}件</span></span>`;
-      chips += `<span class="chip">💾 自動保存済み</span>`;
+      chips += newId ? `<span class="chip">💾 自動保存済み</span>` : `<span class="chip" style="color:#b91c1c">⚠️ 保存失敗(履歴に残りません)</span>`;
 
       // Show prominent cost summary card
       const mInfo = MODELS[model] || {};
@@ -8804,7 +9100,8 @@ ${stylePeriodsListItems}
         searchUnitCost, usageUrl: usageUrlFor(analysisProvider),
       });
 
-      setStatusHTML(`✅ <strong>分析が完了しました</strong><div class="chips">${chips}</div>`, 'success');
+      if (incompleteReason) setStatusHTML(`⚠️ <strong>応答が途中で終了しました</strong> (${escapeHtml(incompleteReason)}) — 途中までの結果を${newId ? '保存しました' : '表示しています'}<div class="chips">${chips}</div>`, 'error');
+      else setStatusHTML(`✅ <strong>分析が完了しました</strong><div class="chips">${chips}</div>`, 'success');
     }
 
   } catch (error) {
@@ -8822,9 +9119,11 @@ ${stylePeriodsListItems}
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
-      await new Promise(r => setTimeout(r, waitSec * 1000));
-      analyzeBtn.disabled = false;
-      return analyzeStocks(retryCount + 1);
+      // 待機中に停止されたら再実行しない。ボタンは再試行が終わるまで無効のまま
+      const ctl = currentAbortController;
+      try { await sleepWithAbort(waitSec * 1000, ctl && ctl.signal); } catch (_) {}
+      if (!ctl || ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
+      return await analyzeStocks(retryCount + 1, { ...runCtx, ctl });
     }
     stopElapsedTimer();
     setPhase('❌', 'エラーが発生しました', errStr);
@@ -8858,6 +9157,11 @@ function formatNum(n) {
 function renderChart(data) {
   if (!data || !Array.isArray(data.stocks) || data.stocks.length === 0) return '';
   const stocks = data.stocks.slice(0, 8);
+  // Number(null) / Number('') は 0 になり -100% として描かれるため、正の数値だけを価格とみなす
+  const toPrice = v => {
+    const n = (typeof v === 'number' || (typeof v === 'string' && v.trim() !== '')) ? Number(v) : NaN;
+    return isFinite(n) && n > 0 ? n : NaN;
+  };
 
   // Build time-series for each stock as % change from current
   stocks.forEach(s => {
@@ -8867,8 +9171,8 @@ function renderChart(data) {
 
     if (Array.isArray(s.forecasts) && s.forecasts.length > 0) {
       s.forecasts.forEach((f, i) => {
-        const pLow = Number(f.price_low), pHigh = Number(f.price_high);
-        if (!isFinite(pLow) || !isFinite(pHigh)) return;
+        const pLow = toPrice(f && f.price_low), pHigh = toPrice(f && f.price_high);
+        if (isNaN(pLow) || isNaN(pHigh)) return;
         const low = ((pLow - cp) / cp) * 100;
         const high = ((pHigh - cp) / cp) * 100;
         const mid = (low + high) / 2;
@@ -8878,8 +9182,8 @@ function renderChart(data) {
           priceLow: pLow, priceHigh: pHigh, priceMid: (pLow + pHigh) / 2
         });
       });
-    } else if (isFinite(Number(s.target_low)) && isFinite(Number(s.target_high))) {
-      const tl = Number(s.target_low), th = Number(s.target_high);
+    } else if (!isNaN(toPrice(s.target_low)) && !isNaN(toPrice(s.target_high))) {
+      const tl = toPrice(s.target_low), th = toPrice(s.target_high);
       const low = ((tl - cp) / cp) * 100;
       const high = ((th - cp) / cp) * 100;
       const mid = (low + high) / 2;
@@ -8905,10 +9209,15 @@ function renderChart(data) {
   yMin -= yRange * 0.08;
   yMax += yRange * 0.15;
 
-  // X-axis: use longest series for labels
-  const longest = validStocks.reduce((a, b) => (b._series.length > a._series.length ? b : a), validStocks[0]);
-  const xLabels = longest._series.map(p => p.label);
-  const maxX = longest._series.length - 1;
+  // X-axis: 予測が欠けた期があっても各点の x は期の番号のまま。軸は x の最大値から作り、ラベルは長い系列を優先
+  const byLen = [...validStocks].sort((a, b) => b._series.length - a._series.length);
+  const maxX = Math.max(...validStocks.map(s => s._series[s._series.length - 1].x));
+  const xLabels = Array.from({ length: maxX + 1 }, (_, x) => {
+    for (const s of byLen) { const p = s._series.find(q => q.x === x); if (p) return p.label; }
+    // 価格が欠けて点を打たなかった期も、期間名は元の forecasts から拾う
+    for (const s of byLen) { const f = Array.isArray(s.forecasts) && s.forecasts[x - 1]; if (f && f.period) return String(f.period); }
+    return `${x}期`;
+  });
 
   // SVG dimensions
   const W = 760, H = 440;
@@ -9003,7 +9312,7 @@ function renderChart(data) {
     const cur = escapeHtml(s.currency || '');
     const cp = Number(s.current_price);
     const last = s._series[s._series.length - 1];
-    const priceText = last ? `${cur}${formatNum(last.priceLow)}〜${cur}${formatNum(last.priceHigh)} (${last.label})` : '';
+    const priceText = last ? `${cur}${formatNum(last.priceLow)}〜${cur}${formatNum(last.priceHigh)} (${escapeHtml(last.label)})` : '';
     return `<div class="chart-summary-item">
       <span class="chart-summary-name">${escapeHtml(s.name)}</span>
       <span class="chart-summary-ticker">${escapeHtml(s.ticker || '')}</span>
@@ -9046,9 +9355,16 @@ function extractEvaluationRating(text) {
       // ① ★連続
       const m = window.match(/★+/);
       if (m && m[0].length >= 1 && m[0].length <= 5) return m[0].length;
-      // ② "X/5" or "X 段階中" or "X 点"
-      const nm = window.match(/(\d+)\s*(?:\/\s*5|段階|点|stars?|\s*星)/i);
-      if (nm) { const n = parseInt(nm[1], 10); if (n >= 1 && n <= 5) return n; }
+      // ② 数値表記。"5段階" や "3.5/5" の 5 (尺度) を点数と取り違えないよう、点数側だけを順に探す
+      const pats = [
+        /(\d+(?:\.\d+)?)\s*\/\s*5(?:\.0+)?(?![\d.])/g,
+        /5\s*(?:段階|つ星)\s*中\s*(\d+(?:\.\d+)?)/g,
+        /(?:総合評価|総合\s*スコア|総合\s*ランク|総合点)\s*\**\s*[:：]\s*\**\s*(\d+(?:\.\d+)?)(?![\d.]|\s*(?:段階|つ星|点満点))/g,
+        /(\d+(?:\.\d+)?)\s*(?:点|stars?|つ?星)(?!\s*(?:中|満点))/gi
+      ];
+      for (const re of pats) {
+        for (const nm of window.matchAll(re)) { const n = Math.round(parseFloat(nm[1])); if (n >= 1 && n <= 5) return n; }
+      }
     }
   }
 
@@ -9079,10 +9395,25 @@ function renderCalendar(data) {
   if (!data || !Array.isArray(data.events) || data.events.length === 0) return '';
   // ★ 上限ガード — 万一モデルが大量に出力しても UI を保護
   const rawEvents = data.events.length > 100 ? data.events.slice(0, 100) : data.events;
+  // 'YYYY-MM-DD' を new Date に渡すと UTC 0 時になり、ローカルの getDate 等で前日にずれるため自前で分解する
+  const parseYmd = s => {
+    const m = /^(\d{4})\s*[-\/.年]\s*(\d{1,2})(?:\s*[-\/.月]\s*(\d{1,2}))?/.exec(String(s ?? ''));
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, m[3] ? +m[3] : 1);
+    // 02-31 等の繰り上がりは不正。new Date にも回さず元の文字列を表示させる
+    if (d.getMonth() !== +m[2] - 1 || (m[3] && d.getDate() !== +m[3])) return { d: null, hasDay: false };
+    return { d, hasDay: !!m[3] };
+  };
+  // 時刻が '引け後' などでも NaN にしない。日付が読めないものは末尾 (元の順)
+  const sortKey = e => {
+    const p = parseYmd(e && e.date);
+    if (!p || !p.d) return Infinity;
+    const tm = /^(\d{1,2}):(\d{2})/.exec(String((e && e.time) ?? ''));
+    return p.d.getTime() + (tm ? (+tm[1] * 60 + +tm[2]) * 60000 : 0);
+  };
   const events = [...rawEvents].sort((a, b) => {
-    const da = new Date((a.date || '') + 'T' + (a.time || '00:00'));
-    const db = new Date((b.date || '') + 'T' + (b.time || '00:00'));
-    return da - db;
+    const ka = sortKey(a), kb = sortKey(b);
+    return ka === kb ? 0 : ka < kb ? -1 : 1;
   });
   const typeIcons = {
     policy: '🏛', earnings: '📊', geopolitical: '🌍', macro: '📈',
@@ -9096,8 +9427,9 @@ function renderCalendar(data) {
     let dateDisplay = dateStr;
     let monthDisp = '', dayDisp = '', wdDisp = '';
     if (dateStr) {
-      const d = new Date(dateStr);
-      if (!isNaN(d)) {
+      const p = parseYmd(dateStr);
+      const d = p ? (p.hasDay ? p.d : null) : new Date(String(dateStr));
+      if (d && !isNaN(d)) {
         monthDisp = monthShort[d.getMonth()] || '';
         dayDisp = String(d.getDate());
         wdDisp = weekdayShort[d.getDay()] || '';
@@ -9119,7 +9451,7 @@ function renderCalendar(data) {
       <div class="cal-event imp-${imp}">
         <div class="cal-date-col">
           <div class="cal-date-month">${monthDisp}</div>
-          <div class="cal-date-day">${dayDisp}</div>
+          <div class="cal-date-day">${dayDisp || (dateDisplay ? `<span class="cal-date-raw" style="font-size:11px;font-weight:700">${escapeHtml(String(dateDisplay))}</span>` : '')}</div>
           <div class="cal-date-weekday">${wdDisp}</div>
           ${time ? `<div class="cal-date-time">${escapeHtml(ev.time)}</div>` : ''}
         </div>
@@ -9202,7 +9534,12 @@ function renderMarkdown(text) {
   html = html.replace(/^---+$/gm, '<hr>');
   html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // リンク先はモデル出力 (検索結果由来) なので http(s) のみ許可し、引用符で属性の外へ出られないようにする
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (m, t, u) => {
+    u = u.trim().split(/\s+/)[0];
+    if (!/^https?:\/\//i.test(u)) return t;
+    return `<a href="${u.replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" target="_blank" rel="noopener">${t}</a>`;
+  });
   html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<li data-num="$1">$2</li>');
   html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li[^>]*>[\s\S]+?<\/li>(?:\n<li[^>]*>[\s\S]+?<\/li>)*)/g, (match) => {
@@ -9251,7 +9588,7 @@ function renderMarkdown(text) {
     let data = null;
     try { data = JSON.parse(json); } catch (e) {
       try {
-        const cleaned = json.replace(/,(\s*[}\]])/g, '$1').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const cleaned = stripJsonComments(json).replace(/,(\s*[}\]])/g, '$1');
         data = JSON.parse(cleaned);
       } catch (e2) {
         console.warn('[Calendar] JSON parse failed', e2.message, 'Raw:', json.slice(0, 200));
@@ -9279,15 +9616,15 @@ function renderMarkdown(text) {
     try { parsedData = JSON.parse(json); } catch (e) {
       // Lenient parsing: remove trailing commas, fix common issues
       try {
-        const cleaned = json
-          .replace(/,(\s*[}\]])/g, '$1')  // Remove trailing commas
-          .replace(/\/\/.*$/gm, '')         // Remove line comments
-          .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove block comments
+        // コメントを先に除去しないと "2850, // 終値\n}" の末尾カンマが残る
+        const cleaned = stripJsonComments(json).replace(/,(\s*[}\]])/g, '$1');
         parsedData = JSON.parse(cleaned);
       } catch (e2) {
         console.warn('[Chart] JSON parse failed', e2.message, 'Raw:', json.slice(0, 200));
       }
     }
+    // stocks に null や文字列が混ざっていてもチャート全体を落とさない
+    if (parsedData && Array.isArray(parsedData.stocks)) parsedData.stocks = parsedData.stocks.filter(s => s && typeof s === 'object');
     if (parsedData) {
       try { chartHtml = renderChart(parsedData); }
       catch (e) { console.warn('[Chart] render failed', e); chartHtml = `<div class="chart-loading">📊 チャートデータの解析に失敗しました</div>`; }
@@ -9297,26 +9634,16 @@ function renderMarkdown(text) {
       if (histHtml) chartHtml = (chartHtml || '') + histHtml;
       // 🔧 v1.16.4: 株価検証(AI提示価格 vs Yahoo Finance 最新)を非同期で追加
       if (parsedData.stocks && parsedData.stocks.length > 0) {
-        const verifyId = `priceVerify-${i}-${Date.now()}`;
-        chartHtml = (chartHtml || '') + `<div class="price-verification-loading" id="${verifyId}">💰 株価検証中... (Yahoo Finance API で AI 提示価格と実際の値の乖離をチェック)</div>`;
-        // 結果を非同期で差し替え(レンダリングをブロックしない)
-        setTimeout(async () => {
-          try {
-            const results = await verifyChartDataPrices(parsedData);
-            const el = document.getElementById(verifyId);
-            if (!el) return;
-            if (results && results.length > 0) {
-              const successCount = results.filter(r => r.actualPrice !== null).length;
-              if (successCount > 0) {
-                el.outerHTML = renderPriceVerification(results);
-              } else {
-                el.outerHTML = `<div class="price-verification-loading">⚠️ 株価検証API取得失敗(無料プロキシ経由のため不安定)。Stooq のチャート画像は上に表示済み</div>`;
-              }
-            } else {
-              el.outerHTML = '';
-            }
-          } catch (e) { console.warn('Price verification error:', e); }
-        }, 50);
+        // 同じ CHART_DATA の検証は 1 回だけ。完了済みならそのまま埋め込む (再描画のたびに読み込み表示へ戻さない)
+        const ver = getPriceVerification(json, parsedData);
+        if (ver.html !== null) {
+          chartHtml = (chartHtml || '') + ver.html;
+        } else {
+          const verifyId = `priceVerify-${i}-${Date.now()}`;
+          chartHtml = (chartHtml || '') + `<div class="price-verification-loading" id="${verifyId}">💰 株価検証中... (Yahoo Finance API で AI 提示価格と実際の値の乖離をチェック)</div>`;
+          // 結果を非同期で差し替え(レンダリングをブロックしない)
+          ver.p.then(h => { const el = document.getElementById(verifyId); if (el) el.outerHTML = h; });
+        }
       }
       if (!chartHtml) {
         chartHtml = `<div class="chart-loading">📊 チャートデータが空または不正な形式です</div>`;
@@ -9358,6 +9685,12 @@ renderHistory();
   let busy = false;          // API 呼び出し中フラグ
   let applied = false;       // 修正を反映済みかどうか
   let pendingSelection = null; // showTrigger 時の選択スナップショット (モバイルでタップ時に消える対策)
+  let runId = 0;             // チェックごとの番号。閉じた後・次のチェック開始後に届いた古い応答を捨てる
+  // プロンプトの「今日」は現地の日付 (toISOString は UTC なので日本の朝 9 時前は前日になる)
+  const localToday = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
 
   function getResultSelection() {
     const sel = window.getSelection();
@@ -9390,6 +9723,28 @@ renderHistory();
     }
     const text = (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
     return { element: el, text: text.slice(0, 800) };
+  }
+
+  // 選択が1つの段落・セルに収まっているか。またぐ範囲を extractContents で包むと td/p が複製され
+  // 表の列や段落が壊れる。隣のブロックの先頭 (トリプルクリック等) にかかっているだけなら、
+  // 選択文字列が変わらない範囲で片側のブロックに寄せる
+  function fitRangeToBlock(range) {
+    const blk = (n) => {
+      const el = n.nodeType === 3 ? n.parentElement : n;
+      return el && el.closest('p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, pre');
+    };
+    const sb = blk(range.startContainer), eb = blk(range.endContainer);
+    if (sb === eb) return true;
+    const text = range.toString().trim();
+    if (sb) {
+      const r = range.cloneRange(); r.setEnd(sb, sb.childNodes.length);
+      if (r.toString().trim() === text) { range.setEnd(sb, sb.childNodes.length); return true; }
+    }
+    if (eb) {
+      const r = range.cloneRange(); r.setStart(eb, 0);
+      if (r.toString().trim() === text) { range.setStart(eb, 0); return true; }
+    }
+    return false;
   }
 
   function positionElementNear(rect, el, preferBelow) {
@@ -9444,6 +9799,7 @@ renderHistory();
     applied = false;
     busy = false;
     pendingSelection = null;
+    runId++;
   }
 
   // ===== Selection / outside-click handlers =====
@@ -9478,7 +9834,10 @@ renderHistory();
   // ===== Trigger click → ハイライト + 軽量モデルへ問い合わせ =====
   trigger.addEventListener('mousedown', (e) => { e.preventDefault(); }); // selection 維持
   trigger.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false }); // モバイルで selection を保護
-  trigger.addEventListener('click', async (e) => {
+  // touchstart を止めるとタップから click が作られないので、touchend で開始する (ここでの preventDefault で click の二重発火も防ぐ)
+  trigger.addEventListener('touchend', (e) => { e.preventDefault(); startFactCheck(e); }, { passive: false });
+  trigger.addEventListener('click', startFactCheck);
+  async function startFactCheck(e) {
     e.preventDefault();
     e.stopPropagation();
     // 優先: 直近の getResultSelection、フォールバック: pendingSelection スナップショット
@@ -9490,7 +9849,10 @@ renderHistory();
 
     const range = snap.range;
     const selectedText = snap.text;
-    const blockText = snap.blockText || getBlockContext(range).text;
+    const startNode = range.startContainer;
+    if (!fitRangeToBlock(range)) { alert('1つの段落・セル内のテキストを選択してください。'); return; }
+    // 先頭を次のブロックに寄せた時は、文脈の段落もそちらから取り直す
+    const blockText = (range.startContainer === startNode && snap.blockText) || getBlockContext(range).text;
 
     // ハイライト用 span でラップ
     const span = document.createElement('span');
@@ -9509,12 +9871,14 @@ renderHistory();
       }
     }
     activeSpan = span;
+    applied = false;
     pendingSelection = null;
     if (window.getSelection().removeAllRanges) window.getSelection().removeAllRanges();
     hideTrigger();
 
     // ポップオーバーをローディング状態で表示
     busy = true;
+    const my = ++runId;
     popover.innerHTML = `
       <div class="fc-head">
         <span>🔍 ファクトチェック中</span>
@@ -9531,8 +9895,10 @@ renderHistory();
 
     try {
       const result = await callFactCheck(selectedText, blockText);
+      if (my !== runId) return; // 閉じられた・次のチェックが始まった後の応答は捨てる
       renderResult(span, selectedText, result);
     } catch (err) {
+      if (my !== runId) return;
       console.warn('[FactCheck] failed:', err);
       popover.innerHTML = `
         <div class="fc-head">
@@ -9553,8 +9919,10 @@ renderHistory();
           <div class="fc-loading">${escapeHtml(factCheckAI().label)} が Web 検索で確認中…</div>`;
         try {
           const r2 = await callFactCheck(selectedText, blockText);
+          if (my !== runId) return;
           renderResult(span, selectedText, r2);
         } catch (e2) {
+          if (my !== runId) return;
           popover.innerHTML = `<div class="fc-head"><span class="fc-verdict-uncertain">⚠️ 再失敗</span>
             <button class="fc-close" type="button">×</button></div>
             <div class="fc-row">${escapeHtml((e2 && e2.message) || String(e2)).slice(0, 400)}</div>`;
@@ -9562,12 +9930,12 @@ renderHistory();
         }
       };
     } finally {
-      busy = false;
+      if (my === runId) busy = false;
     }
-  });
+  }
 
   async function callFactCheck(selectedText, paragraphText) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const prompt = `あなたは日本語の事実確認(ファクトチェック)エキスパートです。投資・株式分析の記事に含まれる「ユーザーが選択した箇所」(数値・固有名詞・日付・統計・銘柄情報など)が事実と一致しているかを web_search を使って厳密に確認してください。
 
 【今日の日付】 ${today}
@@ -9711,10 +10079,14 @@ JSON以外の文字を一切出力しないこと。`;
       rebuild.disabled = true;
       rebuild.textContent = '🔄 再構築中…';
       if (apply) apply.disabled = true;
+      const my = runId;
       try {
         await rebuildBlock(apiKey, originalText, replacement, parentInfo);
+        // 本文に残っている書き換えは修正履歴に必ず足す。applied / activeSpan はこのポップオーバーが現役の時だけ更新
+        if (parentInfo.element && parentInfo.element.isConnected) registerCorrection(originalText, replacement);
+        if (my !== runId) return;
         applied = true;
-        registerCorrection(originalText, replacement);
+        activeSpan = null; // 元の span は消えた
         rebuild.textContent = '✅ 再構築完了';
         // 再構築完了通知を本文にスクロール
         if (parentInfo.element && parentInfo.element.scrollIntoView) {
@@ -9804,7 +10176,7 @@ JSON以外の文字を一切出力しないこと。`;
   }
 
   async function rebuildBlock(apiKey, originalText, replacement, parentInfo) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const isTable = parentInfo.kind === 'table';
     let blockText, prompt, instruction;
 
@@ -9848,7 +10220,13 @@ ${blockText}
     // Gemini では検索を使わない: 訂正値はファクトチェックで検索済みで、本文に直接差し込む文章に
     // 検索結果を使うと、その場所に検索候補を表示する必要が出てしまうため。
     const ai = factCheckAI();
-    const res = await completeAI({ ...ai, apiKey, prompt, useTools: ai.provider === 'claude', maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000 });
+    // 検索前の「確認します」等の前置きを段落に入れないよう、最後の検索結果より後の本文を別に集める
+    let afterSearch = '';
+    const onEvent = (ev) => {
+      if (ev.type === 'content_block_start' && ev.content_block && ev.content_block.type === 'web_search_tool_result') afterSearch = '';
+      else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') afterSearch += ev.delta.text;
+    };
+    const res = await completeAI({ ...ai, apiKey, prompt, useTools: ai.provider === 'claude', maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000, onEvent });
     const text = (res.text || '').trim();
     if (!text) throw new Error(`モデルがテキスト応答を返しませんでした (stop_reason: ${res.stopReason || '不明'})`);
 
@@ -9869,12 +10247,12 @@ ${blockText}
     } else {
       // 段落のテキストを置換 (高度な markdown は使わない前提)
       // 念のため、" や ``` で囲まれていたら除去
-      let cleaned = text.replace(/^["「]+|["」]+$/g, '').replace(/^```[\s\S]*?\n|\n```$/g, '').trim();
+      let cleaned = (afterSearch.trim() || text).replace(/^["「]+|["」]+$/g, '').replace(/^```[\s\S]*?\n|\n```$/g, '').trim();
+      if (!cleaned) throw new Error('書き直した段落が空でした');
       // 元のタグ (P/LI/H*/BLOCKQUOTE) を維持して中身を入れ替える
       parentInfo.element.textContent = cleaned;
       parentInfo.element.classList.add('fact-check-rebuilt');
     }
-    activeSpan = null; // 元の span は消えた
   }
 
   // ===== 修正履歴の蓄積 (Phase 2 用) =====
@@ -9898,7 +10276,18 @@ ${blockText}
   window.__updateGlobalReviewBadge = updateGlobalReviewBadge;
   window.__runGlobalReview = runGlobalReview;
 
+  let reviewing = false; // 全体見直しの実行中フラグ
   async function runGlobalReview() {
+    if (reviewing) return; // 連打で同じ有料リクエストを重ねて送らない
+    reviewing = true;
+    const btn = document.getElementById('factCheckGlobalReviewBtn');
+    if (btn) btn.disabled = true;
+    try { await reviewArticle(); } finally {
+      reviewing = false;
+      if (btn && btn.isConnected) btn.disabled = !(window.__factCheckCorrections || []).length;
+    }
+  }
+  async function reviewArticle() {
     const apiKey = factCheckAI().apiKey;
     if (!apiKey) { alert(`${aiProviderLabel(getCurrentAiProvider())} の API キーが設定されていません`); return; }
     const corrections = window.__factCheckCorrections || [];
@@ -9930,7 +10319,7 @@ ${blockText}
       <div class="fc-review-empty">${escapeHtml(factCheckAI().label)} が記事全体の整合性を確認しています。修正済み: ${corrections.length}件</div>
     `;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const correctionsList = corrections.map((c, i) =>
       `${i+1}. "${c.original}" → "${c.replacement}"`
     ).join('\n');
@@ -10130,7 +10519,9 @@ ${articleText}
           try { parsed = JSON.parse(codeBlock[1].trim()); } catch (_) {}
         }
       }
-      if (!parsed || typeof parsed.fear !== 'number') {
+      // 3つとも数値として読めること ("high" 等が 0 扱いで正規化され、誤った温度が1日残るのを防ぐ。greed/calm の省略は 0)
+      const isScore = (v) => v == null || Number.isFinite(Number(v));
+      if (!parsed || parsed.fear == null || !['fear', 'greed', 'calm'].every(k => isScore(parsed[k]))) {
         throw new Error('スコアの解析に失敗しました。応答: ' + accumulated.slice(0, 200));
       }
 
@@ -10149,7 +10540,7 @@ ${articleText}
         fear: parsed.fear || 0,
         greed: parsed.greed || 0,
         calm: parsed.calm || 0,
-        summary: (parsed.summary || '').slice(0, 200),
+        summary: String(parsed.summary || '').slice(0, 200),
         stamp: todayStamp(),
         model: ai.label,
         provider: ai.provider,
@@ -10193,7 +10584,7 @@ const worldPredictionApp = (function() {
   const EVENTS_TICK_MS    = 2 * 60 * 1000;      // 地震 2分
   const EONET_TICK_MS     = 5 * 60 * 1000;      // 自然災害 5分
   const NEWS_TICK_MS      = 5 * 60 * 1000;      // ニュース 5分
-  const AIRCRAFT_TICK_MS  = 60 * 1000;          // 航空機 1分 (OpenSky 10秒解像度なので余裕)
+  const AIRCRAFT_TICK_MS  = 10 * 60 * 1000;     // 航空機 10分 (OpenSky 匿名は 400クレジット/日、全域取得は 1回4 → 約100回/日)
   const CLAUDE_TICK_MS    = 30 * 60 * 1000;     // Claude補正 30分
   const HISTORY_MAX       = 60;                 // 直近 N tick (回帰用)
   const PRED_TTL_DAYS     = 30;                 // 古い予測の削除TTL
@@ -10363,7 +10754,8 @@ const worldPredictionApp = (function() {
   }
 
   const apiActivity = {
-    current: null,            // { purpose, model, detail, startTs }
+    current: null,            // { purpose, model, detail, startTs } 表示用 (実行中のうち最新)
+    inFlight: new Set(),      // 実行中の呼び出し (翻訳とムード補正は同時に走りうる)
     history: [],              // [{ purpose, model, detail, startTs, endTs, status, info }, ...] 最大 12
     totalToday: { calls: 0, success: 0, failed: 0 },
     today: new Date().toDateString(),
@@ -10379,28 +10771,32 @@ const worldPredictionApp = (function() {
 
   function apiActStart(purpose, model, detail) {
     apiActResetIfNewDay();
-    apiActivity.current = { purpose, model, detail, startTs: Date.now() };
+    const act = { purpose, model, detail, startTs: Date.now() };
+    apiActivity.inFlight.add(act);
+    apiActivity.current = act;
     apiActivity.totalToday.calls++;
     renderApiActivity();
+    return act;
   }
 
-  function apiActEnd(success, info = {}) {
-    if (!apiActivity.current) return;
-    // 使用トークンからコスト計算 → localStorage に集計
+  // act: apiActStart の戻り値。並行実行でも自分の記録だけを閉じる
+  function apiActEnd(act, success, info = {}) {
+    if (!act || !apiActivity.inFlight.delete(act)) return;
+    // 使用トークンからコスト計算 → localStorage に集計 (失敗でも課金済みのトークンは計上)
     let cost = 0;
-    if (success && (info.inputTokens || info.outputTokens)) {
-      cost = calcCostUSD(apiActivity.current.model, info.inputTokens || 0, info.outputTokens || 0);
-      addCost(apiActivity.current.model, cost);
+    if (info.inputTokens || info.outputTokens) {
+      cost = calcCostUSD(act.model, info.inputTokens || 0, info.outputTokens || 0);
+      addCost(act.model, cost);
     }
     const entry = {
-      ...apiActivity.current,
+      ...act,
       endTs: Date.now(),
       status: success ? 'success' : 'failed',
       info: { ...info, cost },
     };
     apiActivity.history.unshift(entry);
     if (apiActivity.history.length > 12) apiActivity.history.length = 12;
-    apiActivity.current = null;
+    apiActivity.current = [...apiActivity.inFlight].pop() || null;
     if (success) apiActivity.totalToday.success++;
     else apiActivity.totalToday.failed++;
     renderApiActivity();
@@ -10508,6 +10904,7 @@ const worldPredictionApp = (function() {
         const pct = (s.month / s.budget) * 100;
         const cls = pct >= 95 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
         remEl.className = 'api-budget-remaining ' + cls;
+        remEl.style.color = ''; // 予算未設定時のグレーを外して ok/warn/danger の色を効かせる
         remEl.innerHTML = rem >= 0
           ? `残り <b>$${rem.toFixed(4)}</b> (${Math.min(100, pct).toFixed(1)}% 使用)`
           : `⚠️ <b>予算超過 $${(-rem).toFixed(4)}</b> (${pct.toFixed(1)}%)`;
@@ -10521,6 +10918,10 @@ const worldPredictionApp = (function() {
 
   // 経過時間ライブ更新用の interval (worldPrediction.activate で開始)
   let apiActTicker = null;
+
+  let openskyRetryAt = 0; // OpenSky が 429 を返した後、再取得してよい時刻
+  const gdeltByTopic = new Map(); // GDELT クエリ → 直近に取れた記事
+  let gdeltTurn = 0;
 
   const worldDataService = {
     async fetchUsdJpy() {
@@ -10538,7 +10939,8 @@ const worldPredictionApp = (function() {
     },
 
     async fetchStooqSymbol(symbol) {
-      const url = `https://stooq.com/q/l/?s=${symbol}&i=d&f=sd2t2ohlcv`;
+      // h: 見出し行を付ける (無いとデータ 1 行だけが返り parseStooqCSV が読めない)
+      const url = `https://stooq.com/q/l/?s=${symbol}&f=sd2t2ohlcv&h&e=csv`;
       const r = await fetchWithProxy(url);
       const text = await r.text();
       const parsed = parseStooqCSV(text);
@@ -10644,7 +11046,9 @@ const worldPredictionApp = (function() {
       const j = await r.json();
       const out = [];
       for (const ev of (j.events || [])) {
-        const g = (ev.geometry || [])[0];
+        // geometry は古い順。最新の観測位置・時刻を使う
+        const geo = Array.isArray(ev.geometry) ? ev.geometry : [];
+        const g = geo[geo.length - 1];
         if (!g || !Array.isArray(g.coordinates)) continue;
         let lat = null, lng = null;
         if (g.type === 'Point') {
@@ -10674,33 +11078,35 @@ const worldPredictionApp = (function() {
         '(war OR conflict OR "geopolitical tension" OR sanctions)',
         '(AI OR semiconductor OR "energy crisis")',
       ];
+      // GDELT は 5秒に 1リクエストまで。1回の取得では 1クエリだけ投げ、他の話題は前回の結果を使う
+      const q = queries[gdeltTurn++ % queries.length];
+      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=ArtList&format=json&maxrecords=20&sort=DateDesc&timespan=3h`;
+      try {
+        const r = await fetch(url);
+        if (r.ok) {
+          const j = JSON.parse(await r.text()); // 制限時は本文がテキストのことがある → catch
+          gdeltByTopic.set(q, Array.isArray(j.articles) ? j.articles : []);
+        }
+      } catch (_) {}
       const all = [];
       const seen = new Set();
-      await Promise.allSettled(queries.map(async (q) => {
-        const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=ArtList&format=json&maxrecords=20&sort=DateDesc&timespan=3h`;
-        try {
-          const r = await fetch(url);
-          if (!r.ok) return;
-          const text = await r.text();
-          let j;
-          try { j = JSON.parse(text); } catch (_) { return; }
-          for (const a of (j.articles || [])) {
-            const id = 'gdelt_' + (a.url || a.title || '').slice(0, 80);
-            if (seen.has(id)) continue;
-            seen.add(id);
-            all.push({
-              id,
-              type: 'news',
-              title: a.title || '(no title)',
-              time: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime() : Date.now(),
-              url: a.url,
-              domain: a.domain,
-              topic: q,
-              lat: null, lng: null,
-            });
-          }
-        } catch (_) {}
-      }));
+      for (const [topic, articles] of gdeltByTopic) {
+        for (const a of articles) {
+          const id = 'gdelt_' + (a.url || a.title || '').slice(0, 80);
+          if (seen.has(id)) continue;
+          seen.add(id);
+          all.push({
+            id,
+            type: 'news',
+            title: a.title || '(no title)',
+            time: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).getTime() : Date.now(),
+            url: a.url,
+            domain: a.domain,
+            topic,
+            lat: null, lng: null,
+          });
+        }
+      }
       // 新しい順に並べて上位30件
       return all.sort((a, b) => (b.time || 0) - (a.time || 0)).slice(0, 30);
     },
@@ -10721,7 +11127,10 @@ const worldPredictionApp = (function() {
         return (j.data || []).map(d => {
           const f = d.fields || {};
           const country = f.primary_country || {};
-          const loc = COUNTRY_COORDS[country.iso3] || COUNTRY_COORDS[country.name] || null;
+          // Reliefweb の iso3 は小文字 ('moz')。表に無い国は API の国中心座標を使う
+          const cl = country.location;
+          const loc = COUNTRY_COORDS[String(country.iso3 || '').toUpperCase()] || COUNTRY_COORDS[country.name]
+            || (cl && Number.isFinite(cl.lat) && Number.isFinite(cl.lon) ? [cl.lat, cl.lon] : null);
           return {
             id: 'rw_' + d.id,
             type: 'humanitarian',
@@ -10754,6 +11163,7 @@ const worldPredictionApp = (function() {
         if (alertsR.status === 'fulfilled' && alertsR.value.ok) {
           const alerts = await alertsR.value.json();
           const recent = (alerts || []).slice(0, 8);
+          const hUtc = new Date().getUTCHours() + new Date().getUTCMinutes() / 60;
           for (const a of recent) {
             const issueT = a.issue_datetime ? new Date(a.issue_datetime.replace(' ', 'T') + 'Z').getTime() : Date.now();
             // 一行目を抜粋 (例: "SPACE WEATHER MESSAGE CODE: ALTK04 ...")
@@ -10764,9 +11174,9 @@ const worldPredictionApp = (function() {
               title: msg || '(space weather alert)',
               category: 'NOAA SWPC',
               time: issueT,
-              // 太陽は地球の昼側上空にあるので、現在の太陽直下の経度に置く (概算)
+              // 太陽は地球の昼側上空にあるので、現在の太陽直下の経度に置く (概算: UTC 12時で 0°、1時間ごとに西へ 15°)
               lat: 0,
-              lng: (-((new Date().getUTCHours() + new Date().getUTCMinutes() / 60) / 24) * 360 + 180) % 360 - 180,
+              lng: 180 - hUtc * 15,
               url: 'https://www.swpc.noaa.gov/',
             });
           }
@@ -10801,14 +11211,21 @@ const worldPredictionApp = (function() {
     },
 
     // OpenSky Network: 世界中の飛行機リアルタイム位置 (CORS対応・無認証)
-    // anonymous は 10秒の解像度 + おおむね 100req/day。1分ポーリングなら余裕。
+    // anonymous は 10秒の解像度 + 400クレジット/日 (全域の /states/all は 1回4 → 約100回/日)。
+    // 失敗・制限中は null を返す (呼び出し側は前回の表示を残す)。
     async fetchAircraft(limit = 600) {
+      if (Date.now() < openskyRetryAt) return null;
       const url = 'https://opensky-network.org/api/states/all';
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 15000);
         const r = await fetch(url, { signal: ctrl.signal });
         clearTimeout(t);
+        if (r.status === 429) {
+          // 待ち秒数ヘッダ (CORS で読めなければ 30分) が過ぎるまで取りに行かない
+          const sec = parseInt(r.headers.get('X-Rate-Limit-Retry-After-Seconds'), 10);
+          openskyRetryAt = Date.now() + (sec > 0 ? sec * 1000 : 30 * 60 * 1000);
+        }
         if (!r.ok) throw new Error('OpenSky HTTP ' + r.status);
         const j = await r.json();
         const states = j.states || [];
@@ -10824,7 +11241,7 @@ const worldPredictionApp = (function() {
           const velocity = s[9] || 0;   // m/s
           const heading = s[10] || 0;   // 度 (true_track)
           if (onGround) continue;       // 飛行中のみ
-          if (!isFinite(lat) || !isFinite(lng)) continue;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue; // 位置なし (null) を除外
           all.push({
             id: 'ac_' + icao,
             icao24: icao,
@@ -10846,7 +11263,7 @@ const worldPredictionApp = (function() {
         return sampled;
       } catch (e) {
         console.warn('[world-v2] OpenSky fail', e);
-        return [];
+        return null;
       }
     },
 
@@ -10864,7 +11281,7 @@ const worldPredictionApp = (function() {
         const path = j.path || [];
         const waypoints = path
           .map(p => ({ time: p[0] * 1000, lat: p[1], lng: p[2], alt: p[3], heading: p[4], onGround: p[5] }))
-          .filter(w => isFinite(w.lat) && isFinite(w.lng));
+          .filter(w => Number.isFinite(w.lat) && Number.isFinite(w.lng));
         return {
           icao24: j.icao24,
           callsign: (j.callsign || '').trim(),
@@ -10992,6 +11409,10 @@ const worldPredictionApp = (function() {
     const store = await dbTx(STORE_WORLD_PRED, 'readonly');
     return reqToPromise(store.getAll());
   }
+  async function dbWorldPredSince(sinceMs) {
+    const store = await dbTx(STORE_WORLD_PRED, 'readonly');
+    return reqToPromise(store.index('predictedAt').getAll(IDBKeyRange.lowerBound(sinceMs, true)));
+  }
   async function dbWorldPredBySymbol(symbol, limit = 20) {
     const store = await dbTx(STORE_WORLD_PRED, 'readonly');
     const idx = store.index('symbol');
@@ -11009,10 +11430,6 @@ const worldPredictionApp = (function() {
   async function dbWorldPredDelete(id) {
     const store = await dbTx(STORE_WORLD_PRED, 'readwrite');
     return reqToPromise(store.delete(id));
-  }
-  async function dbWorldEventPut(rec) {
-    const store = await dbTx(STORE_WORLD_EVENTS, 'readwrite');
-    return reqToPromise(store.put(rec));
   }
   async function dbWorldBiasPut(rec) {
     const store = await dbTx(STORE_WORLD_BIAS, 'readwrite');
@@ -11036,6 +11453,15 @@ const worldPredictionApp = (function() {
     if (h.length > HISTORY_MAX) h.shift();
   }
 
+  // 予測から引く量 (どちらも「予測 − 実測」の向き)。avgError = 学習分、moodAdj = AI ムード補正 (次の補正まで有効)
+  function biasOffset(bias) {
+    if (!bias) return 0;
+    const base = isFinite(bias.avgError) ? bias.avgError : 0;
+    const moodOn = document.getElementById('worldClaudeAdjEnable')?.checked; // OFF なら線形回帰 + 誤差バイアスのみ
+    const mood = moodOn && isFinite(bias.moodAdj) && Date.now() - (bias.moodAt || 0) < CLAUDE_TICK_MS ? bias.moodAdj : 0;
+    return base + mood;
+  }
+
   function linearPredict(symbol, msAhead = PREDICTION_HORIZON_MS) {
     const h = histories.get(symbol);
     if (!h || h.length < 2) return null;
@@ -11055,11 +11481,12 @@ const worldPredictionApp = (function() {
       slope = num / den;
       intercept = meanY - slope * meanX;
     }
-    const xAhead = ((Date.now() + msAhead) - t0) / 1000;
+    // 起点は最新サンプルの時刻 (休場中・遅延配信で市場時刻が止まっても 10分以上先へ外挿しない)
+    const xAhead = (h[h.length - 1].ts + msAhead - t0) / 1000;
     const raw = slope * xAhead + intercept;
-    // バイアス補正 (10分前に予測した分の平均誤差を引く)
-    const bias = biasCache.get(symbol);
-    const corrected = bias && isFinite(bias.avgError) ? raw - bias.avgError : raw;
+    // バイアス補正 (補正前の予測が実測より平均どれだけ上振れたかを引く)
+    const biasApplied = biasOffset(biasCache.get(symbol));
+    const corrected = raw - biasApplied;
     // 信頼度: 残差の標準偏差 vs 平均価格
     const residuals = ys.map((y, i) => y - (slope * xs[i] + intercept));
     const stdRes = Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / n);
@@ -11074,7 +11501,7 @@ const worldPredictionApp = (function() {
       current,
       predicted: corrected,
       raw,
-      biasApplied: bias ? bias.avgError : 0,
+      biasApplied,
       confidence,
       arrow,
       changePct: ratio * 100,
@@ -11100,7 +11527,9 @@ const worldPredictionApp = (function() {
 
   // 選択中航空機の詳細トラック (クリックで取得)
   let selectedAircraft = null; // { icao24, callsign, track:{waypoints,...}, flight:{departure,arrival,...} }
+  let selectSeq = 0; // 選択の世代。遅れて返った古い取得結果を捨てる
   const trackCacheMs = 5 * 60 * 1000;
+  const trackFailCacheMs = 45 * 1000; // 取得失敗はパネルの「1〜2分後に再クリック」で取り直せるよう短く
   const trackCache = new Map(); // icao24 -> { track, flight, ts }
 
   function ensureGlobe() {
@@ -11162,7 +11591,7 @@ const worldPredictionApp = (function() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 8, attribution: '© OpenStreetMap'
     }).addTo(lmap);
-    setTimeout(() => lmap.invalidateSize(), 80);
+    setTimeout(() => { if (lmap) lmap.invalidateSize(); }, 80);
     return lmap;
   }
 
@@ -11170,33 +11599,33 @@ const worldPredictionApp = (function() {
     let color, altitude, radius, label;
     const ja = jaDisplay(e); // 日本語タイトル
     if (e.type === 'earthquake') {
-      const m = e.mag || 0;
+      const m = Number(e.mag) || 0; // ラベル HTML に入るので数値に限る
       color = m >= 6 ? '#ef4444' : m >= 5 ? '#f59e0b' : '#06b6d4';
       altitude = Math.min(0.5, m / 20);
       radius = Math.max(0.25, m * 0.18);
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
-                 <b>🌋 M${m} 地震</b><br/>${ja.title}<br/><small>${shortDate(e.time)}</small>
+                 <b>🌋 M${m} 地震</b><br/>${escapeHtml(ja.title)}<br/><small>${shortDate(e.time)}</small>
                </div>`;
     } else if (e.type === 'eonet') {
       color = '#8b5cf6';
       altitude = 0.08;
       radius = 0.4;
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
-                 <b>🌪 ${ja.category}</b><br/>${ja.title}
+                 <b>🌪 ${escapeHtml(ja.category)}</b><br/>${escapeHtml(ja.title)}
                </div>`;
     } else if (e.type === 'humanitarian') {
       color = '#10b981';
       altitude = 0.12;
       radius = 0.45;
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:240px">
-                 <b>🆘 人道危機: ${ja.category}</b><br/>${ja.title}<br/><small>${e.country || ''}</small>
+                 <b>🆘 人道危機: ${escapeHtml(ja.category)}</b><br/>${escapeHtml(ja.title)}<br/><small>${escapeHtml(e.country)}</small>
                </div>`;
     } else if (e.type === 'space-weather') {
       color = '#fbbf24';
       altitude = 0.18;
       radius = 0.5;
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:6px 10px;border-radius:6px;font-size:12px;max-width:280px">
-                 <b>☀️ 宇宙天気</b><br/>${ja.title}
+                 <b>☀️ 宇宙天気</b><br/>${escapeHtml(ja.title)}
                </div>`;
     } else if (e.type === 'aircraft') {
       // 高度ごとに白〜水色のグラデ。高高度ほど明るく
@@ -11206,7 +11635,7 @@ const worldPredictionApp = (function() {
       radius = 0.12; // 小さめ (大量にあるので)
       const speed = (e.velocity || 0) * 3.6;
       label = `<div style="background:rgba(15,23,42,0.95);color:white;padding:5px 9px;border-radius:5px;font-size:11px;max-width:200px">
-                 ✈️ <b>${e.callsign}</b> (${e.country || '?'})<br/>
+                 ✈️ <b>${escapeHtml(e.callsign)}</b> (${escapeHtml(e.country || '?')})<br/>
                  高度 ${altKm.toFixed(1)} km / ${speed.toFixed(0)} km/h
                </div>`;
     } else {
@@ -11219,10 +11648,13 @@ const worldPredictionApp = (function() {
   }
 
   function renderEvents() {
+    // 取得待ちの tick が deactivate 後に返っても地球儀を作り直さない
+    if (!active) return;
     // モジュール状態 (cachedEvents + cachedAircraft) から常に取得
     // → setView / activate / 単体イベントどこから呼ばれても航空機が消えない
     const events = [...(cachedEvents || []), ...(cachedAircraft || [])];
-    const geoEvents = events.filter(e => isFinite(e.lat) && isFinite(e.lng));
+    // isFinite(null) は true なので Number.isFinite で座標なし (GDELT / 未登録国の Reliefweb) を除く
+    const geoEvents = events.filter(e => Number.isFinite(e.lat) && Number.isFinite(e.lng));
     const trailsEnabled = document.getElementById('worldAircraftTrailEnable')?.checked !== false;
     // 軌跡用 paths データを作成 (2点以上保持してる機体のみ)
     const trailPaths = [];
@@ -11290,14 +11722,14 @@ const worldPredictionApp = (function() {
             iconSize: [22, 22], iconAnchor: [11, 11],
           });
           const depMarker = L.marker([first.lat, first.lng], { icon: depIcon, zIndexOffset: 800 })
-            .bindPopup(`<b>🛫 出発地点</b><br/>空港: ${selectedAircraft.flight?.departure || '不明'}<br/>${new Date(first.time).toLocaleString('ja-JP')}`)
+            .bindPopup(`<b>🛫 出発地点</b><br/>空港: ${escapeHtml(selectedAircraft.flight?.departure || '不明')}<br/>${new Date(first.time).toLocaleString('ja-JP')}`)
             .addTo(m);
           mapSelectedMarkers.push(depMarker);
         }
         mapMarkers = geoEvents.map(e => {
           // 航空機は専用マーカー (回転 ✈️ DivIcon)
           if (e.type === 'aircraft') {
-            const heading = e.heading || 0;
+            const heading = Number(e.heading) || 0; // divIcon の style 属性に入るので数値に限る
             const icon = L.divIcon({
               className: 'aircraft-marker',
               html: `<div class="ac-icon" style="transform:rotate(${heading}deg)">✈</div>`,
@@ -11308,7 +11740,7 @@ const worldPredictionApp = (function() {
             const speed = (e.velocity || 0) * 3.6;
             const isSelected = selectedAircraft && selectedAircraft.icao24 === e.icao24;
             const marker = L.marker([e.lat, e.lng], { icon, zIndexOffset: isSelected ? 1000 : 0 }).bindPopup(
-              `<b>✈️ ${e.callsign}</b><br/>国: ${e.country || '?'}<br/>高度: ${altKm.toFixed(1)} km<br/>速度: ${speed.toFixed(0)} km/h<br/><b>クリックで航路詳細を表示</b>`
+              `<b>✈️ ${escapeHtml(e.callsign)}</b><br/>国: ${escapeHtml(e.country || '?')}<br/>高度: ${altKm.toFixed(1)} km<br/>速度: ${speed.toFixed(0)} km/h<br/><b>クリックで航路詳細を表示</b>`
             ).addTo(m);
             marker.on('click', () => selectAircraft(e));
             return marker;
@@ -11317,7 +11749,7 @@ const worldPredictionApp = (function() {
           if (e.type === 'earthquake') {
             color = e.mag >= 6 ? '#ef4444' : e.mag >= 5 ? '#f59e0b' : '#06b6d4';
             radius = Math.max(4, (e.mag || 3) * 2);
-            kind = `🌋 M${e.mag} 地震`;
+            kind = `🌋 M${escapeHtml(e.mag)} 地震`;
           } else if (e.type === 'eonet') {
             color = '#8b5cf6'; radius = 6; kind = '🌪 自然災害';
           } else if (e.type === 'humanitarian') {
@@ -11330,8 +11762,8 @@ const worldPredictionApp = (function() {
             radius, color, fillColor: color, fillOpacity: 0.55, weight: 1.2
           }).bindPopup(
             `<b>${kind}</b><br/>
-             ${ja.title.replace(/[<>]/g, '')}<br/>
-             <small>${shortDate(e.time)}${e.country ? ' / ' + e.country : ''}</small>`
+             ${escapeHtml(ja.title)}<br/>
+             <small>${shortDate(e.time)}${e.country ? ' / ' + escapeHtml(e.country) : ''}</small>`
           ).addTo(m);
         });
       }
@@ -11360,7 +11792,7 @@ const worldPredictionApp = (function() {
     if (view === 'globe' || view === 'split') ensureGlobe();
     if (view === 'map' || view === 'split') {
       ensureMap();
-      if (lmap) setTimeout(() => lmap.invalidateSize(), 120);
+      if (lmap) setTimeout(() => { if (lmap) lmap.invalidateSize(); }, 120);
     }
     // 既存イベントを再描画
     if (latestEvents.length) renderEvents();
@@ -11390,12 +11822,13 @@ const worldPredictionApp = (function() {
   async function selectAircraft(ac) {
     if (!ac || !ac.icao24) return;
     const icao = ac.icao24;
+    const req = ++selectSeq;
     // パネルにローディング表示
     renderSelectedAircraftPanel({ loading: true, ac });
     // キャッシュチェック
     const cached = trackCache.get(icao);
     let track = null, flight = null;
-    if (cached && Date.now() - cached.ts < trackCacheMs) {
+    if (cached && Date.now() - cached.ts < (cached.ttl ?? trackCacheMs)) {
       track = cached.track;
       flight = cached.flight;
     } else {
@@ -11406,11 +11839,14 @@ const worldPredictionApp = (function() {
         ]);
         if (tRes.status === 'fulfilled') track = tRes.value;
         if (fRes.status === 'fulfilled') flight = fRes.value;
-        trackCache.set(icao, { track, flight, ts: Date.now() });
+        const ok = tRes.status === 'fulfilled' && fRes.status === 'fulfilled';
+        trackCache.set(icao, { track, flight, ts: Date.now(), ttl: ok ? trackCacheMs : trackFailCacheMs });
       } catch (e) {
         console.warn('[world-v2] selectAircraft fetch failed', e);
       }
     }
+    // 取得中に別機を選んだ / 閉じた場合は古い結果を捨てる (離脱中の再描画は renderEvents 側で止まる)
+    if (req !== selectSeq) return;
     // OpenSky に詳細トラックが無い場合、ローカル蓄積の短期軌跡をフォールバックとして使用
     if ((!track || !track.waypoints || track.waypoints.length === 0)) {
       const localTrail = aircraftTrails.get(icao);
@@ -11430,6 +11866,7 @@ const worldPredictionApp = (function() {
   }
 
   function clearSelectedAircraft() {
+    selectSeq++;
     selectedAircraft = null;
     const panel = document.getElementById('selectedAircraftCard');
     if (panel) panel.style.display = 'none';
@@ -11443,8 +11880,8 @@ const worldPredictionApp = (function() {
     if (loading) {
       card.innerHTML = `<div class="card-title">
         <span class="card-icon">✈️</span>
-        <span>選択中の機体: <b>${ac.callsign || ac.icao24}</b></span>
-        <button id="selAcClose" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px">✕ 閉じる</button>
+        <span>選択中の機体: <b>${escapeHtml(ac.callsign || ac.icao24)}</b></span>
+        <button id="selAcClose" class="api-indicator active" style="margin-left:auto;margin-bottom:0;padding:6px 12px;font-size:12px">✕ 閉じる</button>
       </div>
       <div style="padding:14px;font-size:12px;color:var(--text-secondary,#475569)">
         🔄 航路データを取得中... (OpenSky /tracks/all)
@@ -11463,16 +11900,16 @@ const worldPredictionApp = (function() {
       for (let i = 1; i < wp.length; i++) d += haversineKm(wp[i-1].lat, wp[i-1].lng, wp[i].lat, wp[i].lng);
       return Math.round(d);
     })();
-    const depAirport = flight?.departure || '不明';
-    const arrAirport = flight?.arrival || '飛行中 (着陸後判明)';
+    const depAirport = escapeHtml(flight?.departure || '不明');
+    const arrAirport = escapeHtml(flight?.arrival || '飛行中 (着陸後判明)');
     const altKm = ((ac.alt || last.alt || 0) / 1000).toFixed(1);
     const speedKmh = ((ac.velocity || 0) * 3.6).toFixed(0);
     card.innerHTML = `
       <div class="card-title">
         <span class="card-icon">✈️</span>
-        <span>選択中の機体: <b>${ac.callsign || ac.icao24}</b></span>
-        <span class="count-badge" style="background:rgba(34,211,238,0.2);color:#0e7490">${ac.country || '?'}</span>
-        <button id="selAcClose" class="api-indicator" style="margin-left:auto;padding:6px 12px;font-size:12px">✕ 閉じる</button>
+        <span>選択中の機体: <b>${escapeHtml(ac.callsign || ac.icao24)}</b></span>
+        <span class="count-badge" style="background:rgba(34,211,238,0.2);color:#0e7490">${escapeHtml(ac.country || '?')}</span>
+        <button id="selAcClose" class="api-indicator active" style="margin-left:auto;margin-bottom:0;padding:6px 12px;font-size:12px">✕ 閉じる</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding:6px 0">
         <div class="sel-ac-stat">
@@ -11505,10 +11942,10 @@ const worldPredictionApp = (function() {
         </div>
         <div class="sel-ac-stat">
           <div class="sel-ac-label">🆔 ICAO24</div>
-          <div class="sel-ac-value" style="font-family:monospace;font-size:13px">${ac.icao24}</div>
+          <div class="sel-ac-value" style="font-family:monospace;font-size:13px">${escapeHtml(ac.icao24)}</div>
         </div>
       </div>
-      ${wp.length === 0 ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:11.5px;color:#92400e">⚠️ この機体の詳細航路は取得できませんでした (OpenSky 未記録 + 短期軌跡もまだ蓄積中)。1〜2分後にもう一度クリックしてください。</div>' : (track?.fromLocalCache ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(6,182,212,0.1);border-radius:8px;font-size:11.5px;color:#0e7490">ℹ️ OpenSky に詳細航路が無いため、ローカル蓄積の短期軌跡 (' + wp.length + '点) を金線で表示中。</div>' : '')}
+      ${wp.length === 0 ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:11.5px;color:#92400e">⚠️ この機体の詳細航路は取得できませんでした (OpenSky 未記録 + 短期軌跡もまだ蓄積中)。10〜20分後にもう一度クリックしてください。</div>' : (track?.fromLocalCache ? '<div style="margin-top:8px;padding:8px 10px;background:rgba(6,182,212,0.1);border-radius:8px;font-size:11.5px;color:#0e7490">ℹ️ OpenSky に詳細航路が無いため、ローカル蓄積の短期軌跡 (' + wp.length + '点) を金線で表示中。</div>' : '')}
       <small style="display:block;margin-top:10px;color:var(--text-secondary,#94a3b8);font-size:11px">
         地球儀/地図上に <b style="color:#fbbf24">金色の太線</b> でこの機体の離陸からの完全な航路を表示中。
         地球儀でクリック / 地図のマーカーをクリックすると別機に切替。
@@ -11751,6 +12188,9 @@ const worldPredictionApp = (function() {
   function jaDisplay(e) {
     const cached = translateCache.get(e.id);
     const jaCat = CATEGORY_JA[e.category] || e.category || '';
+    // 元から日本語 (Kp指数など同じ id で値が変わる) ならキャッシュより今のタイトル
+    const src = e.title || e.place || '';
+    if (/[ぁ-んァ-ヶ一-龯]/.test(src)) return { title: src, category: jaCat };
     if (cached && cached.title) {
       return { title: cached.title, category: jaCat };
     }
@@ -11846,7 +12286,7 @@ const worldPredictionApp = (function() {
     const activeModel = getCurrentAiModel('translate');
     const providerLabel = getCurrentAiModelLabel();
     setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を ${providerLabel} に投入中…`, '');
-    apiActStart('🈁 日本語翻訳', activeModel, `${needs.length}件のイベント翻訳 / ${provider}`);
+    const act = apiActStart('🈁 日本語翻訳', activeModel, `${needs.length}件のイベント翻訳 / ${provider}`);
     const btn = document.getElementById('worldTranslateNow');
     if (btn) btn.disabled = true;
     const items = needs.map((e, i) => ({
@@ -11861,8 +12301,8 @@ const worldPredictionApp = (function() {
 
 ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     let acc = '';
+    let inTok = 0, outTok = 0;
     try {
-      let inTok = 0, outTok = 0;
       // プロバイダ設定に応じて自動ルーティング
       const callMeta = await aiCall({
         prompt,
@@ -11883,8 +12323,8 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
           }
         }
       });
-      // apiActivity.current.model を実モデルに更新 (translateEvents 開始時は default 仮で記録)
-      if (apiActivity.current) apiActivity.current.model = callMeta.model;
+      // 実モデルで記録し直す (開始時は既定モデルで仮記録)
+      act.model = callMeta.model;
       // パーサーは寛容に: 「IDX:N:」「IDX N:」「N:」のいずれも許容
       const lines = acc.split(/\r?\n/);
       let applied = 0;
@@ -11907,18 +12347,18 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
         const total = events.length;
         const cached = events.filter(e => translateCache.has(e.id)).length;
         setStatusPill('wsl-translate', `翻訳: +${applied}件 完了 (合計 ${cached}/${total})`, 'ok');
-        apiActEnd(true, { applied, summary: `+${applied}件 日本語化`, inputTokens: inTok, outputTokens: outTok });
+        apiActEnd(act, true, { applied, summary: `+${applied}件 日本語化`, inputTokens: inTok, outputTokens: outTok });
         if (manual) toast(`${applied}件のイベントを日本語化しました`, 'success');
       } else {
         setStatusPill('wsl-translate', '翻訳: 0件成功 (パース失敗の可能性)', 'warn');
         console.warn('[world-v2] translation parse 0 matches. Raw output:', acc.slice(0, 500));
-        apiActEnd(false, { error: `パース 0件 (${getCurrentAiModelLabel()} 出力形式不一致)`, inputTokens: inTok, outputTokens: outTok });
+        apiActEnd(act, false, { error: `パース 0件 (${getCurrentAiModelLabel()} 出力形式不一致)`, inputTokens: inTok, outputTokens: outTok });
         if (manual) toast('翻訳パース失敗。コンソールを確認してください', 'warning', 4000);
       }
     } catch (e) {
       console.warn('[world-v2] translation failed', e);
       setStatusPill('wsl-translate', '翻訳: 失敗 (' + (e.message || 'unknown').slice(0, 30) + ')', 'err');
-      apiActEnd(false, { error: e.message });
+      apiActEnd(act, false, { error: e.message, inputTokens: inTok, outputTokens: outTok });
       if (manual) toast('翻訳失敗: ' + (e.message || 'unknown'), 'error', 4000);
     } finally {
       translationInFlight = false;
@@ -11952,30 +12392,39 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     }
     el.innerHTML = sorted.map(ev => {
       const ja = jaDisplay(ev);
-      const safeTitle = (ja.title || '').replace(/[<>]/g, '');
+      const safeTitle = escapeHtml(ja.title);
       let klass, body;
       if (ev.type === 'earthquake') {
         klass = ev.mag >= 6 ? 'eq-major' : 'eq-minor';
-        body = `🌋 <b>M${ev.mag} 地震</b> ${safeTitle}`;
+        body = `🌋 <b>M${escapeHtml(ev.mag)} 地震</b> ${safeTitle}`;
       } else if (ev.type === 'eonet') {
         klass = 'disaster';
-        body = `🌪 <b>${ja.category}</b> ${safeTitle}`;
+        body = `🌪 <b>${escapeHtml(ja.category)}</b> ${safeTitle}`;
       } else if (ev.type === 'humanitarian') {
         klass = 'humanitarian';
-        body = `🆘 <b>${ja.category}</b> ${safeTitle}${ev.country ? ` <small style="opacity:0.7">(${ev.country})</small>` : ''}`;
+        body = `🆘 <b>${escapeHtml(ja.category)}</b> ${safeTitle}${ev.country ? ` <small style="opacity:0.7">(${escapeHtml(ev.country)})</small>` : ''}`;
       } else if (ev.type === 'space-weather') {
         klass = 'space-weather';
         body = `☀️ <b>宇宙天気</b> ${safeTitle}`;
       } else {
         klass = 'news';
-        body = `📰 ${safeTitle}${ev.domain ? ` <small style="opacity:0.6">${ev.domain}</small>` : ''}`;
+        body = `📰 ${safeTitle}${ev.domain ? ` <small style="opacity:0.6">${escapeHtml(ev.domain)}</small>` : ''}`;
       }
-      const linked = ev.url ? `<a href="${ev.url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${body}</a>` : body;
+      // 外部 URL は http(s) のみリンクにする
+      const safeUrl = /^https?:\/\//i.test(String(ev.url || '')) ? escapeHtml(ev.url) : '';
+      const linked = safeUrl ? `<a href="${safeUrl}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${body}</a>` : body;
       return `<div class="world-event-item ${klass}">
         <span class="wei-time">${shortTime(ev.time)}</span>
         <span class="wei-body">${linked}</span>
       </div>`;
     }).join('');
+  }
+
+  // verifyPrediction は銘柄ごとに並行して走るので描画は 1 回にまとめる
+  let accRenderTimer = null;
+  function scheduleAccuracyRender() {
+    if (accRenderTimer) return;
+    accRenderTimer = setTimeout(() => { accRenderTimer = null; renderAccuracyDashboard(); }, 300);
   }
 
   async function renderAccuracyDashboard() {
@@ -11984,7 +12433,7 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     if (!container) return;
     const cutoff = Date.now() - 24 * 3600 * 1000;
     let all = [];
-    try { all = await dbWorldPredAll(); } catch (_) {}
+    try { all = await dbWorldPredSince(cutoff); } catch (_) {}
     const recent = all.filter(r => r.predictedAt > cutoff && r.verified === 'verified');
     if (badge) badge.textContent = recent.length + '件';
     if (!recent.length) {
@@ -12014,7 +12463,7 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
         <span>${meta.emoji} ${meta.label}</span>
         <span><span class="${mapeClass}">MAPE ${mape.toFixed(3)}%</span></span>
         <span>サンプル ${arr.length}</span>
-        <span style="color:var(--text-secondary,#94a3b8)">補正 ${bias ? fmt(bias.avgError, meta.decimals) : '0'}</span>
+        <span style="color:var(--text-secondary,#94a3b8)">補正 ${bias ? fmt(biasOffset(bias), meta.decimals) : '0'}</span>
       </div>`;
     }
     container.innerHTML = html;
@@ -12035,10 +12484,32 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     SPX:    () => worldDataService.fetchSPX(),
   };
 
+  function verifyHorizon(rec) { return rec.fast ? FAST_VERIFY_MS : PREDICTION_HORIZON_MS; }
+  // 予定時刻を大きく過ぎた pending (パネルを閉じていた / スリープ等) は、今の価格と比べても予測誤差にならない
+  function isOverdue(rec, now) { return now - rec.predictedAt > verifyHorizon(rec) + 2 * PRICE_TICK_MS; }
+  // 補正前の予測 − 実測。linearPredict が raw から引く向き。旧レコードは predicted10min + biasApplied から戻す
+  function rawError(r) {
+    if (!Number.isFinite(r.actualPrice)) return NaN;
+    const raw = Number.isFinite(r.rawPredicted) ? r.rawPredicted : r.predicted10min + (r.biasApplied || 0);
+    return raw - r.actualPrice;
+  }
+  // バイアス学習に使うのは 10分予測を予定どおり (約10〜13分後) に検証したものだけ。
+  // 旧版で高速検証 (10秒後) や数時間後に検証されたレコードは印が無いので経過時間で除く
+  function isBiasSample(r) {
+    const dt = r.verifiedAt - r.predictedAt;
+    return r.verified === 'verified' && !r.fast && dt >= PREDICTION_HORIZON_MS - PRICE_TICK_MS
+      && dt <= PREDICTION_HORIZON_MS + 3 * PRICE_TICK_MS && isFinite(rawError(r));
+  }
+
   async function verifyPrediction(predictionId, symbol) {
     try {
       const rec = await dbWorldPredGet(predictionId);
-      if (!rec || rec.verified === 'verified') return;
+      if (!rec || rec.verified !== 'pending') return;
+      if (isOverdue(rec, Date.now())) {
+        rec.verified = 'expired';
+        await dbWorldPredPut(rec);
+        return;
+      }
       const fetcher = FETCHERS[symbol];
       if (!fetcher) return;
       const { price } = await fetcher();
@@ -12048,16 +12519,17 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
       rec.verified = 'verified';
       rec.verifiedAt = Date.now();
       await dbWorldPredPut(rec);
-      // バイアス更新 (直近10件の verified の平均誤差)
+      // バイアス更新 (直近10件の verified の「補正前の予測 − 実測」平均。補正済みの値から学ぶと自己増幅する)
       const recent = await dbWorldPredBySymbol(symbol, 30);
-      const verified = recent.filter(r => r.verified === 'verified' && isFinite(r.error)).slice(0, 10);
+      const verified = recent.filter(isBiasSample).slice(0, 10);
       if (verified.length >= 2) {
-        const avgErr = verified.reduce((s, r) => s + r.error, 0) / verified.length;
-        const bias = { symbol, avgError: avgErr, sampleCount: verified.length, lastUpdated: Date.now() };
-        await dbWorldBiasPut(bias);
+        const avgErr = verified.reduce((s, r) => s + rawError(r), 0) / verified.length;
+        // ムード補正 (moodAdj) は残す。put の前にキャッシュへ入れ、並行するムード補正の書き込みを消さない
+        const bias = { ...(biasCache.get(symbol) || {}), symbol, avgError: avgErr, sampleCount: verified.length, lastUpdated: Date.now(), v: 2 };
         biasCache.set(symbol, bias);
+        await dbWorldBiasPut(bias);
       }
-      renderAccuracyDashboard();
+      scheduleAccuracyRender();
     } catch (e) {
       console.warn('[world-v2] verify failed', symbol, e);
     }
@@ -12072,19 +12544,25 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     scheduledTimeouts.add(t);
   }
 
-  async function reconcilePending() {
+  async function reconcilePending(gen) {
     let all = [];
     try { all = await dbWorldPredAll(); } catch (_) { return; }
+    if (gen !== activateGen) return; // 読み込み中に deactivate された
     const now = Date.now();
     for (const rec of all) {
-      if (rec.verified === 'verified') continue;
+      if (rec.verified !== 'pending') continue;
       const elapsed = now - rec.predictedAt;
-      if (elapsed >= PREDICTION_HORIZON_MS) {
+      const horizon = verifyHorizon(rec);
+      if (isOverdue(rec, now)) {
+        // 検証時刻を逃した pending は数時間後の価格と比べず expired にする
+        rec.verified = 'expired';
+        dbWorldPredPut(rec).catch(() => {});
+      } else if (elapsed >= horizon) {
         // 過去 pending: 即時検証
         verifyPrediction(rec.id, rec.symbol);
       } else {
         // 未到来 pending: 残り時間で再スケジュール
-        scheduleVerify(rec.id, rec.symbol, PREDICTION_HORIZON_MS - elapsed);
+        scheduleVerify(rec.id, rec.symbol, horizon - elapsed);
       }
     }
   }
@@ -12106,7 +12584,8 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
   async function loadBiasCache() {
     try {
       const all = await dbWorldBiasAll();
-      all.forEach(b => biasCache.set(b.symbol, b));
+      // v2 より前のバイアスは符号が逆 + 自己増幅で発散しているので使わない
+      all.forEach(b => { if (b.v === 2) biasCache.set(b.symbol, b); });
     } catch (_) {}
   }
 
@@ -12144,16 +12623,16 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
     const apiKey = getCurrentAiKey();
     if (!apiKey) {
       setStatusPill('wsl-claude', `ムード補正: ${aiProviderLabel(provider)} API Key未設定`, 'warn');
-      return;
+      return false;
     }
     const enabled = document.getElementById('worldClaudeAdjEnable')?.checked;
     if (!enabled) {
       setStatusPill('wsl-claude', 'ムード補正: OFF', '');
-      return;
+      return false;
     }
     setStatusPill('wsl-claude', `ムード補正: 実行中… (${provider})`, '');
     const activeModel = getCurrentAiModel('mood');
-    apiActStart('🧠 ムード補正', activeModel, `${SYMBOLS.length}銘柄 + 直近イベント分析 / ${provider}`);
+    const act = apiActStart('🧠 ムード補正', activeModel, `${SYMBOLS.length}銘柄 + 直近イベント分析 / ${provider}`);
     const symList = SYMBOLS.map(s => `"${s}"`).join(', ');
     const prompt = `以下は世界の現在状況です。今後10分間の市場ムードを各銘柄ごとに予測してください。
 
@@ -12206,27 +12685,29 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         if (!h || !h.length) continue;
         const current = h[h.length - 1].price;
         const adjDiff = current * (1 - mult); // 正なら予測を下方に補正
-        const cur = biasCache.get(sym) || { avgError: 0, sampleCount: 0 };
-        // 減衰平均: 既存 70% + Claude意見 30%
+        // 学習バイアス (avgError) とは別に持つ (avgError は検証のたびに作り直すので混ぜると 1 分で消える)
         const newBias = {
+          ...(biasCache.get(sym) || {}),
           symbol: sym,
-          avgError: cur.avgError * 0.7 + adjDiff * 0.3,
-          sampleCount: cur.sampleCount + 1,
-          lastUpdated: Date.now(),
-          claudeReason: adj.reason || ''
+          moodAdj: adjDiff * 0.3, // AI 意見 30%
+          moodAt: Date.now(),
+          claudeReason: adj.reason || '',
+          v: 2,
         };
-        await dbWorldBiasPut(newBias);
         biasCache.set(sym, newBias);
+        await dbWorldBiasPut(newBias);
         applied++;
       }
       setStatusPill('wsl-claude', `ムード補正 (${provider}): ${applied}銘柄 @ ${shortTime(Date.now())}`, 'ok');
-      apiActEnd(true, { applied, summary: `${applied}銘柄に補正適用`, inputTokens: inTok2, outputTokens: outTok2 });
+      apiActEnd(act, true, { applied, summary: `${applied}銘柄に補正適用`, inputTokens: inTok2, outputTokens: outTok2 });
       renderAccuracyDashboard();
+      return true;
     } catch (e) {
       console.warn('[world-v2] mood adjust failed', e);
       setStatusPill('wsl-claude', `ムード補正 (${provider}): 失敗`, 'err');
-      apiActEnd(false, { error: e.message, inputTokens: inTok2, outputTokens: outTok2 });
+      apiActEnd(act, false, { error: e.message, inputTokens: inTok2, outputTokens: outTok2 });
     }
+    return false;
   }
 
   // ──────────────────────────────────────────────
@@ -12236,29 +12717,38 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   const lastPrices = {}; // symbol -> {price, ts, source}
   let cachedEvents = []; // 結合された全イベント (price ticker と claude が参照)
 
-  async function tickPrices() {
+  async function tickPrices(opts = {}) {
     setStatusPill('wsl-prices', '価格: 取得中…', '');
     const promises = SYMBOLS.map(async sym => {
       try {
         const info = await FETCHERS[sym]();
+        // 市場時刻が進んでいない回 (休場中・配信遅延) は予測を保存・検証しない
+        const fresh = !lastPrices[sym] || info.ts > lastPrices[sym].ts;
         lastPrices[sym] = info;
-        recordPrice(sym, info.price, info.ts);
+        // 履歴は取得時刻で持つ (Yahoo の市場時刻は休場中ずっと同じでチャートが潰れる)
+        recordPrice(sym, info.price, Date.now());
         const pred = linearPredict(sym);
         updatePriceCard(sym, info, pred);
-        if (pred && pred.sampleCount >= 2) {
+        if (pred && pred.sampleCount >= 2 && fresh) {
           // DB 保存 + 10分後検証スケジュール
+          // 高速検証は検証する時刻 (10秒後) の予測を保存して比べる (バイアス学習には使わない)
+          const delay = opts.verifyMs || verifyDelayMs();
+          const fast = delay !== PREDICTION_HORIZON_MS;
+          const vp = (fast && linearPredict(sym, delay)) || pred;
           try {
             const id = await dbWorldPredAdd({
               symbol: sym,
               predictedAt: Date.now(),
-              currentPrice: pred.current,
-              predicted10min: pred.predicted,
-              confidence: pred.confidence,
-              biasApplied: pred.biasApplied,
-              changePct: pred.changePct,
+              currentPrice: vp.current,
+              predicted10min: vp.predicted,
+              rawPredicted: vp.raw,
+              confidence: vp.confidence,
+              biasApplied: vp.biasApplied,
+              changePct: vp.changePct,
+              fast,
               verified: 'pending',
             });
-            scheduleVerify(id, sym, verifyDelayMs());
+            scheduleVerify(id, sym, delay);
           } catch (e) { console.warn('[world-v2] save pred failed', e); }
         }
       } catch (e) {
@@ -12298,17 +12788,8 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     cachedEvents = Array.from(seen.values());
     latestEvents = cachedEvents;
-    // DB 保存 (重複は put で上書き)
-    for (const e of cachedEvents) {
-      try {
-        await dbWorldEventPut({
-          id: e.id,
-          type: e.type,
-          timestamp: e.time || Date.now(),
-          data: e,
-        });
-      } catch (_) {}
-    }
+    // 取得中にパネルを閉じていたら描画も翻訳 (有料) もしない
+    if (!active) return;
     renderEventsTimeline(cachedEvents);
     // 航空機と一緒に再描画
     renderEvents();
@@ -12338,12 +12819,21 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     try {
       const list = await worldDataService.fetchAircraft(600);
+      if (!list) {
+        // 一時的な失敗・制限中は前回の機体と軌跡を残す (25分以上更新できなければ消す)
+        if (cachedAircraft.length && Date.now() - cachedAircraft[0].time > 2.5 * AIRCRAFT_TICK_MS) {
+          cachedAircraft = [];
+          aircraftTrails.clear();
+          renderEvents();
+        }
+        return;
+      }
       cachedAircraft = list;
       // 軌跡を蓄積: 現在のフレームに含まれる ICAO24 ごとに 1点追加
       const now = Date.now();
       const presentIcao = new Set();
       for (const ac of list) {
-        const icao = ac.id; // 'ac_xxxx'
+        const icao = ac.icao24; // selectAircraft / renderEvents と同じ素の icao24 をキーにする
         presentIcao.add(icao);
         let trail = aircraftTrails.get(icao);
         if (!trail) { trail = []; aircraftTrails.set(icao, trail); }
@@ -12404,8 +12894,11 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     if (btn) btn.disabled = true;
     try {
       const summary = buildContextSummary(lastPrices, cachedEvents);
-      await claudeAdjustOnce(summary);
-      if (manual) toast('✅ AI ムード補正を実行しました', 'success', 3000);
+      const ok = await claudeAdjustOnce(summary);
+      if (manual) {
+        if (ok) toast('✅ AI ムード補正を実行しました', 'success', 3000);
+        else toast('⚠️ AI ムード補正に失敗しました (ステータス表示を確認してください)', 'error', 5000);
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -12506,17 +12999,12 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     });
     // 「サンプル予測 + 即検証」ボタン
     document.getElementById('worldFastVerifyTest')?.addEventListener('click', async () => {
-      const fastEl = document.getElementById('worldFastVerifyMode');
-      if (!fastEl?.checked) {
-        fastEl.checked = true;
-        localStorage.setItem(FAST_VERIFY_LS, '1');
-        toast('⚡ 高速検証モードを自動 ON にしました', 'info', 3500);
-      }
+      // 今回の予測だけ 10 秒後に検証する (高速検証モードの設定は変えない)
       const btn = document.getElementById('worldFastVerifyTest');
       if (btn) btn.disabled = true;
       try {
         toast('🔄 価格取得 → 予測 → 10秒後に検証します…', 'info', 4000);
-        await tickPrices();
+        await tickPrices({ verifyMs: FAST_VERIFY_MS });
         setTimeout(() => {
           toast('✅ 検証完了。下の「予測精度」カードを確認してください', 'success', 4500);
           renderAccuracyDashboard();
@@ -12589,7 +13077,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       acTrailEl.addEventListener('change', () => {
         localStorage.setItem('world_aircraft_trail_v1', acTrailEl.checked ? '1' : '0');
         if (acTrailEl.checked) {
-          toast('🛤 航路描画 ON。3〜5分後から軌跡が見え始めます', 'success', 3500);
+          toast('🛤 航路描画 ON。10〜20分後から軌跡が見え始めます', 'success', 3500);
         } else {
           toast('🛤 航路描画 OFF', 'info', 2500);
         }
@@ -12611,7 +13099,8 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   }
 
   // 既存 UI を一時的に隠すための要素 ID リスト
-  const HIDE_IDS = ['apiCard', 'progress-panel', 'result', 'costSummary', 'historyCard'];
+  // API 設定 (⚙ / カード) は隠さない: 世界予測の警告がそこからのキー設定を案内している
+  const HIDE_IDS = ['progress-panel', 'result', 'costSummary', 'historyCard'];
   const HIDE_SELECTORS = ['.card:not(#worldPredictionPanel .card):not(#apiCard):not(#historyCard)', '.analyze-wrap'];
   const hiddenElements = [];
 
@@ -12627,13 +13116,13 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     // セレクタで隠す (主分析カード = `.card` 群、ただしworldパネルとapi/history以外)
     document.querySelectorAll('.app > .card').forEach(card => {
-      if (card.id === 'apiCard' || card.id === 'historyCard') return; // 既に処理済
+      if (card.id === 'apiCard' || card.id === 'historyCard') return; // API 設定は残す / 履歴は処理済
       if (card.style.display !== 'none') {
         hiddenElements.push({ el: card, prev: card.style.display });
         card.style.display = 'none';
       }
     });
-    document.querySelectorAll('.app > .analyze-wrap, .app > #status, .app > .api-indicator').forEach(el => {
+    document.querySelectorAll('.app > .analyze-wrap, .app > #status').forEach(el => {
       if (el.style.display !== 'none') {
         hiddenElements.push({ el, prev: el.style.display });
         el.style.display = 'none';
@@ -12650,24 +13139,32 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     syncApiCardOpenState();
   }
 
+  let activateGen = 0; // await 中に deactivate されたかを見分ける世代番号
   async function activate() {
     setupOnce();
     if (active) return;
     active = true;
+    const gen = ++activateGen;
     hideMainUI();
     document.getElementById('worldPredictionPanel')?.classList.add('active');
     applyAiProviderUI();
     updateApiKeyWarning();
     renderApiActivity(); // API活動カード初期描画
     await loadBiasCache();
+    if (gen !== activateGen) return; // 読み込み中にパネルを離れた
     setView(currentView);
     cleanupOldPredictions(); // バックグラウンドで古いレコード削除
-    await reconcilePending();
+    // 使っていない world_events ストアに溜まった過去分を空にする
+    dbTx(STORE_WORLD_EVENTS, 'readwrite').then(s => reqToPromise(s.clear())).catch(() => {});
+    await reconcilePending(gen);
+    if (gen !== activateGen) return;
     // 即時 tick
     tickPrices();
     tickEvents();
     tickAircraft();
-    // 定期 tick
+    // 定期 tick (取り残しがあれば先に止める)
+    Object.values(timers).forEach(t => clearInterval(t));
+    if (apiActTicker) clearInterval(apiActTicker);
     timers.prices   = setInterval(tickPrices, PRICE_TICK_MS);
     timers.events   = setInterval(tickEvents, EVENTS_TICK_MS);
     timers.claude   = setInterval(tickClaudeAdjust, CLAUDE_TICK_MS);
@@ -12682,6 +13179,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   function deactivate() {
     if (!active) return;
     active = false;
+    activateGen++;
     Object.values(timers).forEach(t => clearInterval(t));
     Object.keys(timers).forEach(k => delete timers[k]);
     for (const t of scheduledTimeouts) clearTimeout(t);
