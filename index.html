@@ -2520,7 +2520,9 @@ body.api-card-open .analyze-wrap { position: static; }
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script defer src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+<!-- globe.gl も版固定 + SRI (同じオリジンの localStorage に API キーがあるため。版を上げるときは integrity も更新) -->
+<script defer src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"
+        integrity="sha384-1uolMBZ25k3zJcNwCLEv49+L+m2dZudqAzsoSAJfQTzDCSBxJzrMuZ2dkp/5JKiT" crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="bg-mesh"></div>
@@ -3493,7 +3495,10 @@ function updateRunningCost(cost) {
 }
 function updateSearchCounter(n, max = 15) {
   searchCounter.textContent = n;
-  searchCounterDisplay.querySelector('.search-counter, #searchCounter').parentNode.innerHTML = `🔍 <span id="searchCounter">${n}</span>/${max}`;
+  // Gemini の google_search は回数の上限を指定できない (検索深さはプロンプト上の目安)。
+  // 目安を超えたら分母は出さない (「5/2」だと上限を破ったように見える)
+  const limit = max != null && n <= max ? `/${max}` : '';
+  searchCounterDisplay.querySelector('.search-counter, #searchCounter').parentNode.innerHTML = `🔍 <span id="searchCounter">${n}</span>${limit}`;
 }
 function updateStats({ inputTokens = 0, outputTokens = 0, chars = 0 }) {
   statInputTokens.textContent = inputTokens.toLocaleString();
@@ -3596,15 +3601,18 @@ const DEFAULT_MODEL_FOR = { gemini: GEMINI_DEFAULT_MODEL, claude: 'eco-hybrid' }
 // リロード後に復元するモデル。Claude の単体モデルは従来どおり毎回ハイブリッドに戻す。
 const RESTORABLE_MODELS = { gemini: ['gemini-3.8-flash', 'gemini-4-argon'], claude: ['eco-hybrid', 'hybrid'] };
 function modelStorageKey(provider) { return provider === 'gemini' ? GEMINI_MODEL_LS : MODEL_KEY; }
+// このページで選んだモデル。localStorage には前回以前のセッションの単体モデルも残っているので、タブ切替で戻すのはこちら
+const sessionModelFor = {};
 function renderModelOptions(provider, { initial = false } = {}) {
   const list = MODEL_OPTIONS[provider] || MODEL_OPTIONS[DEFAULT_AI_PROVIDER];
   modelSelect.innerHTML = '';
   for (const [value, label] of list) modelSelect.appendChild(new Option(label, value));
   let saved = null;
   try { saved = localStorage.getItem(modelStorageKey(provider)); } catch (_) {}
-  // ページ読み込み時だけ「復元するモデル」に絞る。同じセッション内のタブ切替では直前の選択に戻す
-  const allowed = initial ? (RESTORABLE_MODELS[provider] || []) : list.map(([v]) => v);
-  modelSelect.value = (saved && allowed.includes(saved)) ? saved : DEFAULT_MODEL_FOR[provider];
+  // 保存値は「復元するモデル」だけ戻す。同じセッション内のタブ切替では、このページでの直前の選択 (単体モデルも) に戻す
+  const picked = initial ? null : sessionModelFor[provider];
+  modelSelect.value = (picked && list.some(([v]) => v === picked)) ? picked
+    : (saved && (RESTORABLE_MODELS[provider] || []).includes(saved)) ? saved : DEFAULT_MODEL_FOR[provider];
   updateModelInfo();
 }
 
@@ -3626,6 +3634,7 @@ function updateModelInfo() {
 renderModelOptions(getCurrentAiProvider(), { initial: true });
 modelSelect.addEventListener('change', () => {
   updateModelInfo();
+  sessionModelFor[analysisProviderOf(modelSelect.value)] = modelSelect.value;
   try { localStorage.setItem(modelStorageKey(analysisProviderOf(modelSelect.value)), modelSelect.value); } catch (_) {}
 });
 
@@ -3968,6 +3977,8 @@ JSONや記号は不要。整形後の自然な日本語の依頼文のみを出�
     const unit = modelCostFor(ai.model, res.inputTokens);
     chipState.totalCost += (res.inputTokens * unit.inputCost + res.outputTokens * unit.outputCost) / 1000000;
 
+    // 途中で切れた依頼文で上書きしない (catch で「そのまま残っています」と出す)
+    if (res.incomplete) throw new Error(`応答が途中で切れました (stop_reason: ${res.stopReason || 'なし'})`);
     // Strip surrounding quotes/markers if any
     polished = polished.replace(/^["'""'']+|["'""'']+$/g, '').replace(/^"""\s*|\s*"""$/g, '').trim();
     if (polished.length > 0) {
@@ -4294,8 +4305,21 @@ async function getEvaluationLearnings(maxItems = 5) {
         if (!item.result) return null;
         if (item.mode === 'evaluate') return { item, text: item.result, ts: item.timestamp };
         if (!item.evaluationDate) return null;
-        const idx = item.result.lastIndexOf('## 📊 評価レポート');
-        return idx < 0 ? null : { item, text: item.result.slice(idx), ts: item.evaluationDate };
+        // 評価セクションごとに分け、新しい順に学び・総合所感のあるものを使う。
+        // 途中終了の再評価は末尾の学び・総合所感が欠けやすいので、完全な評価を優先する
+        const H = '## 📊 評価レポート', secs = [];
+        for (let p = item.result.indexOf(H); p >= 0; ) {
+          const q = item.result.indexOf(H, p + H.length);
+          secs.push(item.result.slice(p, q < 0 ? undefined : q).replace(/\n+---\s*$/, ''));
+          p = q;
+        }
+        if (!secs.length) return null;
+        secs.reverse();
+        const withContent = secs.filter(t => /##\s*(💡\s*学び|📌\s*総合所感)/.test(t));
+        const text = withContent.find(t => !/^[^\n]*途中終了/.test(t)) || withContent[0] || secs[0];
+        // 最新でない評価を使うときは、その評価の見出しの日付を使う
+        const d = text === secs[0] ? null : text.match(/^[^\n]*?\((\d{4})年(\d{1,2})月(\d{1,2})日/);
+        return { item, text, ts: d ? new Date(+d[1], d[2] - 1, +d[3]).getTime() : item.evaluationDate };
       })
       .filter(Boolean)
       .sort((a, b) => b.ts - a.ts)
@@ -4916,7 +4940,8 @@ async function renderHistory() {
   const liveIds = new Set(allItems.map(it => it.id));
   let pruned = false;
   for (const id of selectedHistoryIds) if (!liveIds.has(id)) { selectedHistoryIds.delete(id); pruned = true; }
-  if (pruned) { updateAnalyzeButtonLabel(); updateSelectionBadge(); }
+  // 実行中は「分析中...」表示を残す (ラベルは実行の finally で付け直す)
+  if (pruned) { if (!analysisInFlight) updateAnalyzeButtonLabel(); updateSelectionBadge(); }
   // 🔧 v1.16.3: 既存の独立した評価レポート(mode='evaluate')を既定で非表示。
   //             新規評価は元記事に統合されるが、過去に保存された分は残るため。
   const legacyEvals = allItems.filter(it => it.mode === 'evaluate');
@@ -5102,8 +5127,10 @@ if (cleanupBtn) {
         const body = (evalItem.result || '').trim();
         if (body && (original.result || '').includes(body)) { skipped++; await dbDelete(evalItem.id); continue; }
         const ratingStr = rating ? ` — 総合評価 ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}` : '';
-        const evalSection = `\n\n---\n\n${sectionHeader}${ratingStr})\n\n${evalItem.result || ''}`;
+        const evalSection = `\n\n---\n\n${sectionHeader}${ratingStr}${evalItem.incomplete ? ' — ⚠️ 途中終了' : ''})\n\n${evalItem.result || ''}`;
         original.result = (original.result || '') + evalSection;
+        // 単独保存された評価の検索の出典・検索候補も、評価レポートと一緒に元記事へ引き継ぐ (消すと二度と表示できない)
+        if (Array.isArray(evalItem.groundings) && evalItem.groundings.length) original.groundings = (original.groundings || []).concat(evalItem.groundings);
         // もっと新しい評価が既にあれば★と日付は上書きしない
         if (!original.evaluationDate || evalItem.timestamp >= original.evaluationDate) {
           if (rating) original.evaluationRating = rating;
@@ -5114,7 +5141,8 @@ if (cleanupBtn) {
           date: evalItem.timestamp, rating,
           comment: extractEvaluationComment(evalItem.result || ''),
           searchCount: evalItem.searchCount, inputTokens: evalItem.inputTokens, outputTokens: evalItem.outputTokens,
-          evalLength: (evalItem.result || '').length
+          evalLength: (evalItem.result || '').length,
+          provider: providerOfItem(evalItem), model: evalItem.model, incomplete: !!evalItem.incomplete
         });
         await dbPut(original);
         await dbDelete(evalItem.id);
@@ -5226,6 +5254,14 @@ function startElapsedTimer() {
   elapsedInterval = setInterval(updateElapsed, 1000);
 }
 function stopElapsedTimer() { if (elapsedInterval) { clearInterval(elapsedInterval); elapsedInterval = null; } }
+// 完了・エラー・中止のどれも通らずに実行が終わったとき (リトライ前の入力チェックで戻った等) の後始末。
+// 計時を止め、「API混雑中 …秒後にリトライ」の表示を残さない
+function endStaleRetryProgress() {
+  if (!elapsedInterval) return;
+  stopElapsedTimer();
+  setPhase('⚠️', '自動リトライを中止しました', '再実行前の確認で止まりました (理由はメッセージ欄)');
+  addActivity('⚠️ 自動リトライを中止しました');
+}
 function updateElapsed() {
   if (!startTime) return;
   const sec = Math.floor((Date.now() - startTime) / 1000);
@@ -5465,7 +5501,12 @@ async function geminiFetchWithRetry(url, opts, signal, onNotice) {
     const res = await fetch(url, opts);
     if (res.ok) return res;
     const info = parseGeminiError(res.status, await res.text());
-    if (!info.retryable || attempt >= GEMINI_MAX_RETRIES) throw new Error(info.message);
+    if (!info.retryable || attempt >= GEMINI_MAX_RETRIES) {
+      const err = new Error(info.message);
+      // 混雑の再試行を使い切った印。analyzeStocks はこれを見て全体をやり直さない (入れ子で最大 16 回・約 70 秒待たせてしまう)
+      if (info.retryable) err.retriesExhausted = true;
+      throw err;
+    }
     const waitMs = info.retryDelayMs > 0 ? info.retryDelayMs : Math.min(1000 * Math.pow(2, attempt + 1), 30000);
     const sec = Math.max(1, Math.round(waitMs / 1000));
     console.warn(`[gemini] ${info.message} — ${sec}秒後に再試行 (${attempt + 1}/${GEMINI_MAX_RETRIES})`);
@@ -5716,6 +5757,8 @@ async function completeAI({ provider, apiKey, model, prompt, system, useTools = 
     const d = out.stopDetails || {};
     throw new Error(`AI が回答を控えました (${d.category || 'refusal'})${d.explanation ? ': ' + d.explanation : ''}`);
   }
+  // end_turn 以外 (max_tokens / pause_turn / 終了理由なし = 途中切断) は途中まで。本文に書き戻す呼び出し側はこれを見て捨てる
+  out.incomplete = out.stopReason !== 'end_turn';
   return out;
 }
 
@@ -5745,8 +5788,11 @@ async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
   const apiKey = getProviderKey(provider);
   if (!apiKey) throw new Error(`${aiProviderLabel(provider)} の API キーが未設定`);
   const model = getCurrentAiModel(taskType);
-  await streamFetchAI({ provider, apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens, thinking: 'off', effort: 'low' });
-  return { provider, model };
+  // completeAI を通す: 応答が止まっても時間切れ (120 秒) で抜け、翻訳・ムード補正が詰まったままにならない。
+  // ストリーム途中の error イベント (Claude の overloaded_error など) でも投げるので、途中までの本文を成功扱いにしない
+  const res = await completeAI({ provider, apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens, thinking: 'off', effort: 'low' });
+  // 終了理由も返す (end_turn 以外は途中まで)
+  return { provider, model, stopReason: res.stopReason };
 }
 
 // 削除した OpenAI / Kimi プロバイダーの設定が localStorage に残っていると、
@@ -6027,8 +6073,8 @@ ${isUltraShort ? '(推奨は 1 銘柄のみ)' : '(2〜5銘柄を同様に)'}
     });
 
     stopHeartbeat();
-    // リサーチが空・途中 (検索の反復上限 pause_turn / 拒否) のまま執筆させると、数値の無い記事が「完了」として保存される
-    if (!researchText.trim() || phase1Stop === 'pause_turn' || phase1Stop === 'refusal') {
+    // リサーチが空・途中 (検索の反復上限 pause_turn / 拒否 / stop_reason 未受信 = 通信が途中で閉じた) のまま執筆させると、数値の無い記事が「完了」として保存される
+    if (!researchText.trim() || !phase1Stop || phase1Stop === 'pause_turn' || phase1Stop === 'refusal') {
       addActivity(`⚠️ Phase 1 未完了: リサーチ ${researchText.length.toLocaleString()}文字、stop_reason: ${phase1Stop || '未受信'}`);
       throw new Error(`Phase 1 のリサーチが完了しませんでした (stop_reason: ${phase1Stop || '未受信'})。検索の深さを下げるか、もう一度実行してください`);
     }
@@ -6287,7 +6333,12 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
     };
     const consultMaxSearches = Math.min(4, phase1MaxSearches);
     // 出力上限・拒否・途中終了の稿や、CHART/CALENDAR タグが閉じていない稿は完成稿として扱わない
-    const isCompleteDraft = (t) => stopReason === 'end_turn' && !!t.trim() && !/\[(CHART_DATA|CALENDAR_DATA)\](?![\s\S]*\[\/\1\])/.test(t);
+    // ただし必須4ブロックを閉じた後、任意の FOLLOW_UP の途中で出力上限に達した稿は完成稿 (切れた質問は閉じタグが無いので追加調査に回らない)
+    const cutInFollowUp = (t) => {
+      const m = /\[FOLLOW_UP_QUESTIONS\](?![\s\S]*\[\/FOLLOW_UP_QUESTIONS\])/.exec(t);
+      return !!m && ['CHART_DATA', 'CALENDAR_DATA', 'ANALYSIS_SUMMARY', 'ANALYSIS_TITLE'].every(k => t.slice(0, m.index).includes(`[/${k}]`));
+    };
+    const isCompleteDraft = (t) => (stopReason === 'end_turn' || (stopReason === 'max_tokens' && cutInFollowUp(t))) && !!t.trim() && !/\[(CHART_DATA|CALENDAR_DATA)\](?![\s\S]*\[\/\1\])/.test(t);
     // 直前の完成稿。追加調査・改訂が失敗・停止・途中切れになっても、これで確定して支払い済みの記事を失わない
     let lastGoodDraft = '', fallbackNote = '';
     try { // 改訂ラウンドの失敗は下の catch で直前の完成稿に戻す
@@ -6541,9 +6592,11 @@ ${questions}
       renderMarkdown(accumulatedText);
       addActivity(`⚠️ 追加調査・改訂が完了しなかったため、直前の完成稿で確定します (${fallbackNote})`);
     }
+    // FOLLOW_UP 内の出力上限を見分けるため、ブロック除去の前に判定する
+    const draftComplete = isCompleteDraft(accumulatedText);
     // 追加質問ブロックは内部用。表示では隠しているが、保存・コピー・ダウンロードにも残さない
     accumulatedText = accumulatedText.replace(/\[FOLLOW_UP_QUESTIONS\][\s\S]*?(?:\[\/FOLLOW_UP_QUESTIONS\]|$)/g, '').trimEnd();
-    const truncated = !!accumulatedText.trim() && !isCompleteDraft(accumulatedText);
+    const truncated = !!accumulatedText.trim() && !draftComplete;
 
     addActivity(`✅ Phase 2 完了: ${accumulatedText.length.toLocaleString()}文字 (改訂 ${consultRound}回)`);
 
@@ -6667,7 +6720,8 @@ ${questions}
       return;
     }
     // Phase 1 完了後の混雑は各呼び出しで再試行済み。ここで全体をやり直すと Phase 1 が二重に課金される
-    if (!phase1Done && /overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+    // 語境界付き: 「215029 tokens」のような数値の一部に当たって 400 を再送しない
+    if (!phase1Done && /overload|\b(?:502|503|529)\b/i.test(errStr) && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
@@ -6693,6 +6747,7 @@ ${questions}
     else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。`;
     showStatus(msg, 'error');
   } finally {
+    endStaleRetryProgress();
     stopHeartbeat();
     analyzeBtn.disabled = false;
     evaluatingItem = null;
@@ -6817,6 +6872,8 @@ ${items.length === 1
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
           if (delta && delta.type === 'text_delta') {
+            // Gemini の message_start には usage が無いので、本文が届いた時点でも応答待ちの表示を止める
+            stopHeartbeat();
             accumulatedText += delta.text;
             renderMarkdown(accumulatedText);
             stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
@@ -8199,6 +8256,9 @@ ${evalTarget.result}
 - 厳しめだが建設的な評価を行うこと`;
   })() : null;
 
+  // リトライの準備中 (天気の再取得など) に停止されていたら、新しいリクエストは出さない (ハイブリッドも単体も)
+  if (runCtx.ctl && runCtx.ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
+
   // ===== HYBRID MODE BRANCH =====
   // 評価モード(isEvaluating)以外は必ずハイブリッドへ。
   // 評価モードのみ analyzeStocks の単体モデル経路に落ちるので、
@@ -8575,8 +8635,6 @@ ${stylePeriodsListItems}
 - 数値は具体的に、ただし必ず例えで噛み砕く
 - これは投資助言ではなく分析情報として`;
 
-  // リトライの準備中 (天気の再取得など) に停止されていたら、新しいリクエストは出さない
-  if (runCtx.ctl && runCtx.ctl.signal.aborted) { addActivity('🛑 リトライを中止しました'); return; }
   analyzeBtn.disabled = true;
   analyzeBtn.querySelector('.btn-text').innerHTML = '<span class="spinner"></span>分析中...';
   hideStatus();
@@ -8784,21 +8842,29 @@ ${stylePeriodsListItems}
     if (analysisProvider === 'gemini') {
       // 🔷 Gemini は Google 検索 (google_search) を1リクエストの中で済ませる。往復は不要。
       addActivity(`🔌 Gemini API にリクエスト送信 (${model})`);
-      await streamFetchGemini({
-        apiKey, model, prompt, useTools: true,
-        maxTokens: 12000,
-        effort: claudeEffortForDepth(),
-        signal: currentAbortController.signal,
-        onEvent: (ev) => {
-          if (ev.type === 'message_start') { setStep('connect', 'done'); setProgressPercent(10); addActivity('✅ API接続成功'); }
-          processEvent(ev);
-        },
-        onNotice: (n) => {
-          const label = n.kind === 'rate_limit' ? 'レート制限' : 'サーバー混雑';
-          addActivity(`⏳ ${label}のため ${n.waitSec}秒待機して再試行 (${n.attempt}/${n.maxAttempts})`);
-          setPhase('⏳', `${label}で待機中`, `${n.waitSec}秒後に再試行します`);
-        },
-      });
+      try {
+        await streamFetchGemini({
+          apiKey, model, prompt, useTools: true,
+          maxTokens: 12000,
+          effort: claudeEffortForDepth(),
+          signal: currentAbortController.signal,
+          onEvent: (ev) => {
+            if (ev.type === 'message_start') { setStep('connect', 'done'); setProgressPercent(10); addActivity('✅ API接続成功'); }
+            processEvent(ev);
+          },
+          onNotice: (n) => {
+            const label = n.kind === 'rate_limit' ? 'レート制限' : 'サーバー混雑';
+            addActivity(`⏳ ${label}のため ${n.waitSec}秒待機して再試行 (${n.attempt}/${n.maxAttempts})`);
+            setPhase('⏳', `${label}で待機中`, `${n.waitSec}秒後に再試行します`);
+          },
+        });
+      } catch (e) {
+        // 本文の途中で届いた API エラーは Claude の error イベントと同じく streamError として扱い、
+        // 支払い済みの途中までの本文を捨てない (混雑なら下の再試行に回る)。停止・本文前のエラー・通信切断は従来どおり外側へ
+        if (e.name === 'AbortError' || !accumulatedText.trim() || !/^Gemini APIエラー/.test(e.message || '')) throw e;
+        streamError = e.message;
+        addActivity(`❌ エラー: ${streamError}`);
+      }
     } else {
       // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
       //   - web_search は Haiku (4.5 / 5.5) のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
@@ -9115,7 +9181,8 @@ ${stylePeriodsListItems}
       showStatus('🛑 分析を中止しました', 'error');
       return;
     }
-    if (/overload|529|503|502/i.test(errStr) && retryCount < MAX_RETRIES) {
+    // 語境界付き: 「215029 tokens」のような数値の一部に当たって 400 を再送しない
+    if (/overload|\b(?:502|503|529)\b/i.test(errStr) && retryCount < MAX_RETRIES && !error.retriesExhausted) {
       const waitSec = Math.pow(2, retryCount + 1);
       setPhase('⏳', `API混雑中 ${waitSec}秒後にリトライ`, `自動リトライ ${retryCount + 1}/${MAX_RETRIES}`);
       addActivity(`⏳ ${waitSec}秒待機してリトライ`);
@@ -9138,6 +9205,7 @@ ${stylePeriodsListItems}
     else if (/overload/i.test(errStr)) msg += `\n\n💡 ${MAX_RETRIES}回リトライしましたが解消しませんでした。数分後に再度お試しください。`;
     showStatus(msg, 'error');
   } finally {
+    endStaleRetryProgress();
     stopHeartbeat();
     analyzeBtn.disabled = false;
     evaluatingItem = null; // Clear evaluation state after run
@@ -9359,7 +9427,8 @@ function extractEvaluationRating(text) {
       const pats = [
         /(\d+(?:\.\d+)?)\s*\/\s*5(?:\.0+)?(?![\d.])/g,
         /5\s*(?:段階|つ星)\s*中\s*(\d+(?:\.\d+)?)/g,
-        /(?:総合評価|総合\s*スコア|総合\s*ランク|総合点)\s*\**\s*[:：]\s*\**\s*(\d+(?:\.\d+)?)(?![\d.]|\s*(?:段階|つ星|点満点))/g,
+        // 「総合評価（5段階）：4」のようにラベルとコロンの間の尺度の括弧は読み飛ばす
+        /(?:総合評価|総合\s*スコア|総合\s*ランク|総合点)\s*\**\s*(?:[(（【\[][^)）】\]\n]{0,12}[)）】\]]\s*\**\s*)?[:：]\s*\**\s*(\d+(?:\.\d+)?)(?![\d.]|\s*(?:段階|つ星|点満点))/g,
         /(\d+(?:\.\d+)?)\s*(?:点|stars?|つ?星)(?!\s*(?:中|満点))/gi
       ];
       for (const re of pats) {
@@ -9731,7 +9800,12 @@ renderHistory();
   function fitRangeToBlock(range) {
     const blk = (n) => {
       const el = n.nodeType === 3 ? n.parentElement : n;
-      return el && el.closest('p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, pre');
+      if (!el) return null;
+      const b = el.closest('p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, pre');
+      if (b) return b;
+      // p/td 等の外 (カレンダー・チャート集計) は直近の div を1ブロックとみなす。null 同士だと別の div をまたいでも通ってしまう
+      const d = el.closest('div');
+      return d && d !== resultDiv ? d : null;
     };
     const sb = blk(range.startContainer), eb = blk(range.endContainer);
     if (sb === eb) return true;
@@ -10229,6 +10303,8 @@ ${blockText}
     const res = await completeAI({ ...ai, apiKey, prompt, useTools: ai.provider === 'claude', maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000, onEvent });
     const text = (res.text || '').trim();
     if (!text) throw new Error(`モデルがテキスト応答を返しませんでした (stop_reason: ${res.stopReason || '不明'})`);
+    // 途中で切れた表・段落で本文を置き換えない (表は最後の行が欠ける)
+    if (res.incomplete) throw new Error(`応答が途中で切れました (stop_reason: ${res.stopReason || 'なし'})`);
 
     if (isTable) {
       // マークダウン表を抽出 (前後の余計な行を除去)
@@ -10829,9 +10905,9 @@ const worldPredictionApp = (function() {
       now.className = 'api-act-now';
       now.innerHTML = `<span class="api-spinner"></span>
         <div style="flex:1">
-          <div style="font-weight:700">${c.purpose}</div>
+          <div style="font-weight:700">${escapeHtml(c.purpose)}</div>
           <div style="font-size:11px;color:var(--text-secondary,#64748b);margin-top:2px">
-            モデル: ${c.model} / ${c.detail || ''} / 経過: ${elapsedSec}s
+            モデル: ${escapeHtml(c.model)} / ${escapeHtml(c.detail || '')} / 経過: ${elapsedSec}s
           </div>
         </div>`;
     } else {
@@ -10851,11 +10927,11 @@ const worldPredictionApp = (function() {
           const dur = ((h.endTs - h.startTs) / 1000).toFixed(1);
           const infoStr = h.status === 'success'
             ? (typeof h.info.summary === 'string' ? h.info.summary : (h.info.applied !== undefined ? `+${h.info.applied}件` : 'OK'))
-            : (h.info.error ? String(h.info.error).slice(0, 50) : 'エラー');
+            : (h.info.error ? String(h.info.error).slice(0, 50) : 'エラー'); // API エラー本文 (HTML ページ等) を含むので描画時にエスケープ
           return `<div class="api-act-row ${h.status}">
             <span class="api-row-time">${t}</span>
-            <span class="api-row-purpose">${h.purpose}</span>
-            <span class="api-row-detail">${(h.detail || '').slice(0, 40)} ${infoStr ? '→ ' + infoStr : ''}</span>
+            <span class="api-row-purpose">${escapeHtml(h.purpose)}</span>
+            <span class="api-row-detail">${escapeHtml((h.detail || '').slice(0, 40))} ${infoStr ? '→ ' + escapeHtml(infoStr) : ''}</span>
             <span class="api-row-duration">${dur}s</span>
             <span class="api-row-status ${h.status}">${h.status === 'success' ? '✓' : '✕'}</span>
           </div>`;
@@ -11446,11 +11522,26 @@ const worldPredictionApp = (function() {
   const histories = new Map(); // symbol -> [{ts, price}, ...]
   const biasCache = new Map(); // symbol -> { avgError, sampleCount, lastUpdated }
 
-  function recordPrice(symbol, price, ts) {
+  // fresh=false (市場時刻が進んでいない回) はチャートには描くが回帰には使わない
+  function recordPrice(symbol, price, ts, fresh = true) {
     let h = histories.get(symbol);
     if (!h) { h = []; histories.set(symbol, h); }
-    h.push({ ts: ts || Date.now(), price });
+    h.push(fresh ? { ts: ts || Date.now(), price } : { ts: ts || Date.now(), price, stale: true });
     if (h.length > HISTORY_MAX) h.shift();
+  }
+
+  // 回帰に使う点: 最新から遡って市場時刻が進んだ点だけ。5 tick より空いたら打ち切る
+  // (休場中の横ばい点や、スリープ・パネルを閉じていた前の塊を混ぜると寄り付きの窓開けで逆向きに外挿する)
+  function regressionPoints(h) {
+    const pts = [];
+    let prevTs = h.length ? h[h.length - 1].ts : 0;
+    for (let i = h.length - 1; i >= 0; i--) {
+      if (h[i].stale) continue;
+      if (prevTs - h[i].ts > 5 * PRICE_TICK_MS) break;
+      pts.unshift(h[i]);
+      prevTs = h[i].ts;
+    }
+    return pts;
   }
 
   // 予測から引く量 (どちらも「予測 − 実測」の向き)。avgError = 学習分、moodAdj = AI ムード補正 (次の補正まで有効)
@@ -11463,8 +11554,8 @@ const worldPredictionApp = (function() {
   }
 
   function linearPredict(symbol, msAhead = PREDICTION_HORIZON_MS) {
-    const h = histories.get(symbol);
-    if (!h || h.length < 2) return null;
+    const h = regressionPoints(histories.get(symbol) || []);
+    if (h.length < 2) return null;
     const t0 = h[0].ts;
     const xs = h.map(p => (p.ts - t0) / 1000);
     const ys = h.map(p => p.price);
@@ -12005,7 +12096,8 @@ const worldPredictionApp = (function() {
     } else {
       arrowEl.className = 'wpc-arrow flat';
       arrowEl.textContent = '…';
-      predEl.textContent = `サンプル収集中 (${(histories.get(sym) || []).length}/2)`;
+      const hh = histories.get(sym) || [];
+      predEl.textContent = hh.length >= 2 && hh[hh.length - 1].stale ? '休場中 (市場時刻が止まっています)' : `サンプル収集中 (${regressionPoints(hh).length}/2)`;
     }
     card.querySelector('.wpc-source').textContent = fetchInfo.source.split(':')[0];
     card.title = `最終取得: ${shortTime(fetchInfo.ts)}`;
@@ -12016,7 +12108,7 @@ const worldPredictionApp = (function() {
     if (!card) return;
     card.classList.add('stale');
     const predEl = card.querySelector('.wpc-pred-value');
-    if (predEl) predEl.innerHTML = `<span class="wpc-error">取得失敗: ${err.message || 'unknown'}</span>`;
+    if (predEl) predEl.innerHTML = `<span class="wpc-error">取得失敗: ${escapeHtml(err.message || 'unknown')}</span>`;
   }
 
   // ──────────────────────────────────────────────
@@ -12327,6 +12419,8 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
       act.model = callMeta.model;
       // パーサーは寛容に: 「IDX:N:」「IDX N:」「N:」のいずれも許容
       const lines = acc.split(/\r?\n/);
+      // 途中で切れた応答の最後の行は訳が半端なので使わない (次回また翻訳される)
+      if (callMeta.stopReason !== 'end_turn') lines.pop();
       let applied = 0;
       for (const line of lines) {
         const m = line.match(/^\s*(?:IDX[\s:：-]*)?(\d+)\s*[:：．.]\s*(.+?)\s*$/);
@@ -12726,7 +12820,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         const fresh = !lastPrices[sym] || info.ts > lastPrices[sym].ts;
         lastPrices[sym] = info;
         // 履歴は取得時刻で持つ (Yahoo の市場時刻は休場中ずっと同じでチャートが潰れる)
-        recordPrice(sym, info.price, Date.now());
+        recordPrice(sym, info.price, Date.now(), fresh);
         const pred = linearPredict(sym);
         updatePriceCard(sym, info, pred);
         if (pred && pred.sampleCount >= 2 && fresh) {
@@ -12927,6 +13021,15 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
         toast(`🤖 AI プロバイダーを ${getCurrentAiModelLabel()} に切替`, 'success', 3500);
       });
     });
+    // キーの保存/削除 (本体側の処理が先に走る) の後、世界予測中なら警告と翻訳ピルをすぐ追従させる
+    // (削除をキャンセルしたときに有料の翻訳を走らせないよう、削除はキーが無くなったときだけ)
+    [['saveGeminiKey', true], ['clearGeminiKey', false], ['saveKey', true], ['clearKey', false]].forEach(([id, isSave]) => {
+      document.getElementById(id)?.addEventListener('click', () => {
+        if (!active) return;
+        if (isSave || !getCurrentAiKey()) translateEvents(cachedEvents);
+        else updateApiKeyWarning();
+      });
+    });
 
     applyAiProviderUI();
     updateApiKeyWarning();
@@ -13103,6 +13206,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
   const HIDE_IDS = ['progress-panel', 'result', 'costSummary', 'historyCard'];
   const HIDE_SELECTORS = ['.card:not(#worldPredictionPanel .card):not(#apiCard):not(#historyCard)', '.analyze-wrap'];
   const hiddenElements = [];
+  let statusRelay = null; // 世界予測中に #status へ出たメッセージをトーストへ回す
 
   function hideMainUI() {
     hiddenElements.length = 0;
@@ -13129,9 +13233,21 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
       }
     });
     syncApiCardOpenState();
+    // #status は隠したままなので、API キー保存の結果などの短い文言はトーストで見せる
+    // (チップ付きの分析結果は通常画面に戻れば #status で見られる)
+    const statusEl = document.getElementById('status');
+    if (statusEl && !statusRelay && typeof MutationObserver === 'function') {
+      statusRelay = new MutationObserver(() => {
+        if (!statusEl.classList.contains('active') || statusEl.children.length) return;
+        const msg = statusEl.textContent.trim();
+        if (msg) toast(msg, statusEl.classList.contains('error') ? 'error' : statusEl.classList.contains('success') ? 'success' : 'info', 6000);
+      });
+      statusRelay.observe(statusEl, { childList: true, attributes: true, attributeFilter: ['class'] });
+    }
   }
 
   function restoreMainUI() {
+    if (statusRelay) { statusRelay.disconnect(); statusRelay = null; }
     for (const { el, prev } of hiddenElements) {
       el.style.display = prev || '';
     }
