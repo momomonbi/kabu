@@ -2579,6 +2579,10 @@ body.api-card-open .analyze-wrap { position: static; }
         <br/>🔎 銘柄分析・ニュース収集・ファクトチェック・温度計は <b>Google 検索</b> で最新情報を調べます。
         検索は<b>実行されたクエリ単位の課金</b>で、有料枠なら月 5,000 回まで無料、超過は 1,000 回あたり $14 です。
       </div>
+      <div class="ai-provider-desc" id="geminiClaudeFallbackNote" style="display:none;background:rgba(245,158,11,0.10);border-left-color:#f59e0b">
+        💡 <b>Claude の API キーが保存されています。</b>Gemini のキーを設定するまでは、上の「🟣 Anthropic Claude」タブに切り替えると
+        これまでどおり Claude で全機能を使えます。
+      </div>
       <div class="ai-provider-warning">
         ⚠️ <b>Google 検索は無料枠 (課金していないキー) では使えません。</b>銘柄分析などで検索が必要な機能を使うには、AI Studio で課金を有効にしてください。
         <br/>⚠️ 分析を途中で「中止」しても、Google 側では生成が続き、そのぶんは課金されます。
@@ -3232,6 +3236,9 @@ function modelCostFor(model, inputTokens = 0) {
   if (model === 'claude-haiku-5-5' && inputTokens > HAIKU55_LONG_PROMPT_TOKENS) {
     return { inputCost: 0.50, outputCost: 2.50 };
   }
+  // Gemini の導入価格は期限つき。開きっぱなしのタブでも期限を過ぎたら標準価格で計算する
+  const gp = geminiPriceNow(model);
+  if (gp) return { inputCost: gp.input, outputCost: gp.output };
   return { inputCost: m.inputCost || 0, outputCost: m.outputCost || 0 };
 }
 
@@ -3380,7 +3387,17 @@ function syncApiCardOpenState() {
   document.body.classList.toggle('api-card-open', apiCard.style.display !== 'none');
 }
 
+// v4.0.0 で既定が Gemini になったため、以前から Claude だけを使っていた場合は
+// Gemini のキーを入れるまで何も動かない。Claude に戻せることを Gemini の設定欄で知らせる。
+function updateClaudeFallbackNote() {
+  const note = document.getElementById('geminiClaudeFallbackNote');
+  if (!note) return;
+  const show = getCurrentAiProvider() === 'gemini' && !getProviderKey('gemini') && !!getProviderKey('claude');
+  note.style.display = show ? 'block' : 'none';
+}
+
 function updateApiVisibility() {
+  updateClaudeFallbackNote();
   // 選択中のプロバイダーのキーが無ければカードを開いて入力を促す
   const hasKey = !!getProviderKey(getCurrentAiProvider());
   if (hasKey) {
@@ -3575,13 +3592,15 @@ const DEFAULT_MODEL_FOR = { gemini: GEMINI_DEFAULT_MODEL, claude: 'eco-hybrid' }
 // リロード後に復元するモデル。Claude の単体モデルは従来どおり毎回ハイブリッドに戻す。
 const RESTORABLE_MODELS = { gemini: ['gemini-3.8-flash', 'gemini-4-argon'], claude: ['eco-hybrid', 'hybrid'] };
 function modelStorageKey(provider) { return provider === 'gemini' ? GEMINI_MODEL_LS : MODEL_KEY; }
-function renderModelOptions(provider) {
+function renderModelOptions(provider, { initial = false } = {}) {
   const list = MODEL_OPTIONS[provider] || MODEL_OPTIONS[DEFAULT_AI_PROVIDER];
   modelSelect.innerHTML = '';
   for (const [value, label] of list) modelSelect.appendChild(new Option(label, value));
   let saved = null;
   try { saved = localStorage.getItem(modelStorageKey(provider)); } catch (_) {}
-  modelSelect.value = (saved && (RESTORABLE_MODELS[provider] || []).includes(saved)) ? saved : DEFAULT_MODEL_FOR[provider];
+  // ページ読み込み時だけ「復元するモデル」に絞る。同じセッション内のタブ切替では直前の選択に戻す
+  const allowed = initial ? (RESTORABLE_MODELS[provider] || []) : list.map(([v]) => v);
+  modelSelect.value = (saved && allowed.includes(saved)) ? saved : DEFAULT_MODEL_FOR[provider];
   updateModelInfo();
 }
 
@@ -3600,7 +3619,7 @@ function updateModelInfo() {
     ${warn}
   `;
 }
-renderModelOptions(getCurrentAiProvider());
+renderModelOptions(getCurrentAiProvider(), { initial: true });
 modelSelect.addEventListener('change', () => {
   updateModelInfo();
   try { localStorage.setItem(modelStorageKey(analysisProviderOf(modelSelect.value)), modelSelect.value); } catch (_) {}
@@ -4281,7 +4300,9 @@ function formatDate(ts) {
 function stripMd(text) {
   return text.replace(/[#*`_>\[\]()]/g, '').replace(/\s+/g, ' ').trim();
 }
-function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
+// 数値・null・undefined が来ても落ちないよう、必ず文字列にしてからエスケープする
+// (モデルが返す JSON の値は型が保証されないので、ここで例外を出すとストリームごと止まる)
+function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[c])); }
 
 // ===== 🌦 Open-Meteo 天気予報 API (無料・無認証・CORS対応) =====
 // web_search で天気を調べる代わりに直接 API から取得 → 1〜2 検索ぶんのコスト($0.01〜0.02)を節約
@@ -7029,7 +7050,9 @@ async function analyzeStocks(retryCount = 0) {
   const analysisProvider = analysisProviderOf(modelSelect.value);
   const apiKey = getProviderKey(analysisProvider);
   if (!apiKey) {
+    evaluatingItem = null;
     showStatus(`⚠️ ${aiProviderLabel(analysisProvider)} の API キーを上部の「🔑 API 設定」で設定してください`, 'error');
+    updateAnalyzeButtonLabel();
     return;
   }
 
@@ -9235,8 +9258,10 @@ function renderMarkdown(text) {
       }
     }
     if (data) {
-      calHtml = renderCalendar(data);
-      if (!calHtml) calHtml = `<div class="chart-loading">📅 カレンダーデータが空です</div>`;
+      try { calHtml = renderCalendar(data); }
+      catch (e) { console.warn('[Calendar] render failed', e); calHtml = ''; data = null; }
+      if (!data) calHtml = `<div class="chart-loading">📅 カレンダーデータの解析に失敗しました</div>`;
+      else if (!calHtml) calHtml = `<div class="chart-loading">📅 カレンダーデータが空です</div>`;
     } else {
       calHtml = `<div class="chart-loading">📅 カレンダーデータの解析に失敗しました</div>`;
     }
@@ -9264,9 +9289,11 @@ function renderMarkdown(text) {
       }
     }
     if (parsedData) {
-      chartHtml = renderChart(parsedData);
+      try { chartHtml = renderChart(parsedData); }
+      catch (e) { console.warn('[Chart] render failed', e); chartHtml = `<div class="chart-loading">📊 チャートデータの解析に失敗しました</div>`; }
       // ★ v1.16.0: 予測チャートに加えて Stooq.com の実際の過去6ヶ月チャートも表示
-      const histHtml = renderHistoricalCharts(parsedData);
+      let histHtml = '';
+      try { histHtml = renderHistoricalCharts(parsedData); } catch (e) { console.warn('[HistChart] render failed', e); }
       if (histHtml) chartHtml = (chartHtml || '') + histHtml;
       // 🔧 v1.16.4: 株価検証(AI提示価格 vs Yahoo Finance 最新)を非同期で追加
       if (parsedData.stocks && parsedData.stocks.length > 0) {
@@ -9503,7 +9530,7 @@ renderHistory();
     positionElementNear(spanRect, popover, true);
 
     try {
-      const result = await callFactCheck(apiKey, selectedText, blockText);
+      const result = await callFactCheck(selectedText, blockText);
       renderResult(span, selectedText, result);
     } catch (err) {
       console.warn('[FactCheck] failed:', err);
@@ -9525,7 +9552,7 @@ renderHistory();
           <div class="fc-head"><span>🔍 再試行中</span></div>
           <div class="fc-loading">${escapeHtml(factCheckAI().label)} が Web 検索で確認中…</div>`;
         try {
-          const r2 = await callFactCheck(apiKey, selectedText, blockText);
+          const r2 = await callFactCheck(selectedText, blockText);
           renderResult(span, selectedText, r2);
         } catch (e2) {
           popover.innerHTML = `<div class="fc-head"><span class="fc-verdict-uncertain">⚠️ 再失敗</span>
@@ -9539,7 +9566,7 @@ renderHistory();
     }
   });
 
-  async function callFactCheck(apiKey, selectedText, paragraphText) {
+  async function callFactCheck(selectedText, paragraphText) {
     const today = new Date().toISOString().slice(0, 10);
     const prompt = `あなたは日本語の事実確認(ファクトチェック)エキスパートです。投資・株式分析の記事に含まれる「ユーザーが選択した箇所」(数値・固有名詞・日付・統計・銘柄情報など)が事実と一致しているかを web_search を使って厳密に確認してください。
 
@@ -9571,8 +9598,10 @@ ${paragraphText}
 
 JSON以外の文字を一切出力しないこと。`;
 
+    // キーはプロバイダーと同じ時点で読む (再試行までにプロバイダーが変わっても、別の会社にキーを送らない)
     const ai = factCheckAI();
-    const res = await completeAI({ ...ai, apiKey, prompt, useTools: true, maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000 });
+    if (!ai.apiKey) throw new Error(`${aiProviderLabel(ai.provider)} の API キーが設定されていません`);
+    const res = await completeAI({ ...ai, prompt, useTools: true, maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000 });
     const text = (res.text || '').trim();
     if (!text) throw new Error(`モデルがテキスト応答を返しませんでした (stop_reason: ${res.stopReason || '不明'})`);
 
@@ -10288,7 +10317,7 @@ const worldPredictionApp = (function() {
 
   function calcCostUSD(model, inTok, outTok) {
     if (model === 'claude-haiku-5-5' && inTok > HAIKU55_LONG_PROMPT_TOKENS) return (inTok * 0.50 + outTok * 2.50) / 1e6;
-    const p = MODEL_PRICING[model] || FALLBACK_PRICE;
+    const p = geminiPriceNow(model) || MODEL_PRICING[model] || FALLBACK_PRICE;
     return (inTok * p.input + outTok * p.output) / 1e6;
   }
 
@@ -11750,7 +11779,15 @@ const worldPredictionApp = (function() {
     if (cs) cs.style.display = (p === 'claude') ? 'block' : 'none';
     // 使用モデルの選択肢もプロバイダーに合わせて作り直す (既に合っていれば作り直さない)
     if (typeof renderModelOptions === 'function' && analysisProviderOf(modelSelect.value) !== p) renderModelOptions(p);
-    if (typeof updateApiVisibility === 'function') updateApiVisibility();
+    if (getProviderKey(p)) {
+      // キーがあれば閉じるボタンを使えるようにするだけ。開いているカードは閉じない
+      apiCardClose.classList.add('active');
+      if (apiCard.style.display === 'none') apiIndicator.classList.add('active');
+      syncApiCardOpenState();
+    } else if (typeof updateApiVisibility === 'function') {
+      updateApiVisibility();   // キーが無いので入力を促すためにカードを開く
+    }
+    updateClaudeFallbackNote();
     // バッジ
     const badge = document.getElementById('aiProviderBadge');
     if (badge) {
@@ -11841,6 +11878,8 @@ ${items.map(it => `IDX:${it.idx}: [${it.type}] ${it.text}`).join('\n')}`;
           }
           if (p.type === 'message_delta' && p.usage) {
             outTok = p.usage.output_tokens || outTok;
+            // Gemini は入力トークン数を最後の message_delta でしか送らない
+            if (typeof p.usage.input_tokens === 'number') inTok = Math.max(inTok, p.usage.input_tokens);
           }
         }
       });
@@ -12147,7 +12186,11 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
             acc += p.delta.text;
           }
           if (p.type === 'message_start' && p.message?.usage) inTok2 = p.message.usage.input_tokens || 0;
-          if (p.type === 'message_delta' && p.usage) outTok2 = p.usage.output_tokens || outTok2;
+          if (p.type === 'message_delta' && p.usage) {
+            outTok2 = p.usage.output_tokens || outTok2;
+            // Gemini は入力トークン数を最後の message_delta でしか送らない
+            if (typeof p.usage.input_tokens === 'number') inTok2 = Math.max(inTok2, p.usage.input_tokens);
+          }
         }
       });
       const m = acc.match(/\{[\s\S]*\}/);
