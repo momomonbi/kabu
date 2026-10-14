@@ -242,6 +242,18 @@ label {
 }
 .notice a { color: #b45309; text-decoration: underline; }
 .analyze-wrap { position: sticky; bottom: 16px; z-index: 10; margin: 20px 0; }
+/* 🔎 検索の出典・Google 検索候補 (本文の後に表示) */
+.grounding-panel {
+  margin: 18px 0 0; padding: 14px 16px; border-radius: 12px;
+  background: rgba(66, 133, 244, 0.06); border: 1px solid rgba(66, 133, 244, 0.22);
+}
+.grounding-panel h3 { margin: 0 0 8px; font-size: 14px; }
+.grounding-section + .grounding-section { margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(66, 133, 244, 0.25); }
+.grounding-label { font-size: 12px; font-weight: 700; color: #1a56c4; margin-bottom: 6px; }
+.grounding-suggestions { display: block; width: 100%; height: 96px; border: 0; background: transparent; }
+.grounding-sources { margin: 8px 0 0; padding-left: 22px; font-size: 12.5px; line-height: 1.6; }
+.grounding-sources a { word-break: break-all; }
+.grounding-queries { margin-top: 6px; font-size: 11.5px; color: var(--text-secondary, #64748b); }
 /* 🔑 API 設定カードを開いている間は分析ボタンを固定しない。
    固定したままだと画面下部に居座り、カード下部の「使用モデル」等のセレクトに重なって
    クリックがボタン側に吸われてしまう (画面高 768〜780px 程度のノートPCで顕著)。 */
@@ -2537,18 +2549,44 @@ body.api-card-open .analyze-wrap { position: static; }
     <div class="card-title">
       <span class="card-icon">🔑</span>
       <span>API 設定</span>
-      <span id="aiProviderBadge" class="count-badge" style="background:rgba(139,92,246,0.18);color:#7c3aed;margin-left:8px">Claude</span>
+      <span id="aiProviderBadge" class="count-badge" style="background:rgba(66,133,244,0.16);color:#1a56c4;margin-left:8px">Gemini</span>
       <button type="button" id="apiCardClose" class="card-close-btn" title="閉じる">✕</button>
     </div>
     <!-- 🤖 プロバイダ切替 -->
     <div class="ai-provider-tabs" role="radiogroup">
-      <button type="button" class="ai-provider-tab active" data-provider="claude">
-        🟦 Anthropic Claude
-        <small>(銘柄分析 + 世界予測に対応)</small>
+      <button type="button" class="ai-provider-tab active" data-provider="gemini">
+        🔷 Google Gemini
+        <small>(Gemini 3.8 Flash・全機能に対応・既定)</small>
+      </button>
+      <button type="button" class="ai-provider-tab" data-provider="claude">
+        🟣 Anthropic Claude
+        <small>(Opus / Sonnet / Haiku 5.5・全機能に対応)</small>
       </button>
     </div>
+    <!-- 🔷 Gemini セクション -->
+    <div class="ai-provider-section" id="aiProviderGeminiSection">
+      <div class="api-key-row">
+        <input type="password" id="geminiApiKey" placeholder="Gemini API キー (AIza... または AQ....)" autocomplete="off">
+        <button type="button" id="toggleGeminiKey" class="icon-btn" title="表示/非表示">👁</button>
+        <button type="button" id="saveGeminiKey" class="icon-btn" title="保存">💾</button>
+        <button type="button" id="clearGeminiKey" class="icon-btn" title="削除">🗑</button>
+      </div>
+      <div class="ai-provider-desc">
+        🔷 キーは <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> で取得し、「💾」で localStorage に保存します。
+        ブラウザから直接 Gemini API を呼ぶので、キーが第三者のサーバーを通ることはありません。
+        <br/>💴 <b>Gemini 3.8 Flash</b> は 100万トークンあたり 入力 $0.75 / 出力 $3.75 (<b>2026年末までの導入価格</b>。2027年1月から $1.50 / $7.50)。
+        思考トークンも出力として課金されます。
+        <br/>🔎 銘柄分析・ニュース収集・ファクトチェック・温度計は <b>Google 検索</b> で最新情報を調べます。
+        検索は<b>実行されたクエリ単位の課金</b>で、有料枠なら月 5,000 回まで無料、超過は 1,000 回あたり $14 です。
+      </div>
+      <div class="ai-provider-warning">
+        ⚠️ <b>Google 検索は無料枠 (課金していないキー) では使えません。</b>銘柄分析などで検索が必要な機能を使うには、AI Studio で課金を有効にしてください。
+        <br/>⚠️ 分析を途中で「中止」しても、Google 側では生成が続き、そのぶんは課金されます。
+        <br/>⚠️ キーに「HTTP リファラー制限」を掛けている場合、この HTML をファイルとして直接開くと (file://) リファラーが送られず弾かれます。
+      </div>
+    </div>
     <!-- Claude セクション -->
-    <div class="ai-provider-section" id="aiProviderClaudeSection">
+    <div class="ai-provider-section" id="aiProviderClaudeSection" style="display:none">
       <div class="api-key-row">
         <input type="password" id="apiKey" placeholder="sk-ant-api03-...">
         <button type="button" id="toggleKey" class="icon-btn" title="表示/非表示">👁</button>
@@ -2557,9 +2595,9 @@ body.api-card-open .analyze-wrap { position: static; }
       </div>
       <div class="notice">
         💡 Anthropic APIキーは <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> で取得。「💾」で localStorage に保存。Claude は<b>銘柄分析の全モード + 世界予測</b>に使えます。
-        <br/>🆕 対応モデル (2026-07 時点): <b>Opus 5 / Sonnet 5 / Haiku 4.5 / Fable 5</b>。
-        Opus 5・Sonnet 5・Fable 5 では<b>適応的思考 (adaptive thinking)</b> が有効で、
-        「🔍 検索の深さ」設定に応じて <code>effort</code> (low / medium / high) を自動調整しコストを抑えます。
+        <br/>🆕 対応モデル (2026-10 時点): <b>Opus 5.5 / Sonnet 5.5 / Haiku 5.5 / Fable 5.1</b>。
+        <b>適応的思考 (adaptive thinking)</b> が有効で、「🔍 検索の深さ」設定に応じて <code>effort</code> (low / medium / high) を自動調整しコストを抑えます。
+        翻訳・要約などの軽作業は Haiku 5.5 で思考を切って動かします。
       </div>
     </div>
   </div>
@@ -2606,14 +2644,8 @@ body.api-card-open .analyze-wrap { position: static; }
     <div class="field">
       <label for="model">使用モデル</label>
       <select id="model">
-        <option value="eco-hybrid" selected>🌱 エコ・ハイブリッド (Sonnet 5 研究 → Haiku 4.5 執筆) — 最適節約★★★★★</option>
-        <option value="hybrid">💎 プレミアム・ハイブリッド (Opus 5 研究 → Haiku 4.5 執筆) — 最高品質</option>
-        <option value="claude-haiku-4-5">⚡ Haiku 4.5 単体 — 低コスト・高速</option>
-        <option value="claude-sonnet-5">⚖ Sonnet 5 単体 — バランス型 (最新)</option>
-        <option value="claude-opus-5">🌟 Opus 5 単体 — 最高品質 (最新)</option>
-        <option value="claude-fable-5">🔮 Fable 5 単体 — 最上位・最高コスト</option>
-        <option value="claude-opus-4-8">✨ Opus 4.8 単体 — 高品質(旧世代)</option>
-        <option value="claude-sonnet-4-6">🕰 Sonnet 4.6 単体 — バランス型(旧世代)</option>
+        <!-- 選択肢は renderModelOptions() が AI プロバイダーに合わせて作る -->
+        <option value="gemini-3.8-flash" selected>⚡ Gemini 3.8 Flash</option>
       </select>
       <div class="model-info" id="modelInfo"></div>
     </div>
@@ -2691,7 +2723,7 @@ body.api-card-open .analyze-wrap { position: static; }
       <label for="additional">追加リクエスト(任意)</label>
       <textarea id="additional" placeholder="例: AI・半導体関連を中心に / 配当重視 / ESG など"></textarea>
       <div class="chip-guide-actions">
-        <button id="chipGuideBtn" type="button" class="chip-guide-btn">🎯 ガイドで組み立てる(Haikuで提案)</button>
+        <button id="chipGuideBtn" type="button" class="chip-guide-btn">🎯 ガイドで組み立てる(AIが提案)</button>
         <button id="chipResetTextBtn" type="button" class="chip-reset-btn">🗑 クリア</button>
       </div>
       <div id="chipPanel" class="chip-panel">
@@ -2911,9 +2943,9 @@ body.api-card-open .analyze-wrap { position: static; }
           </label>
           <p class="ws-desc">
             ← 左の <b>青いトグル</b> をクリックして ON/OFF。
-            ON にすると、英語の地震・災害・ニュースのタイトルを Claude Haiku 4.5 で日本語に翻訳します。
+            ON にすると、英語の地震・災害・ニュースのタイトルを軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) で日本語に翻訳します。
             翻訳結果は localStorage にキャッシュされ、同じイベントは再翻訳されません。
-            <b>※ Anthropic API キーが必要</b> (未設定なら英語のまま表示)。
+            <b>※ 選択中の AI プロバイダーの API キーが必要</b> (未設定なら英語のまま表示)。
           </p>
           <button type="button" id="worldTranslateNow" class="ws-action-btn">🔄 今すぐ翻訳を実行</button>
         </div>
@@ -2922,14 +2954,14 @@ body.api-card-open .analyze-wrap { position: static; }
         <div class="world-setting-row">
           <label class="ws-label" for="worldClaudeAdjEnable">
             <input type="checkbox" id="worldClaudeAdjEnable" checked />
-            <span class="ws-name">🧠 30分ごとに Claude AI でムード補正</span>
+            <span class="ws-name">🧠 30分ごとに AI でムード補正</span>
           </label>
           <p class="ws-desc">
             ← 左の <b>青いトグル</b> で ON/OFF。<br/>
-            ON にすると 30分に1回、現在の5銘柄価格 + 直近の地震/災害/ニュースを Claude Haiku 4.5 に渡し、
+            ON にすると 30分に1回、現在の5銘柄価格 + 直近の地震/災害/ニュースを軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) に渡し、
             「今後10分の市場ムード補正係数 (0.99〜1.01)」を取得して予測値に反映します。
             線形回帰だけでは捉えられない「材料イベント」 (例: 大地震直後の円安一時停止) を予測に組み込む目的。
-            <b>※ Anthropic API キーが必要</b>。OFF にすると線形回帰 + 誤差バイアスのみで予測。<br/>
+            <b>※ 選択中の AI プロバイダーの API キーが必要</b>。OFF にすると線形回帰 + 誤差バイアスのみで予測。<br/>
             「今すぐ実行」を押すと、30分待たずに即座に1回ムード補正を行います。
           </p>
           <button type="button" id="worldClaudeAdjNow" class="ws-action-btn">🧠 今すぐムード補正を実行</button>
@@ -2996,11 +3028,34 @@ body.api-card-open .analyze-wrap { position: static; }
 // ★★★ プログラムのバージョン ★★★
 // プログラムを更新したら必ずここを更新してください。
 // 上部のヘッダーに表示されます。
-const APP_VERSION = 'v3.3.1';
-const APP_VERSION_DATE = '2026-08-05';
+const APP_VERSION = 'v4.0.0';
+const APP_VERSION_DATE = '2026-10-14';
 
 const STORAGE_KEY = 'claude_api_key_v1';
 const MODEL_KEY = 'claude_model_v1';
+
+// 🤖 AI プロバイダー: 銘柄分析・要約・ニュース・ファクトチェック・温度計・世界予測まで
+//    すべての AI 機能がこの1つの設定で切り替わる。ページ読み込み直後から参照されるので先に定義する。
+const AI_PROVIDER_LS = 'world_ai_provider_v1';   // 'gemini' | 'claude'
+const AI_PROVIDERS = ['gemini', 'claude'];
+const DEFAULT_AI_PROVIDER = 'gemini';
+const AI_PROVIDER_LABELS = { gemini: 'Google Gemini', claude: 'Anthropic Claude' };
+const GEMINI_KEY_LS = 'gemini_api_key_v1';
+const GEMINI_MODEL_LS = 'gemini_model_v1';
+function aiProviderLabel(p) { return AI_PROVIDER_LABELS[p] || AI_PROVIDER_LABELS[DEFAULT_AI_PROVIDER]; }
+function getCurrentAiProvider() {
+  let p = null;
+  try { p = localStorage.getItem(AI_PROVIDER_LS); } catch (_) {}
+  return AI_PROVIDERS.includes(p) ? p : DEFAULT_AI_PROVIDER;
+}
+// プロバイダーごとの API キー (Claude は入力欄の未保存の値も見る)
+function getProviderKey(provider) {
+  try {
+    if (provider === 'gemini') return (localStorage.getItem(GEMINI_KEY_LS) || '').trim();
+    const el = document.getElementById('apiKey');
+    return ((el && el.value) || '').trim() || (localStorage.getItem(STORAGE_KEY) || '').trim();
+  } catch (_) { return ''; }
+}
 const DB_NAME = 'stock_analyzer_db';
 const DB_VERSION = 2;
 const STORE_NAME = 'analyses';
@@ -3020,104 +3075,169 @@ const WEB_SEARCH_COST_USD = 0.01;
   if (date) date.textContent = APP_VERSION_DATE;
 })();
 
-// ★★★ Claude API モデル一覧 (2026-07 時点の公式ラインナップ) ★★★
+// ★★★ Google Gemini モデル仕様 (2026-10 時点) ★★★
+// 出典: Google 公式 gemini-cli / gemini-skills / cookbook、Google Cloud の料金ページ。
+//       料金は導入価格の期限つき。期限を過ぎると自動で標準価格に切り替わるよう日付で持つ。
+// 料金は USD / 100万トークン。出力単価には思考トークンも含まれる (Gemini は思考ぶんも出力として課金)。
+const GEMINI_MODEL_CAPS = {
+  'gemini-3.8-flash': {
+    label: 'Gemini 3.8 Flash',
+    contextWindow: 1048576, maxOutput: 65536,
+    // 導入価格 $0.75/$3.75 は 2026-12-31 まで。2027-01-01 から $1.50/$7.50
+    prices: [ { until: '2027-01-01T00:00:00Z', input: 0.75, output: 3.75 }, { input: 1.50, output: 7.50 } ],
+  },
+  'gemini-4-argon': {
+    label: 'Gemini 4 Argon',
+    contextWindow: 1048576, maxOutput: 65536,
+    minOutputTokens: 32768,   // Google は Argon の出力上限を 32768 以上にするよう案内している
+    // 導入価格 $2/$10 は 2026-11-30 まで。12-01 から $4/$20。無料枠なし
+    prices: [ { until: '2026-12-01T00:00:00Z', input: 2.0, output: 10.0 }, { input: 4.0, output: 20.0 } ],
+  },
+};
+const GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+const GEMINI_LIGHT_MODEL = 'gemini-3.8-flash';   // 軽作業 (要約・翻訳・ファクトチェック等)
+// Google 検索グラウンディングは「実行された検索クエリ」単位の課金 (Gemini 3 以降)。
+// 有料枠は月 5,000 クエリまで無料、超過分は $14 / 1,000 クエリ。無料枠 (無課金キー) では使えない。
+// コスト表示は無料ぶんを差し引かない保守側の見積もり。
+const GEMINI_SEARCH_COST_USD = 0.014;
+function geminiPriceNow(model, nowMs = Date.now()) {
+  const caps = GEMINI_MODEL_CAPS[model];
+  if (!caps) return null;
+  for (const p of caps.prices) {
+    if (!p.until || nowMs < Date.parse(p.until)) return p;
+  }
+  return caps.prices[caps.prices.length - 1];
+}
+
+// ★★★ Claude API モデル一覧 (2026-10 時点の公式ラインナップ) ★★★
 // 出典: https://platform.claude.com/docs/en/about-claude/models/overview
 //       https://platform.claude.com/docs/en/about-claude/pricing
 // 料金は USD / 100万トークン。
-// ※ Sonnet 5 は 2026-08-31 まで導入価格 ($2/$10)、9/1 以降は $3/$15。
-const SONNET5_INTRO_END_MS = Date.parse('2026-09-01T00:00:00Z');
-const SONNET5_INTRO_ACTIVE = Date.now() < SONNET5_INTRO_END_MS;
+// 現行: Fable 5.1 / Opus 5.5 / Sonnet 5.5 / Haiku 5.5 (いずれも文脈100万・出力12.8万)。
+// ※ Sonnet 5 の値上げ ($3/$15) は中止され、$2/$10 が標準価格のまま。
+// ※ Haiku 5.5 はプロンプト長で単価が変わる (10万トークン以下 $0.10/$0.50、超過 $0.50/$2.50)。
+const CLAUDE_LIGHT_MODEL = 'claude-haiku-5-5';            // 軽作業と、ハイブリッドの執筆フェーズ
+const CLAUDE_ECO_RESEARCH_MODEL = 'claude-sonnet-5-5';    // 🌱 エコ・ハイブリッドの調査フェーズ
+const CLAUDE_PREMIUM_RESEARCH_MODEL = 'claude-opus-5-5';  // 💎 プレミアム・ハイブリッドの調査フェーズ
+const HAIKU55_LONG_PROMPT_TOKENS = 100000;
 
 const MODELS = {
-  // ── 現行モデル ──
-  'claude-haiku-4-5': {
-    name: 'Claude Haiku 4.5',
-    badge: '⚡ 低コスト・高速',
-    rating: 3,
-    inputCost: 1, outputCost: 5,
-    estimate: '約 $0.10〜0.30 / 回',
-    desc: '低コスト・高速。気軽に何度でも試せる。簡易な分析向け'
-  },
-  'claude-sonnet-5': {
-    name: 'Claude Sonnet 5',
-    badge: '⚖ バランス型・最新',
+  // ── 🟦 Google Gemini ──
+  'gemini-3.8-flash': {
+    name: 'Gemini 3.8 Flash',
+    badge: '⚡ 速い・安い・Google 検索',
     rating: 5,
-    inputCost: SONNET5_INTRO_ACTIVE ? 2 : 3,
-    outputCost: SONNET5_INTRO_ACTIVE ? 10 : 15,
-    estimate: SONNET5_INTRO_ACTIVE ? '約 $0.25〜0.55 / 回 (導入価格中)' : '約 $0.40〜0.80 / 回',
-    desc: '速度と知能のバランスが最良。適応的思考(adaptive thinking)対応。普段使いの第一候補'
+    inputCost: geminiPriceNow('gemini-3.8-flash').input,
+    outputCost: geminiPriceNow('gemini-3.8-flash').output,
+    estimate: '約 $0.03〜0.12 / 回 (検索クエリ料金込み)',
+    desc: 'Google の最新 Flash。Google 検索で調べながら分析する。2026年末まで導入価格。思考トークンも出力として課金'
   },
-  'claude-opus-5': {
-    name: 'Claude Opus 5',
-    badge: '🌟 最高品質',
+  'gemini-4-argon': {
+    name: 'Gemini 4 Argon',
+    badge: '🌟 最上位・高品質',
+    rating: 4,
+    inputCost: geminiPriceNow('gemini-4-argon').input,
+    outputCost: geminiPriceNow('gemini-4-argon').output,
+    estimate: '約 $0.15〜0.50 / 回',
+    desc: 'Google の最上位モデル。無料枠なし。2026-11-30 までは導入価格、12月から倍額'
+  },
+  // ── 🟣 Anthropic Claude 現行 ──
+  'claude-haiku-5-5': {
+    name: 'Claude Haiku 5.5',
+    badge: '⚡ 最安・高速',
+    rating: 4,
+    inputCost: 0.10, outputCost: 0.50,
+    estimate: '約 $0.02〜0.06 / 回',
+    desc: '最も安く速い。10万トークンを超えるプロンプトは単価が5倍になる'
+  },
+  'claude-sonnet-5-5': {
+    name: 'Claude Sonnet 5.5',
+    badge: '⚖ バランス型',
     rating: 5,
-    inputCost: 5, outputCost: 25,
-    estimate: '約 $0.80〜1.50 / 回',
-    desc: '複雑な分析・エージェント処理向けの最上位クラス。適応的思考が既定でON。コストは高め'
+    inputCost: 2, outputCost: 10,
+    estimate: '約 $0.25〜0.55 / 回',
+    desc: '速度と知能のバランスが良い。適応的思考に対応。普段使いの第一候補'
   },
-  'claude-fable-5': {
-    name: 'Claude Fable 5',
+  'claude-opus-5-5': {
+    name: 'Claude Opus 5.5',
+    badge: '🌟 高品質',
+    rating: 5,
+    inputCost: 4, outputCost: 20,
+    estimate: '約 $0.65〜1.20 / 回',
+    desc: 'Anthropic 推奨の主力モデル。複雑な分析向け。Opus 5 より安い'
+  },
+  'claude-fable-5-1': {
+    name: 'Claude Fable 5.1',
     badge: '🔮 最上位・高コスト',
     rating: 5,
     inputCost: 10, outputCost: 50,
     estimate: '約 $1.60〜3.00 / 回',
-    desc: '一般提供モデルで最高性能。思考は常時ON。Opus 5 の約2倍のコストなので勝負どころ限定で'
+    desc: '最上位モデル。思考は常時ON。Opus 5.5 の約2.5倍のコストなので勝負どころ限定で'
   },
   // ── 旧世代 (過去の分析履歴の表示用に残しています) ──
+  'claude-haiku-4-5': {
+    name: 'Claude Haiku 4.5', badge: '⚡ 低コスト(旧)', rating: 3,
+    inputCost: 1, outputCost: 5, estimate: '約 $0.10〜0.30 / 回', desc: '旧世代の Haiku。現行は Haiku 5.5 が1/10の価格'
+  },
+  'claude-sonnet-5': {
+    name: 'Claude Sonnet 5', badge: '⚖ バランス型(旧)', rating: 4,
+    inputCost: 2, outputCost: 10, estimate: '約 $0.25〜0.55 / 回', desc: '旧世代の Sonnet。現行は Sonnet 5.5'
+  },
+  'claude-opus-5': {
+    name: 'Claude Opus 5', badge: '🌟 高品質(旧)', rating: 4,
+    inputCost: 5, outputCost: 25, estimate: '約 $0.80〜1.50 / 回', desc: '旧世代の Opus。現行は Opus 5.5'
+  },
+  'claude-fable-5': {
+    name: 'Claude Fable 5', badge: '🔮 最上位(旧)', rating: 4,
+    inputCost: 10, outputCost: 50, estimate: '約 $1.60〜3.00 / 回', desc: '旧世代の Fable。現行は Fable 5.1'
+  },
   'claude-opus-4-8': {
-    name: 'Claude Opus 4.8',
-    badge: '✨ 高品質(旧)',
-    rating: 4,
-    inputCost: 5, outputCost: 25,
-    estimate: '約 $0.80〜1.50 / 回',
-    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+    name: 'Claude Opus 4.8', badge: '✨ 高品質(旧)', rating: 3,
+    inputCost: 5, outputCost: 25, estimate: '約 $0.80〜1.50 / 回', desc: '旧世代の Opus'
   },
   'claude-opus-4-7': {
-    name: 'Claude Opus 4.7',
-    badge: '✨ 高品質(旧)',
-    rating: 4,
-    inputCost: 5, outputCost: 25,
-    estimate: '約 $0.80〜1.50 / 回',
-    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+    name: 'Claude Opus 4.7', badge: '✨ 高品質(旧)', rating: 3,
+    inputCost: 5, outputCost: 25, estimate: '約 $0.80〜1.50 / 回', desc: '旧世代の Opus'
   },
   'claude-opus-4-6': {
-    name: 'Claude Opus 4.6',
-    badge: '✨ 高品質(旧)',
-    rating: 3,
-    inputCost: 5, outputCost: 25,
-    estimate: '約 $0.80〜1.50 / 回',
-    desc: '旧世代の Opus。現行は Opus 5 を推奨'
+    name: 'Claude Opus 4.6', badge: '✨ 高品質(旧)', rating: 3,
+    inputCost: 5, outputCost: 25, estimate: '約 $0.80〜1.50 / 回', desc: '旧世代の Opus'
   },
   'claude-sonnet-4-6': {
-    name: 'Claude Sonnet 4.6',
-    badge: '🕰 バランス型(旧)',
-    rating: 4,
-    inputCost: 3, outputCost: 15,
-    estimate: '約 $0.40〜0.80 / 回',
-    desc: '旧世代の Sonnet。現行は Sonnet 5 が同等以下の価格で高性能'
+    name: 'Claude Sonnet 4.6', badge: '🕰 バランス型(旧)', rating: 3,
+    inputCost: 3, outputCost: 15, estimate: '約 $0.40〜0.80 / 回', desc: '旧世代の Sonnet'
   },
-  // ── ハイブリッド構成 ──
+  // ── ハイブリッド構成 (Claude のみ) ──
   'hybrid': {
-    name: 'プレミアム・ハイブリッド (Opus 5 + Haiku 4.5)',
+    name: 'プレミアム・ハイブリッド (Opus 5.5 + Haiku 5.5)',
     badge: '💎 高品質',
     rating: 5,
     inputCost: null, outputCost: null,
-    estimate: '約 $1.50〜2.50 / 回',
-    desc: 'Phase1: Opus 5 が深いリサーチ → Phase2: Haiku 4.5 が執筆。最高品質だがコスト高め'
+    estimate: '約 $1.00〜1.80 / 回',
+    desc: 'Phase1: Opus 5.5 が深いリサーチ → Phase2: Haiku 5.5 が執筆。最高品質だがコスト高め'
   },
   'eco-hybrid': {
-    name: 'エコ・ハイブリッド (Sonnet 5 + Haiku 4.5)',
+    name: 'エコ・ハイブリッド (Sonnet 5.5 + Haiku 5.5)',
     badge: '🌱 最適節約',
     rating: 5,
     inputCost: null, outputCost: null,
-    estimate: SONNET5_INTRO_ACTIVE ? '約 $0.30〜0.60 / 回 (推奨!)' : '約 $0.40〜0.80 / 回 (推奨!)',
-    desc: 'Phase1: Sonnet 5 でバランス良くリサーチ → Phase2: Haiku 4.5 が執筆。Opus版の 1/3 のコストで十分な品質。最も推奨'
+    estimate: '約 $0.25〜0.50 / 回 (推奨!)',
+    desc: 'Phase1: Sonnet 5.5 でバランス良くリサーチ → Phase2: Haiku 5.5 が執筆。Opus版の 1/3 のコストで十分な品質'
   }
 };
 
+// Haiku 5.5 は 10万トークンを超えるプロンプトで単価が5倍になる。それ以外はモデル表の単価のまま。
+function modelCostFor(model, inputTokens = 0) {
+  const m = MODELS[model] || {};
+  if (model === 'claude-haiku-5-5' && inputTokens > HAIKU55_LONG_PROMPT_TOKENS) {
+    return { inputCost: 0.50, outputCost: 2.50 };
+  }
+  return { inputCost: m.inputCost || 0, outputCost: m.outputCost || 0 };
+}
+
 // 分析モデルがどのプロバイダーのものかを判定する
 function analysisProviderOf(model) {
-  return 'claude';
+  return GEMINI_MODEL_CAPS[model] ? 'gemini' : 'claude';
 }
 
 // ★★★ Claude API 仕様テーブル (2026-07 時点) ★★★
@@ -3131,6 +3251,12 @@ function analysisProviderOf(model) {
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_API_VERSION = '2023-06-01';
 const CLAUDE_MODEL_CAPS = {
+  // canDisableThinking: thinking:{type:'disabled'} を受け付けるか
+  //   (Opus 5.5 / Sonnet 5.5 / Fable 5.1 は 400。Haiku 5.5 は effort high 以下なら可)
+  'claude-fable-5-1':  { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-opus-5-5':   { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-sonnet-5-5': { adaptiveThinking: true,  effort: true,  canDisableThinking: false, webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
+  'claude-haiku-5-5':  { adaptiveThinking: true,  effort: true,  canDisableThinking: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-fable-5':    { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-opus-5':     { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
   'claude-sonnet-5':   { adaptiveThinking: true,  effort: true,  webSearch: 'web_search_20260209', maxOutput: 128000, contextWindow: 1000000 },
@@ -3169,8 +3295,15 @@ function claudeEffortForDepth() {
 
 // リクエスト body に thinking / output_config.effort を付与する。
 // ※ budget_tokens・temperature・top_p は現行モデルでは 400 エラーになるため使わない。
+// opts.thinking === 'off': 翻訳や短い JSON などの軽作業。切れるモデルでは思考を切って速く安くする
+//   (Haiku 5.5 は思考を切らないと短い max_tokens を思考だけで使い切ることがある)
 function applyClaudeReasoning(body, model, opts = {}) {
   const caps = claudeCaps(model);
+  if (opts.thinking === 'off' && caps.canDisableThinking) {
+    body.thinking = { type: 'disabled' };
+    if (caps.effort) body.output_config = Object.assign({}, body.output_config, { effort: 'low' });
+    return body;
+  }
   if (caps.adaptiveThinking) {
     // display:'summarized' にすると思考の要約が streaming で届き、進捗UIに出せる
     // (既定は 'omitted' で thinking ブロックの中身が空になる)
@@ -3183,9 +3316,10 @@ function applyClaudeReasoning(body, model, opts = {}) {
 }
 
 // thinking がONのモデルは「思考 + 本文」で max_tokens を共有するため、上限に余裕を持たせる
-function claudeMaxTokens(model, baseTokens) {
+function claudeMaxTokens(model, baseTokens, opts = {}) {
   const caps = claudeCaps(model);
-  const wanted = caps.adaptiveThinking ? baseTokens + 8000 : baseTokens;
+  const thinkingOff = opts.thinking === 'off' && caps.canDisableThinking;
+  const wanted = (caps.adaptiveThinking && !thinkingOff) ? baseTokens + 8000 : baseTokens;
   return Math.min(caps.maxOutput, wanted);
 }
 
@@ -3247,7 +3381,8 @@ function syncApiCardOpenState() {
 }
 
 function updateApiVisibility() {
-  const hasKey = !!localStorage.getItem(STORAGE_KEY) || !!apiKeyInput.value.trim();
+  // 選択中のプロバイダーのキーが無ければカードを開いて入力を促す
+  const hasKey = !!getProviderKey(getCurrentAiProvider());
   if (hasKey) {
     apiCard.style.display = 'none';
     apiIndicator.classList.add('active');
@@ -3267,7 +3402,7 @@ apiIndicator.addEventListener('click', () => {
 });
 
 apiCardClose.addEventListener('click', () => {
-  if (apiKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY)) {
+  if (getProviderKey(getCurrentAiProvider())) {
     apiCard.style.display = 'none';
     apiIndicator.classList.add('active');
     syncApiCardOpenState();
@@ -3421,26 +3556,80 @@ let evaluatingItem = null; // Item being evaluated (overrides mode if set)
 
 const savedKey = localStorage.getItem(STORAGE_KEY);
 if (savedKey) apiKeyInput.value = savedKey;
-const VISIBLE_MODELS = ['eco-hybrid', 'hybrid'];
-const savedModel = localStorage.getItem(MODEL_KEY);
-if (savedModel && MODELS[savedModel] && VISIBLE_MODELS.includes(savedModel)) {
-  modelSelect.value = savedModel;
-} else {
-  modelSelect.value = 'eco-hybrid';
+// 使用モデルの選択肢は AI プロバイダーごとに違う。ハイブリッドは Claude 専用。
+const MODEL_OPTIONS = {
+  gemini: [
+    ['gemini-3.8-flash', '⚡ Gemini 3.8 Flash — 速い・安い・Google 検索 (推奨)'],
+    ['gemini-4-argon',   '🌟 Gemini 4 Argon — 最上位・高品質 (高コスト・無料枠なし)'],
+  ],
+  claude: [
+    ['eco-hybrid',        '🌱 エコ・ハイブリッド (Sonnet 5.5 研究 → Haiku 5.5 執筆) — 最適節約★★★★★'],
+    ['hybrid',            '💎 プレミアム・ハイブリッド (Opus 5.5 研究 → Haiku 5.5 執筆) — 最高品質'],
+    ['claude-haiku-5-5',  '⚡ Haiku 5.5 単体 — 最安・高速'],
+    ['claude-sonnet-5-5', '⚖ Sonnet 5.5 単体 — バランス型'],
+    ['claude-opus-5-5',   '🌟 Opus 5.5 単体 — 高品質'],
+    ['claude-fable-5-1',  '🔮 Fable 5.1 単体 — 最上位・最高コスト'],
+  ],
+};
+const DEFAULT_MODEL_FOR = { gemini: GEMINI_DEFAULT_MODEL, claude: 'eco-hybrid' };
+// リロード後に復元するモデル。Claude の単体モデルは従来どおり毎回ハイブリッドに戻す。
+const RESTORABLE_MODELS = { gemini: ['gemini-3.8-flash', 'gemini-4-argon'], claude: ['eco-hybrid', 'hybrid'] };
+function modelStorageKey(provider) { return provider === 'gemini' ? GEMINI_MODEL_LS : MODEL_KEY; }
+function renderModelOptions(provider) {
+  const list = MODEL_OPTIONS[provider] || MODEL_OPTIONS[DEFAULT_AI_PROVIDER];
+  modelSelect.innerHTML = '';
+  for (const [value, label] of list) modelSelect.appendChild(new Option(label, value));
+  let saved = null;
+  try { saved = localStorage.getItem(modelStorageKey(provider)); } catch (_) {}
+  modelSelect.value = (saved && (RESTORABLE_MODELS[provider] || []).includes(saved)) ? saved : DEFAULT_MODEL_FOR[provider];
+  updateModelInfo();
 }
 
 function updateModelInfo() {
   const m = MODELS[modelSelect.value];
   if (!m) { modelInfoEl.innerHTML = ''; return; }
+  // 選んだモデルのプロバイダーのキーが無いと、分析開始してから初めて気づくことになるので先に出す
+  const provider = analysisProviderOf(modelSelect.value);
+  const warn = getProviderKey(provider) ? '' :
+    `<div class="model-info-row" style="color:#b91c1c"><span class="model-info-label">⚠️ 未設定</span><span style="text-align:right;max-width:60%">${escapeHtml(aiProviderLabel(provider))} の API キーが未設定です。上部の「🔑 API 設定」で設定してください</span></div>`;
   modelInfoEl.innerHTML = `
     <div class="model-info-row"><span class="model-info-label">📦 モデル</span><span class="model-info-value">${m.name}</span></div>
     <div class="model-info-row"><span class="model-info-label">⭐ お勧め度</span><span class="model-rating">${'★'.repeat(m.rating)}${'☆'.repeat(5-m.rating)}</span></div>
     <div class="model-info-row"><span class="model-info-label">💰 1回コスト目安</span><span class="model-info-value">${m.estimate}</span></div>
     <div class="model-info-row"><span class="model-info-label">💡 特徴</span><span style="text-align:right; max-width:60%;">${m.desc}</span></div>
+    ${warn}
   `;
 }
-updateModelInfo();
-modelSelect.addEventListener('change', () => { updateModelInfo(); localStorage.setItem(MODEL_KEY, modelSelect.value); });
+renderModelOptions(getCurrentAiProvider());
+modelSelect.addEventListener('change', () => {
+  updateModelInfo();
+  try { localStorage.setItem(modelStorageKey(analysisProviderOf(modelSelect.value)), modelSelect.value); } catch (_) {}
+});
+
+// 🔷 Gemini API キー (Claude のキー欄と同じ操作感: 表示切替 / 保存 / 削除)
+const geminiKeyInput = document.getElementById('geminiApiKey');
+try { geminiKeyInput.value = localStorage.getItem(GEMINI_KEY_LS) || ''; } catch (_) {}
+document.getElementById('toggleGeminiKey').addEventListener('click', (e) => {
+  const show = geminiKeyInput.type === 'password';
+  geminiKeyInput.type = show ? 'text' : 'password';
+  e.currentTarget.textContent = show ? '🙈' : '👁';
+});
+document.getElementById('saveGeminiKey').addEventListener('click', () => {
+  const key = geminiKeyInput.value.trim();
+  if (!key) { showStatus('⚠️ Gemini API キーを入力してください', 'error'); return; }
+  localStorage.setItem(GEMINI_KEY_LS, key);
+  showStatus('✅ Gemini API キーを保存しました。上部の「🟢 API稼働中」ランプから再表示できます', 'success');
+  updateModelInfo();
+  updateApiVisibility();
+});
+document.getElementById('clearGeminiKey').addEventListener('click', () => {
+  if (!confirm('保存された Gemini API キーを削除しますか?')) return;
+  localStorage.removeItem(GEMINI_KEY_LS);
+  geminiKeyInput.value = '';
+  showStatus('🗑 Gemini API キーを削除しました', 'success');
+  updateModelInfo();
+  updateApiVisibility();
+});
 
 toggleBtn.addEventListener('click', () => {
   if (apiKeyInput.type === 'password') { apiKeyInput.type = 'text'; toggleBtn.textContent = '🙈'; }
@@ -3451,6 +3640,7 @@ saveBtn.addEventListener('click', () => {
   if (!key) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
   localStorage.setItem(STORAGE_KEY, key);
   showStatus('✅ APIキーを保存しました。上部の「🟢 API稼働中」ランプから再表示できます', 'success');
+  updateModelInfo();
   updateApiVisibility();
 });
 clearBtn.addEventListener('click', () => {
@@ -3458,6 +3648,7 @@ clearBtn.addEventListener('click', () => {
     localStorage.removeItem(STORAGE_KEY);
     apiKeyInput.value = '';
     showStatus('🗑 APIキーを削除しました', 'success');
+    updateModelInfo();
     updateApiVisibility();
   }
 });
@@ -3485,16 +3676,16 @@ const chipClosePanelBtn = document.getElementById('chipClosePanelBtn');
 let chipState = { step: 0, history: [], totalCost: 0 };
 
 async function loadChips() {
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) {
-    alert('APIキーを入力してください');
+  const ai = getLightAI();
+  if (!ai.apiKey) {
+    alert(`${aiProviderLabel(ai.provider)} の API キーを入力してください`);
     return;
   }
 
   chipState.step += 1;
   chipStepNum.textContent = chipState.step;
   chipList.innerHTML = '';
-  chipStatus.innerHTML = '<span class="chip-loading"></span>Haiku が選択肢を生成中…';
+  chipStatus.innerHTML = `<span class="chip-loading"></span>${escapeHtml(ai.label)} が選択肢を生成中…`;
 
   // Update breadcrumb
   if (chipState.history.length > 0) {
@@ -3588,26 +3779,10 @@ async function loadChips() {
 JSON のみを出力してください。`;
 
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const text = (data.content && data.content[0] && data.content[0].text) || '';
-    const usage = data.usage || {};
-    const cost = ((usage.input_tokens || 0) * 1 + (usage.output_tokens || 0) * 5) / 1000000;
-    chipState.totalCost += cost;
+    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000 });
+    const text = res.text || '';
+    const unit = modelCostFor(ai.model, res.inputTokens);
+    chipState.totalCost += (res.inputTokens * unit.inputCost + res.outputTokens * unit.outputCost) / 1000000;
 
     // Extract JSON from response (handle code blocks and prose)
     let chips = [];
@@ -3669,8 +3844,8 @@ chipList.addEventListener('click', async (e) => {
 });
 
 async function finalizeRequest() {
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { closeChipPanel(); return; }
+  const ai = getLightAI();
+  if (!ai.apiKey) { closeChipPanel(); return; }
 
   const rough = additionalTextarea.value.trim();
   if (!rough) {
@@ -3687,7 +3862,7 @@ async function finalizeRequest() {
 
   // Disable all chip buttons during finalization
   chipList.querySelectorAll('.chip-button').forEach(b => b.disabled = true);
-  chipStatus.innerHTML = '<span class="chip-loading"></span>Haiku があなたの選択を分かりやすい依頼文にまとめています…';
+  chipStatus.innerHTML = `<span class="chip-loading"></span>${escapeHtml(ai.label)} があなたの選択を分かりやすい依頼文にまとめています…`;
 
   const prompt = `あなたは投資リクエストの文章整形アシスタントです。
 ユーザー(株を始めたばかりの初心者)が段階的に選んだ選択肢を、自然で読みやすい依頼文に整えてください。
@@ -3737,26 +3912,10 @@ ${historyText}
 JSONや記号は不要。整形後の自然な日本語の依頼文のみを出力してください。`;
 
   try {
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`API ${response.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    let polished = ((data.content && data.content[0] && data.content[0].text) || '').trim();
-    const usage = data.usage || {};
-    const cost = ((usage.input_tokens || 0) * 1 + (usage.output_tokens || 0) * 5) / 1000000;
-    chipState.totalCost += cost;
+    const res = await completeAI({ ...ai, prompt, maxTokens: 1024, timeoutMs: 60000 });
+    let polished = (res.text || '').trim();
+    const unit = modelCostFor(ai.model, res.inputTokens);
+    chipState.totalCost += (res.inputTokens * unit.inputCost + res.outputTokens * unit.outputCost) / 1000000;
 
     // Strip surrounding quotes/markers if any
     polished = polished.replace(/^["'""'']+|["'""'']+$/g, '').replace(/^"""\s*|\s*"""$/g, '').trim();
@@ -3778,8 +3937,9 @@ JSONや記号は不要。整形後の自然な日本語の依頼文のみを出�
 
 chipGuideBtn.addEventListener('click', async () => {
   if (chipPanel.classList.contains('active')) return;
-  if (!apiKeyInput.value.trim()) {
-    alert('APIキーを入力してください(上の API 設定で💾 ボタン)');
+  const ai = getLightAI();
+  if (!ai.apiKey) {
+    alert(`${aiProviderLabel(ai.provider)} の API キーを入力してください(上の API 設定で💾 ボタン)`);
     return;
   }
   chipState = { step: 0, history: [], totalCost: 0 };
@@ -3825,12 +3985,12 @@ document.querySelectorAll('.mode-option').forEach(opt => {
     } else if (currentMode === 'simplify') {
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '🧒 超かんたん要約モード:';
-      reviewNoticeText.textContent = '下の「📚 保存された分析」から最大 20 件まで選択して「要約開始」を押してください。Haiku 4.5 が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
+      reviewNoticeText.textContent = '下の「📚 保存された分析」から最大 20 件まで選択して「要約開始」を押してください。軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) が小学生にも分かるレベルの超かんたんな日本語で要約します(web 検索なし・低コスト)。';
     } else if (currentMode === 'news-digest') {
       selectedHistoryIds.clear();
       reviewNotice.classList.add('active');
       reviewNoticeTitle.textContent = '📰 ニュース収集モード:';
-      reviewNoticeText.textContent = '銘柄分析はせず、本日のローカル・国内・世界ニュースを集めるだけのモードです。「追加要望」欄で気になるテーマ(例: AI / 円安 / 米中関係)を指定可能。★ Haiku 4.5 固定 ★(コスト最大圧縮、Sonnet/Opus 比で約 1/3 のコスト)。';
+      reviewNoticeText.textContent = '銘柄分析はせず、本日のローカル・国内・世界ニュースを集めるだけのモードです。「追加要望」欄で気になるテーマ(例: AI / 円安 / 米中関係)を指定可能。★ 軽量モデル固定 ★ (Gemini 3.8 Flash / Claude Haiku 5.5。コスト最大圧縮)。';
     } else if (currentMode === 'premortem') {
       selectedHistoryIds.clear();
       reviewNotice.classList.add('active');
@@ -4472,27 +4632,119 @@ function renderHistoricalCharts(data) {
 }
 
 // ===== 📚 Data Sources Panel — どの API を使ったかを結果末尾に表示 =====
+// 保存用の検索記録。出典も検索候補も無ければ何も残さない。
+function buildGroundingRecords(label, info) {
+  if (!info) return [];
+  const sources = (info.sources || []).slice(0, 50);
+  const renderedContent = typeof info.renderedContent === 'string' ? info.renderedContent : '';
+  if (!sources.length && !renderedContent) return [];
+  return [{ label, queries: (info.queries || []).slice(0, 50), sources, renderedContent }];
+}
+function usageUrlFor(provider) {
+  return provider === 'gemini' ? 'https://aistudio.google.com/' : undefined;
+}
+function providerOfItem(item) {
+  return (item && item.provider) || (item && GEMINI_MODEL_CAPS[item.model] ? 'gemini' : 'claude');
+}
+
+// 🔎 検索の出典と Google の検索候補を、本文の後に表示する。
+//  - Gemini の Google 検索グラウンディングを使った回答は、検索候補 (renderedContent) と出典を
+//    一緒に表示することが利用規約で求められている
+//  - Claude の web_search も、回答をそのまま見せるときは出典の表示が必要
+// 検索候補は Google が返す HTML なので、スクリプトを動かせない sandbox iframe に閉じ込める
+// (allow-scripts を付けないので、allow-same-origin を付けても中のコードは動かない)。
+function renderGroundingPanel(item, container = resultDiv) {
+  const old = container.querySelector(':scope > .grounding-panel');
+  if (old) old.remove();
+  const recs = (item && Array.isArray(item.groundings) ? item.groundings : [])
+    .filter(g => g && ((g.sources && g.sources.length) || g.renderedContent));
+  if (!recs.length) return;
+  const panel = document.createElement('div');
+  panel.className = 'grounding-panel';
+  const h = document.createElement('h3');
+  h.textContent = providerOfItem(item) === 'gemini' ? '🔎 Google 検索の出典' : '🔎 Web 検索の出典';
+  panel.appendChild(h);
+  for (const g of recs) {
+    const sec = document.createElement('div');
+    sec.className = 'grounding-section';
+    if (recs.length > 1) {
+      const lab = document.createElement('div');
+      lab.className = 'grounding-label';
+      lab.textContent = g.label || '';
+      sec.appendChild(lab);
+    }
+    if (g.renderedContent) {
+      const frame = document.createElement('iframe');
+      frame.className = 'grounding-suggestions';
+      frame.title = 'Google 検索候補';
+      frame.setAttribute('sandbox', 'allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+      frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><base target="_blank"></head>'
+                   + '<body style="margin:0;background:transparent">' + g.renderedContent + '</body></html>';
+      frame.addEventListener('load', () => {
+        try { frame.style.height = Math.min(240, frame.contentDocument.body.scrollHeight + 6) + 'px'; } catch (_) {}
+      });
+      sec.appendChild(frame);
+    }
+    if (g.sources && g.sources.length) {
+      const ol = document.createElement('ol');
+      ol.className = 'grounding-sources';
+      for (const src of g.sources.slice(0, 50)) {
+        const li = document.createElement('li');
+        const uri = String(src.uri || '');
+        if (/^https?:\/\//i.test(uri)) {
+          const a = document.createElement('a');
+          a.href = uri; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          a.textContent = String(src.title || uri);
+          li.appendChild(a);
+        } else {
+          li.textContent = String(src.title || uri);
+        }
+        ol.appendChild(li);
+      }
+      sec.appendChild(ol);
+    }
+    if (g.queries && g.queries.length) {
+      const q = document.createElement('div');
+      q.className = 'grounding-queries';
+      q.textContent = '検索したキーワード: ' + g.queries.join(' / ');
+      sec.appendChild(q);
+    }
+    panel.appendChild(sec);
+  }
+  container.appendChild(panel);
+}
+
 function renderDataSources(savedItem) {
   // 既存パネルを除去
   const existing = document.getElementById('dataSourcesPanel');
   if (existing) existing.remove();
+  // 検索の出典・検索候補は本文のすぐ後に出す
+  renderGroundingPanel(savedItem);
   if (!savedItem) return;
   const ds = savedItem.dataSources || {};
   const lines = [];
-  // Anthropic Claude モデル(必ず利用)
+  const isGemini = providerOfItem(savedItem) === 'gemini';
+  // AI モデル
   const modelInfo = MODELS[savedItem.model];
-  const modelName = modelInfo ? modelInfo.name : savedItem.model || 'Claude';
-  lines.push(`<li>🤖 <strong>AI モデル</strong>: <a href="https://www.anthropic.com" target="_blank" rel="noopener">Anthropic ${escapeHtml(modelName)}</a> — このレポートを生成</li>`);
-  // Anthropic web_search
+  const modelName = modelInfo ? modelInfo.name : savedItem.model || (isGemini ? 'Gemini' : 'Claude');
+  lines.push(isGemini
+    ? `<li>🤖 <strong>AI モデル</strong>: <a href="https://ai.google.dev/" target="_blank" rel="noopener">Google ${escapeHtml(modelName)}</a> — このレポートを生成</li>`
+    : `<li>🤖 <strong>AI モデル</strong>: <a href="https://www.anthropic.com" target="_blank" rel="noopener">Anthropic ${escapeHtml(modelName)}</a> — このレポートを生成</li>`);
+  // Web 検索
   const wsCount = savedItem.searchCount || ds.webSearchCount || 0;
   if (wsCount > 0) {
-    const costStr = (wsCount * 0.01).toFixed(2);
-    lines.push(`<li>🔍 <strong>リアルタイム情報</strong>: <a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use/web-search-tool" target="_blank" rel="noopener">Anthropic web_search ツール</a> — ${wsCount} 回検索 (${costStr} USD)</li>`);
+    if (isGemini) {
+      const costStr = (wsCount * GEMINI_SEARCH_COST_USD).toFixed(3);
+      lines.push(`<li>🔍 <strong>リアルタイム情報</strong>: <a href="https://ai.google.dev/gemini-api/docs/google-search" target="_blank" rel="noopener">Google 検索 (グラウンディング)</a> — ${wsCount} クエリ (${costStr} USD。有料枠は月 5,000 クエリまで無料)</li>`);
+    } else {
+      const costStr = (wsCount * WEB_SEARCH_COST_USD).toFixed(2);
+      lines.push(`<li>🔍 <strong>リアルタイム情報</strong>: <a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use/web-search-tool" target="_blank" rel="noopener">Anthropic web_search ツール</a> — ${wsCount} 回検索 (${costStr} USD)</li>`);
+    }
   }
   // Open-Meteo 天気予報
   if (ds.weather && ds.weather.used) {
     const cities = ds.weather.cities || 0;
-    lines.push(`<li>🌦 <strong>全国天気予報</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo API</a> — 無料・無認証 (${cities}都市の今日・明日の予報。Anthropic web_search を使わずに直接 API から取得して節約)</li>`);
+    lines.push(`<li>🌦 <strong>全国天気予報</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo API</a> — 無料・無認証 (${cities}都市の今日・明日の予報。Web 検索を使わずに直接 API から取得して節約)</li>`);
   } else if (ds.weather && ds.weather.failed) {
     lines.push(`<li>🌦 <strong>天気予報 API</strong>: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> 取得失敗 (${escapeHtml(ds.weather.error || '不明')}) — フォールバックで web_search を使用</li>`);
   }
@@ -4902,18 +5154,18 @@ function countStocks(text) {
 // ===== Reusable SSE streaming helper (used by hybrid mode) =====
 // 🔧 v3.1.0: モデルごとの仕様差 (web_search バージョン / 適応的思考 / effort / 出力上限)
 //            は CLAUDE_MODEL_CAPS に集約し、ここでは helper 経由で組み立てる。
-async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15, effort}) {
+async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, signal, maxTokens = 16000, maxSearchUses = 15, effort, thinking}) {
   const tools = useTools ? [claudeWebSearchTool(model, maxSearchUses)] : undefined;
 
   const body = {
     model,
-    max_tokens: claudeMaxTokens(model, maxTokens),
+    max_tokens: claudeMaxTokens(model, maxTokens, { thinking }),
     stream: true,
     messages: [{ role: 'user', content: prompt }]
   };
   if (system) body.system = system;
   if (tools) body.tools = tools;
-  applyClaudeReasoning(body, model, { effort });
+  applyClaudeReasoning(body, model, { effort, thinking });
 
   const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
@@ -4951,50 +5203,404 @@ async function streamFetch({apiKey, model, prompt, system, useTools, onEvent, si
         if (line.startsWith('data: ')) data = line.slice(6).trim();
       }
       if (!data) continue;
+      // JSON として読めない行だけを読み飛ばす。onEvent 側が投げた例外 (error イベントでの throw など) は
+      // ここで握りつぶすと呼び出し元のリトライやエラー表示に届かないので、そのまま上に投げる。
+      let parsed;
       try {
-        const parsed = JSON.parse(data);
-        console.log('[SSE]', parsed.type, parsed);
-        await onEvent(parsed);
+        parsed = JSON.parse(data);
       } catch (e) {
         console.warn('SSE parse error:', data, e);
+        continue;
       }
+      console.log('[SSE]', parsed.type, parsed);
+      await onEvent(parsed);
     }
   }
 }
 
 // ──────────────────────────────────────────────
-// 統合 AI 呼び出し: プロバイダ設定でルーティング
+// 🟦 Google Gemini (generateContent のストリーミング版) — ブラウザから直接呼ぶ
+//
+// 押さえておくべき差分:
+//   ① エンドポイントは .../models/{model}:streamGenerateContent?alt=sse。alt=sse を付けないと
+//      SSE ではなく JSON 配列で返ってきてパーサーが壊れる
+//   ② 認証は x-goog-api-key ヘッダー。CORS は開いている (file:// の Origin: null も通る)。
+//      これ以外の独自ヘッダーを足すとプリフライトで 403 になるので足さない
+//   ③ temperature / topP / topK は 3.6 Flash 以降は黙って無視され、candidateCount>1 は 400 → 送らない
+//   ④ 思考は止められず、思考ぶんも maxOutputTokens を食う → 思考の深さに応じて余白を上乗せする。
+//      thinkingLevel は LOW / MEDIUM / HIGH を明示する (MINIMAL はモデルによって 400、既定値も資料で食い違う)
+//   ⑤ Google 検索は tools:[{google_search:{}}] で1リクエストの中で完結する (Kimi のような往復は不要)。
+//      検索クエリと出典は groundingMetadata で届く。課金は実行された検索クエリ単位
+//   ⑥ 検索結果を使った回答は、検索候補 (searchEntryPoint.renderedContent) と出典を
+//      本文の後に表示する義務がある (Gemini API の利用規約) → renderGroundingPanel()
+//   ⑦ 402 と 429 はどちらも status RESOURCE_EXHAUSTED。402 はプリペイド残高切れで待っても直らない
+//      ので HTTP ステータスで分ける。Retry-After ヘッダーは CORS で読めないので本文の retryDelay を使う
+//   ⑧ 中断 (AbortSignal) してもサーバー側の生成は止まらず、そのぶんは課金される
 // ──────────────────────────────────────────────
-const AI_PROVIDER_LS = 'world_ai_provider_v1';
-const DEFAULT_CLAUDE_MODEL = 'claude-haiku-4-5';
-const AI_PROVIDERS = ['claude'];
-const AI_PROVIDER_LABELS = { claude: 'Anthropic' };
-function aiProviderLabel(p) { return AI_PROVIDER_LABELS[p] || AI_PROVIDER_LABELS.claude; }
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_THINKING_HEADROOM = { LOW: 4096, MEDIUM: 12288, HIGH: 24576 };
+const GEMINI_MAX_RETRIES = 3;
+const GEMINI_MAX_CONTINUATIONS = 3;
+// 本文が出ない「拒否」扱いにする finishReason
+const GEMINI_REFUSAL_REASONS = new Set([
+  'SAFETY', 'RECITATION', 'LANGUAGE', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII',
+  'IMAGE_SAFETY', 'IMAGE_PROHIBITED_CONTENT', 'IMAGE_RECITATION', 'IMAGE_OTHER', 'PUP_LIMITED_DISABLED',
+]);
+const GEMINI_ERROR_HINTS = {
+  INVALID_ARGUMENT: 'リクエストの形式が不正です',
+  FAILED_PRECONDITION: '前提条件を満たしていません (地域で無料枠が使えない・課金が未設定など)',
+  UNAUTHENTICATED: 'API キーが認証されませんでした',
+  PERMISSION_DENIED: 'API キーにこの操作の権限がありません (キーの利用制限を確認してください)',
+  NOT_FOUND: 'モデルが見つかりません (提供終了の可能性があります)',
+  RESOURCE_EXHAUSTED: 'レート制限か割り当て量の上限に達しました',
+  INTERNAL: 'Google 側の内部エラーです',
+  UNAVAILABLE: 'サーバーが混雑しています (overloaded)',
+  DEADLINE_EXCEEDED: '処理が時間切れになりました',
+};
 
-function getCurrentAiProvider() {
-  const p = localStorage.getItem(AI_PROVIDER_LS);
-  return AI_PROVIDERS.includes(p) ? p : 'claude';
+// 「検索の深さ」(= Claude の effort) を Gemini の思考レベルに対応させる
+function geminiThinkingLevel(effort) {
+  const e = effort || claudeEffortForDepth();
+  return e === 'low' ? 'LOW' : e === 'high' ? 'HIGH' : 'MEDIUM';
 }
-function getCurrentAiKey() {
-  // Claude: 既存の input + storage の二段
-  const el = document.getElementById('apiKey');
-  return (el?.value.trim()) || localStorage.getItem(STORAGE_KEY) || '';
+function geminiMaxOutputTokens(model, baseTokens, level) {
+  const caps = GEMINI_MODEL_CAPS[model] || GEMINI_MODEL_CAPS[GEMINI_DEFAULT_MODEL];
+  const headroom = GEMINI_THINKING_HEADROOM[level] || GEMINI_THINKING_HEADROOM.MEDIUM;
+  return Math.min(caps.maxOutput, Math.max(baseTokens + headroom, caps.minOutputTokens || 0));
 }
+function geminiStopReason(finishReason) {
+  if (!finishReason || finishReason === 'STOP') return 'end_turn';
+  if (finishReason === 'MAX_TOKENS') return 'max_tokens';
+  if (GEMINI_REFUSAL_REASONS.has(finishReason)) return 'refusal';
+  return 'gemini_' + String(finishReason).toLowerCase();
+}
+
+function parseGeminiError(httpStatus, rawText) {
+  let status = '', message = '', reason = '', retryDelayMs = 0;
+  try {
+    let j = JSON.parse(rawText);
+    if (Array.isArray(j)) j = j[0];
+    const e = (j && j.error) || {};
+    status = e.status || '';
+    message = e.message || '';
+    for (const d of e.details || []) {
+      if (d && d.reason && !reason) reason = d.reason;
+      const m = d && typeof d.retryDelay === 'string' && /^([\d.]+)s$/.exec(d.retryDelay);
+      if (m) retryDelayMs = parseFloat(m[1]) * 1000;
+    }
+  } catch (_) {
+    message = String(rawText || '').slice(0, 200);
+  }
+  let hint = GEMINI_ERROR_HINTS[status] || '';
+  if (httpStatus === 402) hint = 'プリペイドのクレジット残高がありません。待っても回復しないので Google AI Studio でチャージしてください';
+  if (reason === 'API_KEY_INVALID') hint = 'API キーが正しくありません。Google AI Studio で発行したキーを貼り直してください';
+  if (reason === 'API_KEY_HTTP_REFERRER_BLOCKED') {
+    hint = 'API キーに HTTP リファラー制限が掛かっています。ファイルを直接開いた場合 (file://) はリファラーが送られないため弾かれます。キーの制限を見直すか、Web サーバー経由で開いてください';
+  }
+  if (/free tier is not available/i.test(message)) hint = 'お住まいの地域では Gemini API の無料枠が使えません。Google AI Studio で課金を有効にしてください';
+  const parts = [`Gemini APIエラー (${httpStatus}${status ? ' ' + status : ''})`];
+  if (hint) parts.push(hint);
+  if (message) parts.push(message);
+  // 402 (残高切れ) は再試行しない。retryDelay が 1 分を超える 429 は日次上限などなので待たない。
+  const retryable = (httpStatus === 429 || httpStatus === 408 || httpStatus === 500 || httpStatus === 502 || httpStatus === 503 || httpStatus === 504)
+    && retryDelayMs <= 60000;
+  return { message: parts.join(': '), status, reason, retryable, retryDelayMs };
+}
+
+function sleepWithAbort(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const t = setTimeout(resolve, ms);
+    if (signal) signal.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    }, { once: true });
+  });
+}
+
+async function geminiFetchWithRetry(url, opts, signal, onNotice) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, opts);
+    if (res.ok) return res;
+    const info = parseGeminiError(res.status, await res.text());
+    if (!info.retryable || attempt >= GEMINI_MAX_RETRIES) throw new Error(info.message);
+    const waitMs = info.retryDelayMs > 0 ? info.retryDelayMs : Math.min(1000 * Math.pow(2, attempt + 1), 30000);
+    const sec = Math.max(1, Math.round(waitMs / 1000));
+    console.warn(`[gemini] ${info.message} — ${sec}秒後に再試行 (${attempt + 1}/${GEMINI_MAX_RETRIES})`);
+    if (onNotice) onNotice({
+      kind: res.status === 429 ? 'rate_limit' : 'overloaded',
+      waitSec: sec, attempt: attempt + 1, maxAttempts: GEMINI_MAX_RETRIES, message: info.message,
+    });
+    await sleepWithAbort(waitMs, signal);
+  }
+}
+
+// SSE を Anthropic 互換のイベントに変換して onEvent に流す。既存の Claude 用の
+// イベント処理 (進捗表示・本文レンダリング・コスト集計) をそのまま使い回すため。
+//   思考 (thought:true の part) → content_block_start{thinking} + thinking_delta
+//   本文                         → content_block_start{text} + text_delta
+//   Google 検索                  → { type:'grounding', queries, newQueries, sources, renderedContent }
+//                                   (Gemini 独自。検索クエリは本文の後に届くことが多いので、
+//                                    server_tool_use を偽装すると進捗表示が逆戻りしてしまう)
+//   終了                         → message_delta{ stop_reason, stop_details, usage } + message_stop
+async function streamFetchGemini({
+  apiKey, model, prompt, system, useTools, onEvent, onNotice, signal,
+  maxTokens = 8000, effort, thinking, thinkingLevel,
+}) {
+  const level = thinkingLevel || (thinking === 'off' ? 'LOW' : geminiThinkingLevel(effort));
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: geminiMaxOutputTokens(model, maxTokens, level),
+      thinkingConfig: { thinkingLevel: level, includeThoughts: true },
+    },
+  };
+  if (system) body.systemInstruction = { parts: [{ text: system }] };
+  if (useTools) body.tools = [{ google_search: {} }];
+  const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+
+  let text = '', finishReason = '', finishMessage = '', blockReason = '', modelVersion = '';
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  const grounding = { queries: [], sources: [], renderedContent: '' };
+  const seenSources = new Set();
+  let blockIndex = 0, openKind = null, openIndex = -1;
+  let continuationToken = null, hopUsage = null, hops = 0;
+
+  const closeOpenBlock = async () => {
+    if (!openKind) return;
+    await onEvent({ type: 'content_block_stop', index: openIndex });
+    openKind = null; openIndex = -1;
+  };
+  const openBlockOfKind = async (kind) => {
+    if (openKind === kind) return;
+    await closeOpenBlock();
+    openKind = kind; openIndex = blockIndex++;
+    await onEvent({ type: 'content_block_start', index: openIndex, content_block: { type: kind } });
+  };
+  const collectGrounding = async (gm) => {
+    const newQueries = [];
+    for (const q of gm.webSearchQueries || []) {
+      if (typeof q === 'string' && q && !grounding.queries.includes(q)) { grounding.queries.push(q); newQueries.push(q); }
+    }
+    let changed = newQueries.length > 0;
+    // ストリーミング中の groundingChunks は「その回に増えたぶん」だけが届くので積み上げる
+    for (const c of gm.groundingChunks || []) {
+      const w = c && c.web;
+      if (!w || !w.uri || seenSources.has(w.uri)) continue;
+      seenSources.add(w.uri);
+      grounding.sources.push({ uri: String(w.uri), title: String(w.title || w.domain || w.uri) });
+      changed = true;
+    }
+    const rc = gm.searchEntryPoint && gm.searchEntryPoint.renderedContent;
+    if (typeof rc === 'string' && rc && rc !== grounding.renderedContent) { grounding.renderedContent = rc; changed = true; }
+    if (changed) {
+      await onEvent({
+        type: 'grounding', queries: grounding.queries.slice(), newQueries,
+        sources: grounding.sources.slice(), renderedContent: grounding.renderedContent,
+      });
+    }
+  };
+  const handleChunk = async (chunk) => {
+    if (chunk.error) {
+      const info = parseGeminiError(chunk.error.code || 500, JSON.stringify(chunk));
+      throw new Error(info.message);
+    }
+    if (chunk.modelVersion) modelVersion = chunk.modelVersion;
+    if (chunk.promptFeedback && chunk.promptFeedback.blockReason) blockReason = chunk.promptFeedback.blockReason;
+    // usageMetadata は同じストリーム内では最後のものが最新 (足し合わせない)
+    if (chunk.usageMetadata) {
+      const u = chunk.usageMetadata;
+      hopUsage = {
+        // 検索結果をモデルに読ませたぶん (toolUsePromptTokenCount) も入力として課金される
+        input_tokens: (u.promptTokenCount || 0) + (u.toolUsePromptTokenCount || 0),
+        // 思考トークンは出力単価で課金される
+        output_tokens: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0),
+      };
+    }
+    const cand = chunk.candidates && chunk.candidates[0];
+    if (!cand) return;
+    // SAFETY 停止や思考で上限を使い切った場合などは content 自体が無いことがある
+    const parts = (cand.content && cand.content.parts) || [];
+    for (const part of parts) {
+      if (!part || typeof part.text !== 'string' || !part.text) continue;
+      if (part.thought) {
+        await openBlockOfKind('thinking');
+        await onEvent({ type: 'content_block_delta', index: openIndex, delta: { type: 'thinking_delta', thinking: part.text } });
+      } else {
+        await openBlockOfKind('text');
+        text += part.text;
+        await onEvent({ type: 'content_block_delta', index: openIndex, delta: { type: 'text_delta', text: part.text } });
+      }
+    }
+    if (cand.groundingMetadata) await collectGrounding(cand.groundingMetadata);
+    if (cand.finishReason) { finishReason = cand.finishReason; finishMessage = cand.finishMessage || ''; }
+    if (cand.continuationToken) continuationToken = cand.continuationToken;
+  };
+  const handleEventText = async (eventText) => {
+    const dataLines = [];
+    for (const line of eventText.split(/\r\n|\r|\n/)) {
+      if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+    }
+    // ストリーム途中のエラーは data: を付けずに生の JSON で届くことがある
+    const payload = dataLines.length ? dataLines.join('\n') : eventText.trim();
+    if (!payload || payload === '[DONE]') return;
+    let chunk;
+    try {
+      chunk = JSON.parse(payload);
+    } catch (e) {
+      console.warn('Gemini SSE parse error:', payload.slice(0, 120), e);
+      return;
+    }
+    console.log('[SSE gemini]', chunk);
+    await handleChunk(Array.isArray(chunk) ? (chunk[0] || {}) : chunk);
+  };
+
+  do {
+    const reqBody = continuationToken ? Object.assign({}, body, { continuationToken }) : body;
+    continuationToken = null;
+    hopUsage = null;
+    finishReason = '';
+    const response = await geminiFetchWithRetry(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(reqBody),
+      signal,
+    }, signal, onNotice);
+    if (hops === 0) await onEvent({ type: 'message_start', message: {} });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\r\n\r\n|\n\n|\r\r/);
+      buffer = events.pop();
+      for (const ev of events) {
+        if (ev.trim()) await handleEventText(ev);
+      }
+    }
+    buffer += decoder.decode();
+    // 末尾に空行が無い最後のイベントも取りこぼさない
+    if (buffer.trim()) await handleEventText(buffer);
+
+    // 継続 (CONTINUATION) は同じリクエストに continuationToken を付けて送り直す。
+    // 途中までの本文を contents に足してはいけない。課金は往復ごとに発生するので足し合わせる。
+    if (hopUsage) { usage.input_tokens += hopUsage.input_tokens; usage.output_tokens += hopUsage.output_tokens; }
+    if (finishReason !== 'CONTINUATION') continuationToken = null;
+    hops++;
+  } while (continuationToken && hops <= GEMINI_MAX_CONTINUATIONS);
+
+  await closeOpenBlock();
+  const stopReason = blockReason ? 'refusal' : geminiStopReason(finishReason === 'CONTINUATION' ? 'MAX_TOKENS' : finishReason);
+  const stopDetails = stopReason === 'refusal'
+    ? { type: 'gemini', category: blockReason || finishReason, explanation: finishMessage || '' }
+    : null;
+  await onEvent({ type: 'message_delta', delta: { stop_reason: stopReason, stop_details: stopDetails }, usage });
+  await onEvent({ type: 'message_stop' });
+
+  return { text, usage, grounding, finishReason, stopReason, modelVersion };
+}
+
+// ──────────────────────────────────────────────
+// 統合 AI 呼び出し: すべての機能がここを通ってプロバイダーに振り分けられる
+// ──────────────────────────────────────────────
+// どちらのクライアントも Anthropic 互換のイベントを流すので、呼び出し側は同じ onEvent で受けられる
+async function streamFetchAI(opts) {
+  const provider = opts.provider || analysisProviderOf(opts.model);
+  return provider === 'gemini' ? streamFetchGemini(opts) : streamFetch(opts);
+}
+
+// 軽作業 (要約・翻訳・チップ・ファクトチェック・温度計・ニュース収集) に使うプロバイダーとモデル
+function getLightAI() {
+  const provider = getCurrentAiProvider();
+  const model = provider === 'gemini' ? GEMINI_LIGHT_MODEL : CLAUDE_LIGHT_MODEL;
+  return { provider, model, apiKey: getProviderKey(provider), label: (MODELS[model] && MODELS[model].name) || model };
+}
+
+// 1回で完結する呼び出し (非ストリーミング用途)。本文・使用量・検索の出典をまとめて返す。
+// 中断と時間切れを必ず効かせる (以前の直叩き fetch は無期限に待ち続けることがあった)。
+async function completeAI({ provider, apiKey, model, prompt, system, useTools = false, maxTokens = 2048, maxSearchUses = 3,
+                            thinking = 'off', effort = 'low', signal, timeoutMs = 120000, onEvent }) {
+  const ctrl = new AbortController();
+  const onOuterAbort = () => ctrl.abort();
+  if (signal) {
+    if (signal.aborted) ctrl.abort();
+    else signal.addEventListener('abort', onOuterAbort, { once: true });
+  }
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const out = { text: '', inputTokens: 0, outputTokens: 0, stopReason: null, stopDetails: null,
+                searchCount: 0, sources: [], grounding: null, provider, model };
+  try {
+    await streamFetchAI({
+      provider, apiKey, model, prompt, system, useTools, maxTokens, maxSearchUses, thinking, effort,
+      signal: ctrl.signal,
+      onEvent: (ev) => {
+        if (onEvent) onEvent(ev);
+        if (ev.type === 'error') throw new Error((ev.error && ev.error.message) || JSON.stringify(ev.error));
+        if (ev.type === 'message_start' && ev.message && ev.message.usage) out.inputTokens = ev.message.usage.input_tokens || 0;
+        if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') out.text += ev.delta.text;
+        if (ev.type === 'content_block_start' && ev.content_block) {
+          const b = ev.content_block;
+          if (b.type === 'server_tool_use' && b.name === 'web_search') out.searchCount++;
+          if (b.type === 'web_search_tool_result') collectClaudeSearchSources(b, out.sources);
+        }
+        if (ev.type === 'grounding') {
+          out.grounding = { queries: ev.queries, sources: ev.sources, renderedContent: ev.renderedContent };
+          out.searchCount = ev.queries.length;
+        }
+        if (ev.type === 'message_delta') {
+          if (ev.delta && ev.delta.stop_reason) out.stopReason = ev.delta.stop_reason;
+          if (ev.delta && ev.delta.stop_details) out.stopDetails = ev.delta.stop_details;
+          if (ev.usage) {
+            if (ev.usage.input_tokens !== undefined) out.inputTokens = Math.max(out.inputTokens, ev.usage.input_tokens);
+            if (ev.usage.output_tokens !== undefined) out.outputTokens = Math.max(out.outputTokens, ev.usage.output_tokens);
+          }
+        }
+      },
+    });
+  } catch (e) {
+    if (ctrl.signal.aborted && !(signal && signal.aborted)) throw new Error(`AI の応答が ${Math.round(timeoutMs / 1000)} 秒以内に返りませんでした (時間切れ)`);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onOuterAbort);
+  }
+  if (out.stopReason === 'refusal') {
+    const d = out.stopDetails || {};
+    throw new Error(`AI が回答を控えました (${d.category || 'refusal'})${d.explanation ? ': ' + d.explanation : ''}`);
+  }
+  return out;
+}
+
+// Claude の web_search 結果ブロックから出典 (URL とタイトル) を集める。
+// 検索を使った回答では出典を表示する決まりがあるので、Gemini と同じパネルに出す。
+function collectClaudeSearchSources(block, into) {
+  if (!block || !Array.isArray(block.content)) return;
+  for (const r of block.content) {
+    if (!r || r.type !== 'web_search_result' || !r.url) continue;
+    if (into.some(x => x.uri === r.url)) continue;
+    into.push({ uri: String(r.url), title: String(r.title || r.url) });
+  }
+}
+
+// 世界予測 (翻訳・ムード補正) 用の窓口
+function getCurrentAiKey() { return getProviderKey(getCurrentAiProvider()); }
 function getCurrentAiModel(taskType) {
-  // taskType: 'translate' | 'mood' — どちらも default モデルで対応
-  return DEFAULT_CLAUDE_MODEL; // Claude は世界予測タスクでは Haiku 固定
+  // taskType: 'translate' | 'mood' — どちらも軽作業モデル
+  return getCurrentAiProvider() === 'gemini' ? GEMINI_LIGHT_MODEL : CLAUDE_LIGHT_MODEL;
 }
-// ステータス表示用の短いモデル名
 function getCurrentAiModelLabel() {
-  return 'Claude Haiku 4.5';
+  const m = getCurrentAiModel();
+  return (MODELS[m] && MODELS[m].name) || m;
 }
-
 async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
   const provider = getCurrentAiProvider();
-  const apiKey = getCurrentAiKey();
-  if (!apiKey) throw new Error(`${aiProviderLabel(provider)} API key が未設定`);
+  const apiKey = getProviderKey(provider);
+  if (!apiKey) throw new Error(`${aiProviderLabel(provider)} の API キーが未設定`);
   const model = getCurrentAiModel(taskType);
-  await streamFetch({ apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens });
+  await streamFetchAI({ provider, apiKey, model, prompt, system, useTools: false, onEvent, signal, maxTokens, thinking: 'off', effort: 'low' });
   return { provider, model };
 }
 
@@ -5004,11 +5610,11 @@ async function aiCall({prompt, system, maxTokens, onEvent, signal, taskType}) {
  'kimi_api_key_v1', 'kimi_model_v1', 'kimi_region_v1', 'kimi_reasoning_effort_v1']
   .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
 
-// ===== Hybrid Mode (Opus 5 research → Haiku 4.5 writer) =====
+// ===== Hybrid Mode (Opus 5.5 research → Haiku 5.5 writer) — Claude 専用 =====
 async function analyzeStocksHybrid(ctx) {
   const {
     apiKey, today, retryCount, MAX_RETRIES,
-    researchModel = 'claude-opus-5', writerModel = 'claude-haiku-4-5', hybridMode = 'hybrid',
+    researchModel = CLAUDE_PREMIUM_RESEARCH_MODEL, writerModel = CLAUDE_LIGHT_MODEL, hybridMode = 'hybrid',
     market, style, risk, amount, additional,
     marketLabels, styleLabels, riskLabels, amountLabels,
     paypayBlock, sbiBlock, japanNewsBlock = '', extraRiskBlock = '', ultraShortBlock = '', shortTermTimingBlock, learningsBlock,
@@ -5019,7 +5625,7 @@ async function analyzeStocksHybrid(ctx) {
     weatherUsage = { used: false, cities: 0, failed: false, error: '' } // 🔧 v1.16.2
   } = ctx;
   const isEcoHybrid = hybridMode === 'eco-hybrid';
-  const researchModelLabel = (MODELS[researchModel] && MODELS[researchModel].name.replace('Claude ', '')) || (isEcoHybrid ? 'Sonnet 5' : 'Opus 5');
+  const researchModelLabel = (MODELS[researchModel] && MODELS[researchModel].name.replace('Claude ', '')) || (isEcoHybrid ? 'Sonnet 5.5' : 'Opus 5.5');
   const hybridIcon = isEcoHybrid ? '🌱' : '💎';
   const hybridLabel = isEcoHybrid ? 'エコ・ハイブリッド' : 'プレミアム・ハイブリッド';
 
@@ -5031,7 +5637,7 @@ async function analyzeStocksHybrid(ctx) {
     resultDiv.innerHTML = ''; resultDiv.classList.remove('active');
     hideCostSummary();
     resetProgress(); showProgressPanel(); startElapsedTimer();
-    addActivity(`${hybridIcon} ${hybridLabel}モード開始 (${researchModelLabel} 研究 → Haiku 4.5 執筆)`);
+    addActivity(`${hybridIcon} ${hybridLabel}モード開始 (${researchModelLabel} 研究 → Haiku 5.5 執筆)`);
     if (pastLearnings.length > 0) addActivity(`🎓 過去の評価 ${pastLearnings.length} 件の学びを反映`);
   } else {
     addActivity(`🔁 リトライ ${retryCount}/${MAX_RETRIES} 開始`);
@@ -5052,7 +5658,7 @@ async function analyzeStocksHybrid(ctx) {
 - 説明文・修飾語は禁止(箇条書きの羅列のみ)` : ''}
 
 ★★★ 重要 ★★★
-あなたの出力は別の AI(Haiku 4.5)が読んで初心者向けの記事に展開します。
+あなたの出力は別の AI(Haiku 5.5)が読んで初心者向けの記事に展開します。
 あなた自身は記事を書きません。データ点と短い説明だけを出力してください。
 - 出力は ★ 1,500〜2,500 文字以内 ★(絶対に 3,000 字を超えない)
 - 文章での説明・例え話・解説は ★禁止★(Haiku が後で展開する)
@@ -5275,7 +5881,7 @@ ${stylePeriodsListItems}
     addActivity(`✅ Phase 1 完了: リサーチ ${researchText.length.toLocaleString()}文字、検索 ${phase1Search}回`);
     setStep('search', 'done');
     setStep('generate', 'active');
-    setPhase('✍️', 'Phase 2/2: Haiku 4.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
+    setPhase('✍️', 'Phase 2/2: Haiku 5.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
     setProgressPercent(50);
     if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
 
@@ -5508,17 +6114,17 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
       renderMarkdown(''); // Clear previous draft if any
 
       if (consultRound === 0) {
-        setPhase('✍️', 'Phase 2/2: Haiku 4.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
+        setPhase('✍️', 'Phase 2/2: Haiku 5.5 執筆開始', 'リサーチを元にフレンドリーな記事を生成...');
       } else {
-        setPhase('✍️', `Haiku 4.5 改訂 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`, '追加調査を踏まえて記事を改訂中');
-        addActivity(`✍️ Haiku 4.5 改訂開始 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
-        updateLiveTicker('✍️', `Haiku 4.5 改訂 ラウンド${consultRound}`, '追加調査を踏まえて記事を書き直し中…');
+        setPhase('✍️', `Haiku 5.5 改訂 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`, '追加調査を踏まえて記事を改訂中');
+        addActivity(`✍️ Haiku 5.5 改訂開始 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
+        updateLiveTicker('✍️', `Haiku 5.5 改訂 ラウンド${consultRound}`, '追加調査を踏まえて記事を書き直し中…');
       }
 
       // Track this Haiku iteration's token counts so we can accumulate
       let thisIterIn = 0, thisIterOut = 0;
       // ★ 接続ウォッチドッグ
-      startHeartbeat('🌐', 'API応答待ち', 'Haiku 4.5 へ送信、Anthropic API の応答を待っています');
+      startHeartbeat('🌐', 'API応答待ち', 'Haiku 5.5 へ送信、Anthropic API の応答を待っています');
 
       await streamFetch({
         apiKey, model: writerModel, prompt: writerPrompt, useTools: false,
@@ -5530,7 +6136,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
             stopHeartbeat();
             thisIterIn = parsed.message.usage.input_tokens || 0;
             phase2In += thisIterIn;
-            addActivity(`📨 Haiku 4.5 応答開始 (入力 ${thisIterIn.toLocaleString()}tk${consultRound > 0 ? `, ラウンド${consultRound}` : ''})`);
+            addActivity(`📨 Haiku 5.5 応答開始 (入力 ${thisIterIn.toLocaleString()}tk${consultRound > 0 ? `, ラウンド${consultRound}` : ''})`);
           }
         if (parsed.type === 'content_block_delta') {
           const delta = parsed.delta;
@@ -5541,10 +6147,10 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
             const sec = detectCurrentSection(accumulatedText);
             if (sec && sec.name !== currentSectionName) {
               currentSectionName = sec.name;
-              // ★ Phase 2 では必ず「Haiku 4.5」と明示
-              setPhase(sec.icon, `Haiku 4.5: ${sec.name}`, `${accumulatedText.length.toLocaleString()}文字生成済み${consultRound > 0 ? ` (改訂 ${consultRound})` : ''}`);
+              // ★ Phase 2 では必ず「Haiku 5.5」と明示
+              setPhase(sec.icon, `Haiku 5.5: ${sec.name}`, `${accumulatedText.length.toLocaleString()}文字生成済み${consultRound > 0 ? ` (改訂 ${consultRound})` : ''}`);
               setProgressPercent(50 + Math.floor(sec.pct / 2));
-              addActivity(`📝 Haiku 4.5: ${sec.name}`);
+              addActivity(`📝 Haiku 5.5: ${sec.name}`);
             }
             // ★ Live ticker — show tail of generated text + live cost estimate (tokens + search)
             const sectionLabel = currentSectionName || '本文生成中';
@@ -5592,7 +6198,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
 
     // Commit this iteration's output to phase2Out total
     phase2Out += thisIterOut;
-    addActivity(`✅ Haiku 4.5 ${consultRound === 0 ? '初稿' : `改訂${consultRound}`} 完了: ${accumulatedText.length.toLocaleString()}文字`);
+    addActivity(`✅ Haiku 5.5 ${consultRound === 0 ? '初稿' : `改訂${consultRound}`} 完了: ${accumulatedText.length.toLocaleString()}文字`);
 
     // === Check for follow-up questions and run consult round if needed ===
     const questionsMatch = accumulatedText.match(/\[FOLLOW_UP_QUESTIONS\]([\s\S]*?)\[\/FOLLOW_UP_QUESTIONS\]/);
@@ -5607,7 +6213,7 @@ ${researchModelLabel} が web_search で調べて回答し、あなたが完成�
 
     const questions = questionsMatch[1].trim();
     consultRound++;
-    setPhase('🤔', `追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `Haiku 4.5 → ${researchModelLabel} へ追加質問`);
+    setPhase('🤔', `追加調査 ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS}`, `Haiku 5.5 → ${researchModelLabel} へ追加質問`);
     addActivity(`🤔 Haiku → ${researchModelLabel} へ追加質問 (ラウンド ${consultRound}/${MAX_CONSULT_ROUNDS})`);
     questions.split('\n').forEach(q => {
       const t = q.trim();
@@ -5715,7 +6321,7 @@ ${questions}
     // ===== Save & Complete =====
     if (!accumulatedText.trim()) {
       stopElapsedTimer();
-      setPhase('⚠️', 'Phase2 で本文未生成', 'Haiku 4.5 が本文を生成できませんでした');
+      setPhase('⚠️', 'Phase2 で本文未生成', 'Haiku 5.5 が本文を生成できませんでした');
       resultDiv.innerHTML = `<h2>⚠️ Phase2 で本文が生成されませんでした</h2>
         <p>Phase1 のリサーチは ${researchText.length.toLocaleString()}文字取得できましたが、Phase2 で本文化に失敗しました。もう一度「分析開始」を押してみてください。</p>
         <h3>診断情報</h3>
@@ -5802,14 +6408,14 @@ ${questions}
       showCostSummary({
         phases: [
           { label: `Phase1 (${researchModelLabel} 研究)`, inputCost: r1In, outputCost: r1Out, inputTokens: phase1In, outputTokens: phase1Out },
-          { label: `Phase2 (Haiku 4.5 執筆)`, inputCost: r2In, outputCost: r2Out, inputTokens: phase2In, outputTokens: phase2Out }
+          { label: `Phase2 (Haiku 5.5 執筆)`, inputCost: r2In, outputCost: r2Out, inputTokens: phase2In, outputTokens: phase2Out }
         ],
         totalIn: phase1In + phase2In, totalOut: phase1Out + phase2Out,
         modelLabel: `${hybridIcon} ${hybridLabel}`,
         searchCount: phase1Search, learningsCount: pastLearnings.length
       });
 
-      setStatusHTML(`✅ <strong>${hybridLabel}分析完了!</strong> ${researchModelLabel} がリサーチ、Haiku 4.5 が執筆<div class="chips">${chips}</div>`, 'success');
+      setStatusHTML(`✅ <strong>${hybridLabel}分析完了!</strong> ${researchModelLabel} がリサーチ、Haiku 5.5 が執筆<div class="chips">${chips}</div>`, 'success');
     }
   } catch (error) {
     console.error('Hybrid mode error:', error);
@@ -5856,12 +6462,13 @@ ${questions}
 }
 
 // ===== 🧒 超かんたん要約モード =====
-// 保存済みの分析を 1〜3 件選び、Haiku 4.5 が小学生にも分かるレベルで要約。
+// 保存済みの分析を選び、軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) が小学生にも分かるレベルで要約。
 // web 検索なし・Phase 1 なし・Haiku 単体呼び出しのみ(低コスト)。
 async function analyzeSimplify() {
-  const apiKey = apiKeyInput.value.trim();
-  // このモードは Haiku 4.5 固定
-  if (!apiKey) { showStatus('⚠️ 🧒 超かんたん要約は Claude (Haiku 4.5) 専用です。Anthropic の APIキーを設定してください', 'error'); return; }
+  // 要約は軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) で行う。web 検索なし。
+  const ai = getLightAI();
+  const apiKey = ai.apiKey;
+  if (!apiKey) { showStatus(`⚠️ ${aiProviderLabel(ai.provider)} の API キーを上部の「🔑 API 設定」で設定してください`, 'error'); return; }
   if (selectedHistoryIds.size === 0) {
     showStatus('⚠️ 要約する保存済み分析を選択してください', 'error');
     return;
@@ -5877,7 +6484,7 @@ async function analyzeSimplify() {
     return;
   }
 
-  const SIMPLIFY_MODEL = 'claude-haiku-4-5';
+  const SIMPLIFY_MODEL = ai.model;
   const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
 
   // UI setup
@@ -5889,7 +6496,7 @@ async function analyzeSimplify() {
   resetProgress(); showProgressPanel(); startElapsedTimer();
   addActivity(`🧒 超かんたん要約モード開始 (${items.length}件)`);
   setStep('connect', 'active');
-  setPhase('🧒', '超かんたん要約モード開始', 'Haiku 4.5 が分かりやすい言葉でまとめます...');
+  setPhase('🧒', '超かんたん要約モード開始', `${ai.label} が分かりやすい言葉でまとめます...`);
   setProgressPercent(5);
 
   const sourcesBlock = items.map((it, i) => {
@@ -5950,13 +6557,13 @@ ${items.length === 1
     showRunningInfo();
     setStep('connect', 'done');
     setStep('generate', 'active');
-    setPhase('✍️', 'Haiku 4.5 が要約を生成中', '小学生でも分かる言葉でまとめています...');
+    setPhase('✍️', `${ai.label} が要約を生成中`, '小学生でも分かる言葉でまとめています...');
     if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
     // ★ 接続ウォッチドッグ
-    startHeartbeat('🌐', 'API応答待ち', 'Haiku 4.5 へ送信、Anthropic API の応答を待っています');
+    startHeartbeat('🌐', 'API応答待ち', `${ai.label} へ送信、${aiProviderLabel(ai.provider)} の応答を待っています`);
 
-    await streamFetch({
-      apiKey, model: SIMPLIFY_MODEL, prompt, useTools: false,
+    await streamFetchAI({
+      provider: ai.provider, apiKey, model: SIMPLIFY_MODEL, prompt, useTools: false, thinking: 'off', effort: 'low',
       maxTokens: getMaxTokensFor('simplify'),
       signal: currentAbortController.signal,
       onEvent: (parsed) => {
@@ -5973,9 +6580,9 @@ ${items.length === 1
             renderMarkdown(accumulatedText);
             stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
             updateLiveTicker('✍️', `要約生成中 (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
-            const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5 };
+            const _r = modelCostFor(SIMPLIFY_MODEL, inputTokens);
             const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
-            updateRunningCost((inputTokens * (_r.inputCost || 1) + estOut * (_r.outputCost || 5)) / 1000000);
+            updateRunningCost((inputTokens * _r.inputCost + estOut * _r.outputCost) / 1000000);
             updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
             setProgressPercent(20 + Math.min(75, Math.floor(accumulatedText.length / 15)));
           }
@@ -5989,13 +6596,19 @@ ${items.length === 1
           if (parsed.usage && typeof parsed.usage.input_tokens === 'number') {
             inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
           }
-          const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5 };
-          updateRunningCost((inputTokens * (_r.inputCost || 1) + outputTokens * (_r.outputCost || 5)) / 1000000);
+          const _r = modelCostFor(SIMPLIFY_MODEL, inputTokens);
+          updateRunningCost((inputTokens * _r.inputCost + outputTokens * _r.outputCost) / 1000000);
           updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
         }
       }
     });
 
+    // 本文が空のまま、または途中で拒否されたものは保存しない
+    if (!accumulatedText.trim() || stopReason === 'refusal') {
+      throw new Error(stopReason === 'refusal'
+        ? 'AI が要約を控えました (stop_reason: refusal)。内容を見直すか、AI プロバイダーを切り替えてください'
+        : `要約の本文が生成されませんでした (stop_reason: ${stopReason || '不明'})`);
+    }
     setStep('generate', 'done');
     setStep('complete', 'done');
     setProgressPercent(100);
@@ -6012,6 +6625,7 @@ ${items.length === 1
       summary: accumulatedText.split('\n').filter(l => l.trim() && !/^#/.test(l)).slice(0, 4).join(' ').slice(0, 300),
       result: accumulatedText,
       model: SIMPLIFY_MODEL,
+      provider: ai.provider,
       market: items[0].market || 'paypay',
       style: items[0].style || 'mid',
       risk: items[0].risk || 'medium',
@@ -6032,16 +6646,16 @@ ${items.length === 1
       ensureResultActions(savedItem);
     }
 
-    const _r = MODELS[SIMPLIFY_MODEL] || { inputCost: 1, outputCost: 5, name: SIMPLIFY_MODEL };
     showCostSummary({
       phases: [{
-        label: '🧒 Haiku 4.5 要約',
-        inputCost: _r.inputCost || 1, outputCost: _r.outputCost || 5,
+        label: `🧒 ${ai.label} 要約`,
+        ...modelCostFor(SIMPLIFY_MODEL, inputTokens),
         inputTokens, outputTokens
       }],
       totalIn: inputTokens, totalOut: outputTokens,
-      modelLabel: '🧒 超かんたん要約 (Haiku 4.5)',
-      searchCount: 0, learningsCount: 0
+      modelLabel: `🧒 超かんたん要約 (${ai.label})`,
+      searchCount: 0, learningsCount: 0,
+      usageUrl: usageUrlFor(ai.provider)
     });
 
     let chips = '';
@@ -6050,7 +6664,7 @@ ${items.length === 1
     chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
     chips += `<span class="chip">📚 参照 <span class="chip-value">${items.length}件</span></span>`;
     chips += `<span class="chip">💾 自動保存済み</span>`;
-    setStatusHTML(`✅ <strong>超かんたん要約 完了!</strong> Haiku 4.5 が ${items.length}件を分かりやすくまとめました<div class="chips">${chips}</div>`, 'success');
+    setStatusHTML(`✅ <strong>超かんたん要約 完了!</strong> ${escapeHtml(ai.label)} が ${items.length}件を分かりやすくまとめました<div class="chips">${chips}</div>`, 'success');
   } catch (error) {
     console.error('Simplify mode error:', error);
     const errStr = error.message || String(error);
@@ -6083,15 +6697,18 @@ ${items.length === 1
 // 銘柄分析はせず、本日のローカル・国内・世界ニュースを集めて視覚的に整理。
 // ハイブリッドの research モデル(eco→Sonnet, premium→Opus)を単独で使用、Phase 2 なし。
 async function analyzeNewsDigest() {
-  const apiKey = apiKeyInput.value.trim();
-  // このモードは Haiku 4.5 固定
-  if (!apiKey) { showStatus('⚠️ 📰 ニュース収集は Claude (Haiku 4.5) 専用です。Anthropic の APIキーを設定してください', 'error'); return; }
+  // ニュース収集は軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) で行う
+  const ai = getLightAI();
+  const apiKey = ai.apiKey;
+  if (!apiKey) { showStatus(`⚠️ ${aiProviderLabel(ai.provider)} の API キーを上部の「🔑 API 設定」で設定してください`, 'error'); return; }
 
-  // 📰 ニュース収集は常に Haiku 4.5 を使用(コスト最大圧縮)。
-  // 検索 + 見出し列挙が主作業で深い推論は不要なため、ハイブリッド選択に関わらず Haiku 固定。
+  // 📰 ニュース収集は常に軽量モデルを使用(コスト最大圧縮)。
+  // 検索 + 見出し列挙が主作業で深い推論は不要なため、使用モデルの選択に関わらず軽量モデル固定。
   // Sonnet/Opus 比で入力 1/3、出力 1/3 になる(約 -65% 節約)。
-  const newsModel = 'claude-haiku-4-5';
-  const newsModelLabel = 'Haiku 4.5';
+  const newsModel = ai.model;
+  const newsModelLabel = ai.label;
+  const searchUnitCost = ai.provider === 'gemini' ? GEMINI_SEARCH_COST_USD : WEB_SEARCH_COST_USD;
+  const groundingInfo = { queries: [], sources: [], renderedContent: '' };
   const additional = document.getElementById('additional').value.trim();
   const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -6108,7 +6725,7 @@ async function analyzeNewsDigest() {
   setProgressPercent(5);
 
   // 📰 ニュース収集は ★ 広く浅く ★ がコンセプト: 検索回数を多めに、各記事は浅く
-  // 🔧 v1.16.4: Haiku 4.5 固定でコストが低いため検索回数を拡大
+  // 🔧 v1.16.4: 軽量モデル固定でコストが低いため検索回数を拡大
   //             通常 10→18, 超節約 15→25 (Sonnet/Opus 比で約 1/3 コストなので深掘り可能)
   const _newsMaxSearches = isUltraEcoMode() ? 25 : 18;
 
@@ -6206,8 +6823,8 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
     setStep('connect', 'done');
     setStep('search', 'active');
 
-    await streamFetch({
-      apiKey, model: newsModel, prompt, useTools: true,
+    await streamFetchAI({
+      provider: ai.provider, apiKey, model: newsModel, prompt, useTools: true, effort: 'low',
       maxTokens: getMaxTokensFor('news'),
       maxSearchUses: _newsMaxSearches,
       signal: currentAbortController.signal,
@@ -6216,6 +6833,15 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
         if (parsed.type === 'message_start' && parsed.message && parsed.message.usage) {
           inputTokens = parsed.message.usage.input_tokens || 0;
           addActivity(`📨 応答開始 (入力 ${inputTokens.toLocaleString()}tk)`);
+        }
+        // 🔷 Gemini の Google 検索 (クエリは本文の後にまとめて届くことが多い)
+        if (parsed.type === 'grounding') {
+          groundingInfo.queries = parsed.queries || [];
+          groundingInfo.sources = parsed.sources || [];
+          if (parsed.renderedContent) groundingInfo.renderedContent = parsed.renderedContent;
+          searchCount = Math.max(searchCount, groundingInfo.queries.length);
+          stepSearchCount.textContent = `${searchCount}回`;
+          for (const q of parsed.newQueries || []) addActivity(`🔎 Google 検索: "${escapeHtml(q)}"`);
         }
         if (parsed.type === 'content_block_start') {
           const block = parsed.content_block;
@@ -6230,6 +6856,7 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
             addActivity(`🔍 ニュース検索 #${searchCount}`);
             updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリ生成中…');
           } else if (block && block.type === 'web_search_tool_result') {
+            collectClaudeSearchSources(block, groundingInfo.sources);
             stopHeartbeat();
             // ★ 検索結果が返ってきた瞬間。フェーズ表示を更新して固まらないように。
             const remaining = Math.max(0, _newsMaxSearches - searchCount);
@@ -6251,10 +6878,10 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
             stepGenerateCount.textContent = `${accumulatedText.length.toLocaleString()}文字`;
             if (!resultDiv.classList.contains('active')) resultDiv.classList.add('active');
             updateLiveTicker('📝', `ニュースまとめ中 (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
-            const _r = MODELS[newsModel] || { inputCost: 1, outputCost: 5 };
+            const _r = modelCostFor(newsModel, inputTokens);
             const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
-            const tokenCost = (inputTokens * (_r.inputCost || 3) + estOut * (_r.outputCost || 15)) / 1000000;
-            const searchCost = searchCount * WEB_SEARCH_COST_USD;
+            const tokenCost = (inputTokens * _r.inputCost + estOut * _r.outputCost) / 1000000;
+            const searchCost = searchCount * searchUnitCost;
             updateRunningCost(tokenCost + searchCost);
             updateStats({ inputTokens, outputTokens: estOut, chars: accumulatedText.length });
             setProgressPercent(50 + Math.min(45, Math.floor(accumulatedText.length / 60)));
@@ -6294,15 +6921,21 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
           if (parsed.usage && typeof parsed.usage.input_tokens === 'number') {
             inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
           }
-          const _r = MODELS[newsModel] || { inputCost: 1, outputCost: 5 };
-          const tokenCost = (inputTokens * (_r.inputCost || 3) + outputTokens * (_r.outputCost || 15)) / 1000000;
-          const searchCost = searchCount * WEB_SEARCH_COST_USD;
+          const _r = modelCostFor(newsModel, inputTokens);
+          const tokenCost = (inputTokens * _r.inputCost + outputTokens * _r.outputCost) / 1000000;
+          const searchCost = searchCount * searchUnitCost;
           updateRunningCost(tokenCost + searchCost);
           updateStats({ inputTokens, outputTokens, chars: accumulatedText.length });
         }
       }
     });
 
+    // 本文が空のまま、または途中で拒否されたものは保存しない
+    if (!accumulatedText.trim() || stopReason === 'refusal') {
+      throw new Error(stopReason === 'refusal'
+        ? 'AI がニュースのまとめを控えました (stop_reason: refusal)'
+        : `ニュースのまとめが生成されませんでした (stop_reason: ${stopReason || '不明'})`);
+    }
     setStep('search', 'done');
     setStep('generate', 'done');
     setStep('complete', 'done');
@@ -6319,6 +6952,8 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       summary: firstLine.slice(0, 200) || accumulatedText.slice(0, 200),
       result: accumulatedText,
       model: newsModel,
+      provider: ai.provider,
+      groundings: buildGroundingRecords('ニュース収集', groundingInfo),
       market: 'news-digest',
       style: '-',
       risk: '-',
@@ -6342,16 +6977,16 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
       ensureResultActions(savedItem);
     }
 
-    const _r = MODELS[newsModel] || { inputCost: 1, outputCost: 5, name: newsModel };
     showCostSummary({
       phases: [{
         label: `📰 ${newsModelLabel} ニュース収集`,
-        inputCost: _r.inputCost || 3, outputCost: _r.outputCost || 15,
+        ...modelCostFor(newsModel, inputTokens),
         inputTokens, outputTokens
       }],
       totalIn: inputTokens, totalOut: outputTokens,
       modelLabel: `📰 ニュース収集 (${newsModelLabel})`,
-      searchCount, learningsCount: 0
+      searchCount, learningsCount: 0,
+      searchUnitCost, usageUrl: usageUrlFor(ai.provider)
     });
 
     let chips = '';
@@ -6392,8 +7027,11 @@ ${additional ? `- ユーザー追加要望: ${additional} (このテーマを重
 async function analyzeStocks(retryCount = 0) {
   const MAX_RETRIES = 3;
   const analysisProvider = analysisProviderOf(modelSelect.value);
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) { showStatus('⚠️ APIキーを入力してください', 'error'); return; }
+  const apiKey = getProviderKey(analysisProvider);
+  if (!apiKey) {
+    showStatus(`⚠️ ${aiProviderLabel(analysisProvider)} の API キーを上部の「🔑 API 設定」で設定してください`, 'error');
+    return;
+  }
 
   // Review / Self-audit mode validation
   let reviewItems = [];
@@ -7294,10 +7932,10 @@ ${evalTarget.result}
   // 評価モードのみ analyzeStocks の単体モデル経路に落ちるので、
   // その場合は hybrid/eco-hybrid を内部的に実モデル ID に解決する。
   if ((model === 'hybrid' || model === 'eco-hybrid') && !isEvaluating) {
-    const researchModel = model === 'eco-hybrid' ? 'claude-sonnet-5' : 'claude-opus-5';
+    const researchModel = model === 'eco-hybrid' ? CLAUDE_ECO_RESEARCH_MODEL : CLAUDE_PREMIUM_RESEARCH_MODEL;
     return await analyzeStocksHybrid({
       apiKey, today, retryCount, MAX_RETRIES,
-      researchModel, writerModel: 'claude-haiku-4-5',
+      researchModel, writerModel: CLAUDE_LIGHT_MODEL,
       hybridMode: model,
       market, style, risk, amount, additional,
       marketLabels, styleLabels, riskLabels, amountLabels,
@@ -7311,8 +7949,8 @@ ${evalTarget.result}
   }
 
   // 評価モード等で hybrid / eco-hybrid が選ばれていたら実モデル ID に解決
-  if (model === 'hybrid') model = 'claude-opus-5';
-  else if (model === 'eco-hybrid') model = 'claude-sonnet-5';
+  if (model === 'hybrid') model = CLAUDE_PREMIUM_RESEARCH_MODEL;
+  else if (model === 'eco-hybrid') model = CLAUDE_ECO_RESEARCH_MODEL;
 
   const prompt = isEvaluating ? evalBlock :
     currentMode === 'review' && reviewItems.length > 0 ? `あなたは経験豊富な金融アナリストです。本日(${today})時点での再評価を、過去分析と最新の web_search 結果を組み合わせて行ってください。
@@ -7705,8 +8343,10 @@ ${stylePeriodsListItems}
     currentAbortController = new AbortController();
     analysisStartTime = Date.now();
     showRunningInfo();
-    // Web 検索の単価 (プロバイダーごとに違う)
-    const searchUnitCost = WEB_SEARCH_COST_USD;
+    // Web 検索の単価 (Anthropic は検索1回 $0.01、Gemini は検索クエリ1件 $0.014)
+    const searchUnitCost = analysisProvider === 'gemini' ? GEMINI_SEARCH_COST_USD : WEB_SEARCH_COST_USD;
+    // 検索の出典と検索候補。検索結果を使った回答では、本文の後に表示する決まりがある
+    const groundingInfo = { queries: [], sources: [], renderedContent: '' };
     // ── イベント処理はプロバイダー共通 ──
     // 各クライアントは Anthropic 互換のイベント形状で流してくるので、この関数をそのまま使い回せる。
     const processEvent = (parsed) => {
@@ -7715,6 +8355,24 @@ ${stylePeriodsListItems}
       if (parsed.type === 'error') {
         streamError = (parsed.error && parsed.error.message) ? parsed.error.message : JSON.stringify(parsed.error);
         addActivity(`❌ エラー: ${streamError}`);
+        return;
+      }
+      // 🔷 Gemini の Google 検索 (検索クエリ・出典・検索候補)。本文より後に届くことが多いので、
+      //    進捗を「検索中」に巻き戻さず、件数と出典だけを更新する。
+      if (parsed.type === 'grounding') {
+        groundingInfo.queries = parsed.queries || [];
+        groundingInfo.sources = parsed.sources || [];
+        if (parsed.renderedContent) groundingInfo.renderedContent = parsed.renderedContent;
+        if (!receivedBlockTypes.includes('grounding')) receivedBlockTypes.push('grounding');
+        searchCount = Math.max(searchCount, groundingInfo.queries.length);
+        stepSearchCount.textContent = `${searchCount}回`;
+        const newQ = parsed.newQueries || [];
+        for (const q of newQ) addActivity(`🔎 Google 検索: "${escapeHtml(q)}"`);
+        if (newQ.length) updateLiveTicker('🔎', `Google 検索 ${searchCount}件`, `"${newQ[newQ.length - 1]}"`);
+        if (!accumulatedText) {
+          setStep('connect', 'done'); setStep('search', 'active');
+          setPhase('🔎', `Google 検索中 (${searchCount}件)`, '最新の市場情報を取得しています...');
+        }
         return;
       }
       if (parsed.type === 'message_start' && parsed.message) {
@@ -7738,6 +8396,7 @@ ${stylePeriodsListItems}
           updateLiveTicker('🔎', `検索 #${searchCount}`, 'クエリを生成中…');
         } else if (block && block.type === 'web_search_tool_result') {
           stopHeartbeat();
+          collectClaudeSearchSources(block, groundingInfo.sources);
           setPhase('📥', `検索結果を受信 (${searchCount}件目)`, 'AIが結果を読み込んでいます');
           addActivity(`📥 検索結果 #${searchCount} を取得`);
           updateLiveTicker('📥', `検索結果 #${searchCount}`, '受信完了、解析開始…');
@@ -7775,7 +8434,7 @@ ${stylePeriodsListItems}
           // ★ Live ticker + cost estimate (tokens + search)
           const sectionLabel = currentSectionName || '本文生成中';
           updateLiveTicker('✍️', `${sectionLabel} (${accumulatedText.length.toLocaleString()}字)`, tickerTail(accumulatedText, 90));
-          const _rLive = MODELS[model] || { inputCost: 5, outputCost: 25 };
+          const _rLive = modelCostFor(model, inputTokens);
           const estOut = Math.max(outputTokens, estimateTokens(accumulatedText));
           const tokenCost = (inputTokens * (_rLive.inputCost || 5) + estOut * (_rLive.outputCost || 25)) / 1000000;
           const searchCost = searchCount * searchUnitCost;
@@ -7835,7 +8494,7 @@ ${stylePeriodsListItems}
           if (parsed.usage.input_tokens !== undefined) inputTokens = Math.max(inputTokens, parsed.usage.input_tokens);
         }
         // ★ Real-time cost with actual tokens + search
-        const _r = MODELS[model] || { inputCost: 5, outputCost: 25 };
+        const _r = modelCostFor(model, inputTokens);
         const tokenCost = (inputTokens * (_r.inputCost || 5) + outputTokens * (_r.outputCost || 25)) / 1000000;
         const searchCost = searchCount * searchUnitCost;
         updateRunningCost(tokenCost + searchCost);
@@ -7846,69 +8505,89 @@ ${stylePeriodsListItems}
       }
     };
 
-    // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
-    //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
-    //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
-    //     claudeMaxTokens() で上限に余裕を持たせる
-    //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
-    const analyzeBody = {
-      model: model,
-      max_tokens: claudeMaxTokens(model, 12000), // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
-      stream: true,
-      tools: [claudeWebSearchTool(model, getSearchDepth())],
-      messages: [{ role: 'user', content: prompt }]
-    };
-    applyClaudeReasoning(analyzeBody, model);
+    if (analysisProvider === 'gemini') {
+      // 🔷 Gemini は Google 検索 (google_search) を1リクエストの中で済ませる。往復は不要。
+      addActivity(`🔌 Gemini API にリクエスト送信 (${escapeHtml(model)})`);
+      await streamFetchGemini({
+        apiKey, model, prompt, useTools: true,
+        maxTokens: 12000,
+        effort: claudeEffortForDepth(),
+        signal: currentAbortController.signal,
+        onEvent: (ev) => {
+          if (ev.type === 'message_start') { setStep('connect', 'done'); setProgressPercent(10); addActivity('✅ API接続成功'); }
+          processEvent(ev);
+        },
+        onNotice: (n) => {
+          const label = n.kind === 'rate_limit' ? 'レート制限' : 'サーバー混雑';
+          addActivity(`⏳ ${label}のため ${n.waitSec}秒待機して再試行 (${n.attempt}/${n.maxAttempts})`);
+          setPhase('⏳', `${label}で待機中`, `${n.waitSec}秒後に再試行します`);
+        },
+      });
+    } else {
+      // 🔧 v3.1.0: リクエスト本体をモデル仕様に合わせて組み立てる
+      //   - web_search は Haiku 4.5 のみ基本版 (20250305)、それ以外は動的フィルタリング版 (20260209)
+      //   - Opus 5 / Sonnet 5 / Fable 5 は適応的思考が有効。思考と本文が max_tokens を共有するため
+      //     claudeMaxTokens() で上限に余裕を持たせる
+      //   - effort は「検索深さ」設定に連動 (未指定だと high 扱いで割高)
+      const analyzeBody = {
+        model: model,
+        max_tokens: claudeMaxTokens(model, 12000), // 🔧 v1.16.2: Haiku 単体時 8000 だと本文+CHART_DATA まで届かないことがあるため増量
+        stream: true,
+        tools: [claudeWebSearchTool(model, getSearchDepth())],
+        messages: [{ role: 'user', content: prompt }]
+      };
+      applyClaudeReasoning(analyzeBody, model);
 
-    const response = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      signal: currentAbortController.signal,
-      body: JSON.stringify(analyzeBody)
-    });
+      const response = await fetch(CLAUDE_API_URL, {
+        method: 'POST',
+        headers: claudeHeaders(apiKey),
+        signal: currentAbortController.signal,
+        body: JSON.stringify(analyzeBody)
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `APIエラー (${response.status})`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
-        else errorMessage += ': ' + errorText;
-      } catch { errorMessage += ': ' + errorText; }
-      throw new Error(errorMessage);
-    }
-
-    setStep('connect', 'done'); setProgressPercent(10);
-    addActivity('✅ API接続成功');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop();
-
-      for (const event of events) {
-        if (!event.trim()) continue;
-        const lines = event.split(/\r?\n/);
-        let data = null;
-        for (const line of lines) {
-          if (line.startsWith('data: ')) data = line.slice(6).trim();
-        }
-        if (!data) continue;
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `APIエラー (${response.status})`;
         try {
-          processEvent(JSON.parse(data));
-        } catch (e) {
-          console.warn('SSE parse error:', data, e);
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error && errorJson.error.message) errorMessage += ': ' + errorJson.error.message;
+          else errorMessage += ': ' + errorText;
+        } catch { errorMessage += ': ' + errorText; }
+        throw new Error(errorMessage);
+      }
+
+      setStep('connect', 'done'); setProgressPercent(10);
+      addActivity('✅ API接続成功');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop();
+
+        for (const event of events) {
+          if (!event.trim()) continue;
+          const lines = event.split(/\r?\n/);
+          let data = null;
+          for (const line of lines) {
+            if (line.startsWith('data: ')) data = line.slice(6).trim();
+          }
+          if (!data) continue;
+          try {
+            processEvent(JSON.parse(data));
+          } catch (e) {
+            console.warn('SSE parse error:', data, e);
+          }
         }
       }
-    }
 
+    }
     const isOverloaded = streamError && /overload/i.test(streamError);
     if (isOverloaded && retryCount < MAX_RETRIES) {
       const waitSec = Math.pow(2, retryCount + 1);
@@ -7918,10 +8597,12 @@ ${stylePeriodsListItems}
       return analyzeStocks(retryCount + 1);
     }
 
-    if (!accumulatedText.trim()) {
+    // 途中まで書いてから拒否 (refusal) された場合、その出力は不完全なので保存せず失敗として扱う
+    const refusedMidway = stopReason === 'refusal' && !!accumulatedText.trim();
+    if (!accumulatedText.trim() || refusedMidway) {
       stopElapsedTimer();
       setStep('generate', 'pending');
-      setPhase('⚠️', '本文未生成', '応答テキストが取得できませんでした');
+      setPhase('⚠️', refusedMidway ? '途中で回答が止まりました' : '本文未生成', refusedMidway ? 'AI が回答を控えたため、途中までの出力は破棄しました' : '応答テキストが取得できませんでした');
       const hints = {
         pause_turn: 'Web検索の反復上限に達しました。もう一度「分析開始」を押すと続行できる場合があります。',
         // 🔧 v3.1.0: Opus 5 / Fable 5 は安全性分類器で HTTP 200 のまま refusal を返すことがある。
@@ -7929,10 +8610,18 @@ ${stylePeriodsListItems}
         refusal: 'AIが安全性の観点から回答を控えました (stop_reason: refusal)。'
           + (stopDetails && stopDetails.category ? ` カテゴリ: ${escapeHtml(String(stopDetails.category))}。` : '')
           + (stopDetails && stopDetails.explanation ? ` 理由: ${escapeHtml(String(stopDetails.explanation))}。` : '')
-          + ' 💡 使用モデルを Sonnet 5 / Opus 4.8 など別モデルに切り替えるか、質問文を言い換えると通る場合があります。',
-        max_tokens: '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
+          + ' 💡 AI プロバイダー (Gemini ⇔ Claude) や使用モデルを切り替えるか、質問文を言い換えると通る場合があります。',
+        max_tokens: analysisProvider === 'gemini'
+          ? '出力上限に達しました。Gemini は思考ぶんも出力上限を消費します。「🔍 検索の深さ」を下げるか、短めの条件で再実行してください。'
+          : '出力上限に達しました。適応的思考(thinking)と本文が同じ max_tokens を共有するため、検索深さを下げるか短めの条件で再実行してください。',
+        gemini_other: 'Gemini が理由を示さずに生成を止めました (finishReason: OTHER)。少し時間をおいて再実行してください。',
+        gemini_malformed_response: 'Gemini の応答が壊れていました (MALFORMED_RESPONSE)。再実行してください。',
+        gemini_too_many_tool_calls: 'Google 検索の呼び出しが多すぎて止まりました。「🔍 検索の深さ」を下げて再実行してください。',
+        gemini_unexpected_tool_call: 'Gemini が想定外の道具呼び出しで止まりました。再実行してください。',
         model_context_window_exceeded: 'コンテキストウィンドウの上限に達しました。選択する過去分析の件数を減らしてください。',
-        end_turn: 'AIが本文を生成せずに終了しました。'
+        end_turn: analysisProvider === 'gemini'
+          ? 'Gemini が本文を生成せずに終了しました。Google 検索は無料枠 (課金していないキー) では使えないため、AI Studio で課金が有効か確認してください。'
+          : 'AIが本文を生成せずに終了しました。'
       };
       const reasonText = hints[stopReason] || `不明な終了理由 (${stopReason || '不明'})`;
       const errorBlock = streamError ? `<p style="color:#b91c1c"><strong>ストリームエラー:</strong> ${streamError}</p>` : '';
@@ -7992,8 +8681,11 @@ ${stylePeriodsListItems}
           original.evaluationHistory.push({
             date: Date.now(), rating, comment,
             searchCount, inputTokens, outputTokens,
-            evalLength: accumulatedText.length
+            evalLength: accumulatedText.length,
+            provider: analysisProvider, model
           });
+          // 評価で使った検索の出典・検索候補も、評価レポートと一緒に表示できるよう残す
+          original.groundings = (original.groundings || []).concat(buildGroundingRecords(`評価 (${evalDateStr})`, groundingInfo));
           await dbPut(original);
           mergedItem = original;
           addActivity(`✅ 元記事 (ID:${evalTarget.id}) に評価レポートを統合しました${rating ? ` ★${rating}/5` : ' (★抽出失敗・本文のみ統合)'}`);
@@ -8014,10 +8706,10 @@ ${stylePeriodsListItems}
         chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード(統合済) <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}の分析を評価</span></span>`;
         const mInfo = MODELS[model] || {};
         showCostSummary({
-          phases: [{ label: mInfo.name || model, inputCost: mInfo.inputCost || 0, outputCost: mInfo.outputCost || 0, inputTokens, outputTokens }],
+          phases: [{ label: mInfo.name || model, ...modelCostFor(model, inputTokens), inputTokens, outputTokens }],
           totalIn: inputTokens, totalOut: outputTokens,
           modelLabel: mInfo.name || model, searchCount, learningsCount: 0,
-          searchUnitCost,
+          searchUnitCost, usageUrl: usageUrlFor(analysisProvider),
         });
         setStatusHTML(`✅ <strong>評価レポートを元記事に統合しました</strong><div class="chips">${chips}</div>`, 'success');
         // 早期return: 通常の savedItem 保存はスキップ
@@ -8036,6 +8728,8 @@ ${stylePeriodsListItems}
         title: extractedTitle,
         summary: extractedSummary,
         searchCount, inputTokens, outputTokens, stopReason,
+        provider: analysisProvider,
+        groundings: buildGroundingRecords('分析', groundingInfo),
         mode: currentMode,
         reviewSourceIds: (currentMode === 'review' || currentMode === 'self-audit') ? Array.from(selectedHistoryIds) : [],
         evaluateTargetId: null,
@@ -8055,7 +8749,8 @@ ${stylePeriodsListItems}
       if (searchCount > 0) chips += `<span class="chip">🔍 検索 <span class="chip-value">${searchCount}回</span></span>`;
       if (inputTokens > 0) chips += `<span class="chip">📥 入力 <span class="chip-value">${inputTokens.toLocaleString()}</span></span>`;
       if (outputTokens > 0) chips += `<span class="chip">📤 出力 <span class="chip-value">${outputTokens.toLocaleString()}</span></span>`;
-      if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${stopReason}</span></span>`;
+      if (stopReason) chips += `<span class="chip">🏁 stop <span class="chip-value">${escapeHtml(String(stopReason))}</span></span>`;
+      if (stopReason === 'max_tokens') chips += `<span class="chip" style="background:rgba(239,68,68,0.12);color:#b91c1c">✂️ 出力上限で途中切れ <span class="chip-value">末尾が欠けています</span></span>`;
       if (retryCount > 0) chips += `<span class="chip">🔁 リトライ <span class="chip-value">${retryCount}回</span></span>`;
       if (isEvaluating) chips += `<span class="chip" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(239,68,68,0.15));color:#b45309">📊 評価モード <span class="chip-value">${new Date(evalTarget.timestamp).toLocaleDateString('ja-JP')}を評価</span></span>`;
       else if (currentMode === 'review') chips += `<span class="chip">🔄 考察モード <span class="chip-value">${reviewItems.length}件参照</span></span>`;
@@ -8077,14 +8772,13 @@ ${stylePeriodsListItems}
       showCostSummary({
         phases: [{
           label: mInfo.name || model,
-          inputCost: mInfo.inputCost || 0,
-          outputCost: mInfo.outputCost || 0,
+          ...modelCostFor(model, inputTokens),
           inputTokens, outputTokens
         }],
         totalIn: inputTokens, totalOut: outputTokens,
         modelLabel: mInfo.name || model,
         searchCount, learningsCount: pastLearnings.length,
-        searchUnitCost,
+        searchUnitCost, usageUrl: usageUrlFor(analysisProvider),
       });
 
       setStatusHTML(`✅ <strong>分析が完了しました</strong><div class="chips">${chips}</div>`, 'success');
@@ -8623,11 +9317,12 @@ function renderMarkdown(text) {
 renderHistory();
 
 // ===== 🔍 Fact-Check 選択箇所をWeb再調査 =====
-// 結果本文内でテキスト選択 → フローティングボタン → Haiku 4.5 + web_search ×2 で
+// 結果本文内でテキスト選択 → フローティングボタン → 軽量モデル + Web 検索で
 // 事実確認 → ハイライト + ポップオーバーで提示。誤りなら「✏️ 本文を修正」で
 // DOM 上の該当箇所を「取り消し線+正しい値」に置換。
 (function setupFactCheck() {
-  const FACT_CHECK_MODEL = 'claude-haiku-4-5';
+  // ファクトチェックは軽量モデル (Gemini 3.8 Flash / Claude Haiku 5.5) + Web 検索で行う
+  const factCheckAI = () => getLightAI();
   const trigger = document.getElementById('factCheckTrigger');
   const popover = document.getElementById('factCheckPopover');
   if (!trigger || !popover) return;
@@ -8646,7 +9341,7 @@ renderHistory();
     let host = range.commonAncestorContainer;
     if (host.nodeType === 3) host = host.parentElement;
     if (host && host.closest(
-      'button, .result-actions, .data-sources-panel, .price-verification, ' +
+      'button, .result-actions, .data-sources-panel, .grounding-panel, .price-verification, ' +
       '.historical-chart-card, .chart-loading, .yahoo-spark-wrap, ' +
       '.fact-check-popover, .fact-check-trigger, .fact-check-highlight'
     )) return null;
@@ -8753,7 +9448,7 @@ renderHistory();
     }
   }, { passive: true });
 
-  // ===== Trigger click → ハイライト + Haiku 4.5 へ問い合わせ =====
+  // ===== Trigger click → ハイライト + 軽量モデルへ問い合わせ =====
   trigger.addEventListener('mousedown', (e) => { e.preventDefault(); }); // selection 維持
   trigger.addEventListener('touchstart', (e) => { e.preventDefault(); }, { passive: false }); // モバイルで selection を保護
   trigger.addEventListener('click', async (e) => {
@@ -8763,8 +9458,8 @@ renderHistory();
     const liveSel = getResultSelection();
     const snap = liveSel || pendingSelection;
     if (!snap) return;
-    const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
-    if (!apiKey) { alert('APIキーが設定されていません'); return; }
+    const apiKey = factCheckAI().apiKey;
+    if (!apiKey) { alert(`${aiProviderLabel(getCurrentAiProvider())} の API キーが設定されていません`); return; }
 
     const range = snap.range;
     const selectedText = snap.text;
@@ -8798,7 +9493,7 @@ renderHistory();
         <span>🔍 ファクトチェック中</span>
         <button class="fc-close" type="button" aria-label="閉じる">×</button>
       </div>
-      <div class="fc-loading">Haiku 4.5 が web_search × 2 で確認中…</div>
+      <div class="fc-loading">${escapeHtml(factCheckAI().label)} が Web 検索で確認中…</div>
       <div class="fc-row" style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">
         対象: <span class="fc-snippet">${escapeHtml(selectedText)}</span>
       </div>`;
@@ -8828,7 +9523,7 @@ renderHistory();
         popover.querySelector('#fcRetryBtn').disabled = true;
         popover.innerHTML = `
           <div class="fc-head"><span>🔍 再試行中</span></div>
-          <div class="fc-loading">Haiku 4.5 が web_search × 2 で確認中…</div>`;
+          <div class="fc-loading">${escapeHtml(factCheckAI().label)} が Web 検索で確認中…</div>`;
         try {
           const r2 = await callFactCheck(apiKey, selectedText, blockText);
           renderResult(span, selectedText, r2);
@@ -8876,36 +9571,10 @@ ${paragraphText}
 
 JSON以外の文字を一切出力しないこと。`;
 
-    const body = {
-      model: FACT_CHECK_MODEL,
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-      tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 2)]
-    };
-
-    const res = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      let msg = `APIエラー (${res.status})`;
-      try {
-        const j = JSON.parse(errText);
-        if (j.error && j.error.message) msg += ': ' + j.error.message;
-      } catch { msg += ': ' + errText.slice(0, 200); }
-      throw new Error(msg);
-    }
-
-    const data = await res.json();
-    const text = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text || '')
-      .join('\n')
-      .trim();
-    if (!text) throw new Error('モデルがテキスト応答を返しませんでした');
+    const ai = factCheckAI();
+    const res = await completeAI({ ...ai, apiKey, prompt, useTools: true, maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000 });
+    const text = (res.text || '').trim();
+    if (!text) throw new Error(`モデルがテキスト応答を返しませんでした (stop_reason: ${res.stopReason || '不明'})`);
 
     // JSON抽出 (前後の余計な文字を許容)
     const m = text.match(/\{[\s\S]*\}/);
@@ -8917,6 +9586,11 @@ JSON以外の文字を一切出力しないこと。`;
       try { parsed = JSON.parse(m[0].replace(/,(\s*[}\]])/g, '$1')); }
       catch (e2) { throw new Error('JSON解析失敗: ' + e.message); }
     }
+    // 検索の出典・検索候補 (本文と一緒に表示する決まりがある)。
+    // Gemini は Google が返す出典を使い、モデルが書いた URL は信用しない。
+    const record = buildGroundingRecords('ファクトチェック', res.grounding || { sources: res.sources });
+    parsed.__grounding = { provider: ai.provider, groundings: record };
+    if (res.grounding && res.grounding.sources && res.grounding.sources.length) parsed.sources = [];
     return parsed;
   }
 
@@ -8937,7 +9611,9 @@ JSON以外の文字を一切出力しないこと。`;
     const actual = result.actual || '';
     const explanation = result.explanation || '';
     const replacement = result.suggested_replacement || '';
-    const sources = Array.isArray(result.sources) ? result.sources.filter(Boolean).slice(0, 3) : [];
+    const sources = Array.isArray(result.sources)
+      ? result.sources.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 3)
+      : [];
 
     const sourcesHtml = sources.length
       ? `<div class="fc-row"><span class="fc-label">出典</span>
@@ -8984,6 +9660,7 @@ JSON以外の文字を一切出力しないこと。`;
         <button class="fc-btn" id="fcKeepBtn" type="button">閉じる</button>
         <button class="fc-btn danger-ghost" id="fcRevertBtn" type="button">ハイライト解除</button>
       </div>`;
+    if (result.__grounding) renderGroundingPanel(result.__grounding, popover);
 
     popover.querySelector('.fc-close').onclick = () => dismissPopover(false);
     popover.querySelector('#fcKeepBtn').onclick = () => dismissPopover(false);
@@ -9000,8 +9677,8 @@ JSON以外の文字を一切出力しないこと。`;
     };
     const rebuild = popover.querySelector('#fcRebuildBtn');
     if (rebuild) rebuild.onclick = async () => {
-      const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
-      if (!apiKey) { alert('APIキーが設定されていません'); return; }
+      const apiKey = factCheckAI().apiKey;
+      if (!apiKey) { alert(`${aiProviderLabel(getCurrentAiProvider())} の API キーが設定されていません`); return; }
       rebuild.disabled = true;
       rebuild.textContent = '🔄 再構築中…';
       if (apply) apply.disabled = true;
@@ -9139,29 +9816,12 @@ ${blockText}
     }
     prompt = instruction;
 
-    const body = {
-      model: FACT_CHECK_MODEL,
-      max_tokens: 2048,
-      messages: [{ role: 'user', content: prompt }],
-      tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 2)]
-    };
-
-    const res = await fetch(CLAUDE_API_URL, {
-      method: 'POST',
-      headers: claudeHeaders(apiKey),
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      let msg = `APIエラー (${res.status})`;
-      try { const j = JSON.parse(errText); if (j.error && j.error.message) msg += ': ' + j.error.message; }
-      catch { msg += ': ' + errText.slice(0, 200); }
-      throw new Error(msg);
-    }
-    const data = await res.json();
-    const text = (data.content || [])
-      .filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
-    if (!text) throw new Error('モデルがテキスト応答を返しませんでした');
+    // Gemini では検索を使わない: 訂正値はファクトチェックで検索済みで、本文に直接差し込む文章に
+    // 検索結果を使うと、その場所に検索候補を表示する必要が出てしまうため。
+    const ai = factCheckAI();
+    const res = await completeAI({ ...ai, apiKey, prompt, useTools: ai.provider === 'claude', maxTokens: 2048, maxSearchUses: 2, timeoutMs: 90000 });
+    const text = (res.text || '').trim();
+    if (!text) throw new Error(`モデルがテキスト応答を返しませんでした (stop_reason: ${res.stopReason || '不明'})`);
 
     if (isTable) {
       // マークダウン表を抽出 (前後の余計な行を除去)
@@ -9210,8 +9870,8 @@ ${blockText}
   window.__runGlobalReview = runGlobalReview;
 
   async function runGlobalReview() {
-    const apiKey = (apiKeyInput.value.trim()) || localStorage.getItem(STORAGE_KEY);
-    if (!apiKey) { alert('APIキーが設定されていません'); return; }
+    const apiKey = factCheckAI().apiKey;
+    if (!apiKey) { alert(`${aiProviderLabel(getCurrentAiProvider())} の API キーが設定されていません`); return; }
     const corrections = window.__factCheckCorrections || [];
     if (corrections.length === 0) { alert('まず個別の修正を1件以上適用してください'); return; }
 
@@ -9219,7 +9879,7 @@ ${blockText}
     const articleText = (() => {
       const clone = resultDiv.cloneNode(true);
       // 不要な要素を削除
-      clone.querySelectorAll('.result-actions, .data-sources-panel, .price-verification, .historical-chart-card, .chart-loading, .yahoo-spark-wrap, .eval-rating-banner, .fact-check-popover, .fact-check-trigger, .fc-review-panel').forEach(el => el.remove());
+      clone.querySelectorAll('.result-actions, .data-sources-panel, .grounding-panel, .price-verification, .historical-chart-card, .chart-loading, .yahoo-spark-wrap, .eval-rating-banner, .fact-check-popover, .fact-check-trigger, .fc-review-panel').forEach(el => el.remove());
       return (clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 6000);
     })();
 
@@ -9238,7 +9898,7 @@ ${blockText}
     }
     panel.innerHTML = `
       <div class="fc-review-title">🧹 全体見直し中…</div>
-      <div class="fc-review-empty">Haiku 4.5 が記事全体の整合性を確認しています。修正済み: ${corrections.length}件</div>
+      <div class="fc-review-empty">${escapeHtml(factCheckAI().label)} が記事全体の整合性を確認しています。修正済み: ${corrections.length}件</div>
     `;
 
     const today = new Date().toISOString().slice(0, 10);
@@ -9279,24 +9939,10 @@ ${articleText}
 問題が見つからなければ findings: [] を返すこと。`;
 
     try {
-      const body = {
-        model: FACT_CHECK_MODEL,
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }],
-        tools: [claudeWebSearchTool(FACT_CHECK_MODEL, 3)]
-      };
-      const res = await fetch(CLAUDE_API_URL, {
-        method: 'POST',
-        headers: claudeHeaders(apiKey),
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`APIエラー (${res.status}): ${errText.slice(0, 200)}`);
-      }
-      const data = await res.json();
-      const text = (data.content || [])
-        .filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
+      const ai = factCheckAI();
+      const res = await completeAI({ ...ai, apiKey, prompt, useTools: true, maxTokens: 3000, maxSearchUses: 3, timeoutMs: 120000 });
+      const text = (res.text || '').trim();
+      const reviewGrounding = { provider: ai.provider, groundings: buildGroundingRecords('全体見直し', res.grounding || { sources: res.sources }) };
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) throw new Error('JSON抽出失敗:\n' + text.slice(0, 200));
       let parsed;
@@ -9330,6 +9976,7 @@ ${articleText}
           <div style="margin-top:8px;"><button class="fc-btn" id="fcDismissReviewBtn" type="button">パネルを閉じる</button></div>
         `;
       }
+      renderGroundingPanel(reviewGrounding, panel);
       const dismiss = panel.querySelector('#fcDismissReviewBtn');
       if (dismiss) dismiss.onclick = () => panel.remove();
     } catch (err) {
@@ -9366,7 +10013,8 @@ ${articleText}
       thermoSummary.textContent = '';
       return;
     }
-    const { fear = 0, greed = 0, calm = 0, summary = '', stamp = '', model = '' } = data;
+    const fear = Number(data.fear) || 0, greed = Number(data.greed) || 0, calm = Number(data.calm) || 0;
+    const { summary = '', stamp = '', model = '' } = data;
     const bars = (n, max = 10) => {
       const v = Math.max(0, Math.min(max, Math.round(n)));
       return '█'.repeat(v) + '░'.repeat(max - v);
@@ -9379,6 +10027,15 @@ ${articleText}
     thermoSummary.textContent = summary
       ? `💭 ${summary}${stamp ? ` (測定: ${stamp}${model ? ' / ' + model : ''})` : ''}`
       : (stamp ? `測定日: ${stamp}` : '');
+    // 検索結果をもとにした要約なので、検索の出典・検索候補も一緒に出す
+    let gWrap = document.getElementById('thermoGrounding');
+    if (!gWrap) {
+      gWrap = document.createElement('div');
+      gWrap.id = 'thermoGrounding';
+      gWrap.style.flexBasis = '100%';
+      thermoSummary.insertAdjacentElement('afterend', gWrap);
+    }
+    renderGroundingPanel(data, gWrap);
   }
 
   // 起動時にキャッシュをロード(今日のものなら表示)
@@ -9390,14 +10047,14 @@ ${articleText}
   } catch (_) { /* ignore */ }
 
   async function measureMarketThermometer() {
-    const apiKey = apiKeyInput.value.trim();
-    if (!apiKey) {
-      showStatus('⚠️ APIキーを入力してから「測る」を押してください', 'error');
+    const ai = getLightAI();
+    if (!ai.apiKey) {
+      showStatus(`⚠️ ${aiProviderLabel(ai.provider)} の API キーを入力してから「測る」を押してください`, 'error');
       return;
     }
     thermoBtn.disabled = true;
     thermoBtn.textContent = '🌡 測定中…';
-    thermoScores.innerHTML = '<span class="thermo-empty">⏳ web_search で当日のニューストーンを集計中…(約20〜40秒)</span>';
+    thermoScores.innerHTML = '<span class="thermo-empty">⏳ Web 検索で当日のニューストーンを集計中…(約20〜40秒)</span>';
     thermoSummary.textContent = '';
 
     const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
@@ -9427,20 +10084,10 @@ ${articleText}
 - JSON ブロック以外の文章は ★ 一切禁止 ★`;
 
     let accumulated = '';
-    const THERMO_MODEL = 'claude-haiku-4-5';
     try {
-      await streamFetch({
-        apiKey, model: THERMO_MODEL, prompt, useTools: true,
-        maxTokens: 1500, maxSearchUses: 5,
-        signal: undefined,
-        onEvent: (parsed) => {
-          if (parsed.type === 'content_block_delta') {
-            const delta = parsed.delta;
-            if (delta && delta.type === 'text_delta') accumulated += delta.text;
-          }
-          if (parsed.type === 'error') throw new Error((parsed.error && parsed.error.message) || JSON.stringify(parsed.error));
-        }
-      });
+      // 時間切れ付き (以前は応答が返らないとボタンが「測定中…」のまま固まっていた)
+      const res = await completeAI({ ...ai, prompt, useTools: true, maxTokens: 1500, maxSearchUses: 5, timeoutMs: 120000 });
+      accumulated = res.text || '';
 
       // JSON 抽出
       let parsed = null;
@@ -9459,11 +10106,14 @@ ${articleText}
       }
 
       // 正規化(合計10)
-      const total = (parsed.fear || 0) + (parsed.greed || 0) + (parsed.calm || 0);
+      parsed.fear = Math.max(0, Number(parsed.fear) || 0);
+      parsed.greed = Math.max(0, Number(parsed.greed) || 0);
+      parsed.calm = Math.max(0, Number(parsed.calm) || 0);
+      const total = parsed.fear + parsed.greed + parsed.calm;
       if (total > 0 && total !== 10) {
         parsed.fear = Math.round(parsed.fear * 10 / total);
-        parsed.greed = Math.round(parsed.greed * 10 / total);
-        parsed.calm = 10 - parsed.fear - parsed.greed;
+        parsed.greed = Math.min(10 - parsed.fear, Math.round(parsed.greed * 10 / total));
+        parsed.calm = 10 - parsed.fear - parsed.greed;   // 丸めで合計が 10 を超えて負にならないよう greed 側で吸収
       }
 
       const data = {
@@ -9472,13 +10122,16 @@ ${articleText}
         calm: parsed.calm || 0,
         summary: (parsed.summary || '').slice(0, 200),
         stamp: todayStamp(),
-        model: 'Haiku 4.5'
+        model: ai.label,
+        provider: ai.provider,
+        groundings: buildGroundingRecords('温度計', res.grounding || { sources: res.sources }),
       };
       localStorage.setItem(THERMO_KEY, JSON.stringify(data));
       renderThermo(data);
     } catch (e) {
       console.error('Thermometer error:', e);
-      thermoScores.innerHTML = `<span class="thermo-empty">❌ 測定失敗: ${(e.message || String(e)).slice(0, 100)}</span>`;
+      // エラーメッセージにはモデルの応答が含まれることがあるので、HTML として解釈させない
+      thermoScores.innerHTML = `<span class="thermo-empty">❌ 測定失敗: ${escapeHtml((e.message || String(e)).slice(0, 100))}</span>`;
       thermoSummary.textContent = '';
     } finally {
       thermoBtn.disabled = false;
@@ -9605,22 +10258,27 @@ const worldPredictionApp = (function() {
   }
 
   // ──────────────────────────────────────────────
-  // 🤖 Claude API ライブ活動トラッカー
+  // 🤖 AI API ライブ活動トラッカー
   // ──────────────────────────────────────────────
   // ──────────────────────────────────────────────
-  // Anthropic 公開料金表 (USD per 1M tokens), 2026年7月時点
-  // 公式: https://platform.claude.com/docs/en/about-claude/pricing
-  // 🔧 v3.1.0: Opus の単価が $15/$75 と誤登録されていたのを公式値 $5/$25 に修正し、
-  //            現行モデル (Opus 5 / Sonnet 5 / Fable 5) を追加。
-  //            Sonnet 5 は 2026-08-31 まで導入価格 $2/$10、以降 $3/$15。
+  // 公開料金表 (USD per 1M tokens), 2026-10 時点
+  // 公式: https://platform.claude.com/docs/en/about-claude/pricing / Google AI Studio の料金表
+  // Gemini は導入価格の期限があるので、分析側と同じ GEMINI_MODEL_CAPS から日付で引く。
   // ──────────────────────────────────────────────
   const MODEL_PRICING = {
+    // Google Gemini (思考トークンは出力単価)
+    'gemini-3.8-flash':   { ...geminiPriceNow('gemini-3.8-flash'), provider: 'gemini' },
+    'gemini-4-argon':     { ...geminiPriceNow('gemini-4-argon'),   provider: 'gemini' },
     // Anthropic Claude — 現行
+    'claude-haiku-5-5':   { input: 0.10, output: 0.50,  provider: 'claude' },   // 10万トークン超のプロンプトは $0.50/$2.50
+    'claude-sonnet-5-5':  { input: 2.0,  output: 10.0,  provider: 'claude' },
+    'claude-opus-5-5':    { input: 4.0,  output: 20.0,  provider: 'claude' },
+    'claude-fable-5-1':   { input: 10.0, output: 50.0,  provider: 'claude' },
+    // Anthropic Claude — 旧世代 (過去の集計の表示用)
     'claude-haiku-4-5':   { input: 1.0,  output: 5.0,   provider: 'claude' },
-    'claude-sonnet-5':    { input: SONNET5_INTRO_ACTIVE ? 2.0 : 3.0, output: SONNET5_INTRO_ACTIVE ? 10.0 : 15.0, provider: 'claude' },
+    'claude-sonnet-5':    { input: 2.0,  output: 10.0,  provider: 'claude' },   // 値上げは中止され $2/$10 のまま
     'claude-opus-5':      { input: 5.0,  output: 25.0,  provider: 'claude' },
     'claude-fable-5':     { input: 10.0, output: 50.0,  provider: 'claude' },
-    // Anthropic Claude — 旧世代
     'claude-sonnet-4-6':  { input: 3.0,  output: 15.0,  provider: 'claude' },
     'claude-opus-4-8':    { input: 5.0,  output: 25.0,  provider: 'claude' },
     'claude-opus-4-7':    { input: 5.0,  output: 25.0,  provider: 'claude' },
@@ -9629,6 +10287,7 @@ const worldPredictionApp = (function() {
   const FALLBACK_PRICE = { input: 3.0, output: 15.0, provider: 'unknown' };
 
   function calcCostUSD(model, inTok, outTok) {
+    if (model === 'claude-haiku-5-5' && inTok > HAIKU55_LONG_PROMPT_TOKENS) return (inTok * 0.50 + outTok * 2.50) / 1e6;
     const p = MODEL_PRICING[model] || FALLBACK_PRICE;
     return (inTok * p.input + outTok * p.output) / 1e6;
   }
@@ -9753,7 +10412,7 @@ const worldPredictionApp = (function() {
     } else {
       now.className = 'api-act-now idle';
       now.innerHTML = apiActivity.history.length === 0
-        ? '🌙 まだ Claude API は呼ばれていません。「🔄 今すぐ翻訳」または「🧠 今すぐムード補正」ボタンで手動実行できます。'
+        ? '🌙 まだ AI API は呼ばれていません。「🔄 今すぐ翻訳」または「🧠 今すぐムード補正」ボタンで手動実行できます。'
         : `🌙 待機中。次の自動実行: 翻訳=イベント更新時 / ムード補正=30分ごと`;
     }
 
@@ -11085,14 +11744,19 @@ const worldPredictionApp = (function() {
       t.classList.toggle('active', t.dataset.provider === p);
     });
     // セクション表示
+    const gs = document.getElementById('aiProviderGeminiSection');
     const cs = document.getElementById('aiProviderClaudeSection');
+    if (gs) gs.style.display = (p === 'gemini') ? 'block' : 'none';
     if (cs) cs.style.display = (p === 'claude') ? 'block' : 'none';
+    // 使用モデルの選択肢もプロバイダーに合わせて作り直す (既に合っていれば作り直さない)
+    if (typeof renderModelOptions === 'function' && analysisProviderOf(modelSelect.value) !== p) renderModelOptions(p);
+    if (typeof updateApiVisibility === 'function') updateApiVisibility();
     // バッジ
     const badge = document.getElementById('aiProviderBadge');
     if (badge) {
-      badge.textContent = 'Claude Haiku 4.5';
-      badge.style.background = 'rgba(139, 92, 246, 0.18)';
-      badge.style.color = '#7c3aed';
+      badge.textContent = aiProviderLabel(p);
+      badge.style.background = p === 'gemini' ? 'rgba(66, 133, 244, 0.16)' : 'rgba(139, 92, 246, 0.18)';
+      badge.style.color = p === 'gemini' ? '#1a56c4' : '#7c3aed';
     }
   }
   async function translateEvents(events, opts = {}) {
@@ -11143,7 +11807,7 @@ const worldPredictionApp = (function() {
     }
     translationInFlight = true;
     const activeModel = getCurrentAiModel('translate');
-    const providerLabel = provider === 'claude' ? 'Haiku' : getCurrentAiModelLabel();
+    const providerLabel = getCurrentAiModelLabel();
     setStatusPill('wsl-translate', `翻訳: ${needs.length}件 を ${providerLabel} に投入中…`, '');
     apiActStart('🈁 日本語翻訳', activeModel, `${needs.length}件のイベント翻訳 / ${provider}`);
     const btn = document.getElementById('worldTranslateNow');
@@ -11677,20 +12341,19 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     updateApiKeyWarning();
     if (!document.getElementById('worldClaudeAdjEnable')?.checked) {
       if (manual) {
-        toast('Claude ムード補正のトグルが OFF です。左のトグルを ON にしてください', 'warning', 4000);
-        setStatusPill('wsl-claude', 'Claude補正: OFF', '');
+        toast('AI ムード補正のトグルが OFF です。左のトグルを ON にしてください', 'warning', 4000);
+        setStatusPill('wsl-claude', 'AI補正: OFF', '');
       }
       return;
     }
-    const apiKeyEl = document.getElementById('apiKey');
-    const apiKey = (apiKeyEl?.value.trim()) || localStorage.getItem(STORAGE_KEY);
+    const apiKey = getCurrentAiKey();
     if (!apiKey) {
-      setStatusPill('wsl-claude', 'Claude補正: API Key未設定', 'warn');
-      if (manual) toast('⚠️ ページ上部の ⚙ から Anthropic API キーを設定してください', 'warning', 6000);
+      setStatusPill('wsl-claude', 'AI補正: API Key未設定', 'warn');
+      if (manual) toast(`⚠️ ページ上部の ⚙ から ${aiProviderLabel(getCurrentAiProvider())} の API キーを設定してください`, 'warning', 6000);
       return;
     }
     if (!Object.keys(lastPrices).length) {
-      setStatusPill('wsl-claude', 'Claude補正: 価格未取得', 'warn');
+      setStatusPill('wsl-claude', 'AI補正: 価格未取得', 'warn');
       if (manual) toast('まだ価格が取得されていません。少し待ってから再度お試しください', 'warning', 5000);
       return;
     }
@@ -11699,7 +12362,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     try {
       const summary = buildContextSummary(lastPrices, cachedEvents);
       await claudeAdjustOnce(summary);
-      if (manual) toast('✅ Claude ムード補正を実行しました', 'success', 3000);
+      if (manual) toast('✅ AI ムード補正を実行しました', 'success', 3000);
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -11841,7 +12504,7 @@ JSON のみで出力 (前後にコードフェンスや説明文を入れない)
     }
     // 🗑 コストリセット
     document.getElementById('apiCostReset')?.addEventListener('click', () => {
-      if (!confirm('累計コスト集計を 0 にリセットしますか? (Anthropic 側の実費には影響しません、ローカル表示のみ)')) return;
+      if (!confirm('累計コスト集計を 0 にリセットしますか? (Google / Anthropic 側の実費には影響しません、ローカル表示のみ)')) return;
       // 全 cost localStorage キーを削除
       const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
